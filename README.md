@@ -1,8 +1,8 @@
-# BetPawa Predictor v0.2.3
+# BetPawa Predictor v0.2.4
 
 The local folder name stays **BetPawa Predictor**.
 
-## v0.2.3 feed reliability update
+## v0.2.4 feed reliability update
 
 This update does not change the frozen prediction rules.
 
@@ -39,3 +39,9 @@ run.bat
 - No betPawa login, password or API key is required.
 - Raw public feed payloads are processed in memory and are not saved as season archives.
 - Predictions are historical-rule reminders, not guarantees.
+
+### v0.2.4 live-feed fix
+
+betPawa's native v3 by-round response is currently served as application/x-protobuf.
+The predictor now makes its own request from inside the real browser session with
+Accept: application/json and a unique _cb cache key, then parses the JSON response.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import random
 import time
 from datetime import datetime
 from typing import Any
@@ -21,6 +22,7 @@ VIRTUAL_PAGE = BASE + "/virtual-sports?virtualTab=results&resultsTab=matches"
 MATCHDAY_PAGE = BASE + "/virtual-sports/matchday/{season_id}?matchday={matchday}&leagueId="
 ACTUAL = "/api/sportsbook/virtual/v2/seasons/list/actual"
 PAST = "/api/sportsbook/virtual/v2/seasons/list/past"
+EVENTS_V3 = "/api/sportsbook/virtual/v3/events/list/by-round/{round_id}"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
@@ -78,7 +80,7 @@ def _parse_ts(value: Any) -> float | None:
 class BetPawaFeed:
     """Read only the public virtual-football data needed for one prediction request.
 
-    v0.2.3 does not guess a fixed matchday API path. It opens betPawa's own
+    v0.2.4 requests the confirmed v3 by-round feed as isolated JSON. It opens betPawa's own
     matchday page, watches the request the live site makes, and reuses that exact
     request shape for the other recent rounds needed by the verifier.
     """
@@ -156,34 +158,54 @@ class BetPawaFeed:
 
     @staticmethod
     def _browser_fetch(driver, url: str, captured_headers: dict[str, str] | None = None):
-        """Fetch the exact URL. Do not append custom query parameters.
+        """Request JSON explicitly from inside the real betPawa browser session.
 
-        Some betPawa endpoints reject unknown query parameters, so the predictor relies
-        on fetch(cache='no-store') instead of adding a cache-busting parameter.
+        betPawa's frontend currently requests the round feed as protobuf. The CDN
+        cache does not reliably vary on Accept, so use a unique _cb cache key for
+        our JSON request.
         """
         headers = dict(BROWSER_FETCH_HEADERS)
         for k, v in (captured_headers or {}).items():
             if k.lower() in SAFE_CAPTURE_NAMES:
                 headers[k] = v
+        headers["Accept"] = "application/json"
+
+        sep = "&" if "?" in url else "?"
+        isolated_url = (
+            f"{url}{sep}_cb={int(time.time() * 1000)}-"
+            f"{random.randint(100000, 999999)}"
+        )
 
         script = r"""
         const url = arguments[0], headers = arguments[1], done = arguments[arguments.length - 1];
         fetch(url, {method:'GET', headers, credentials:'include', cache:'no-store'})
-          .then(async r => done({ok:r.ok,status:r.status,url:r.url,text:await r.text()}))
-          .catch(e => done({ok:false,status:0,url,error:String(e),text:''}));
+          .then(async r => {
+            const contentType = r.headers.get('content-type') || '';
+            const bodyText = await r.text();
+            done({ok:r.ok,status:r.status,url:r.url,contentType,text:bodyText});
+          })
+          .catch(e => done({ok:false,status:0,url,error:String(e),contentType:'',text:''}));
         """
-        result = driver.execute_async_script(script, url, headers)
+        result = driver.execute_async_script(script, isolated_url, headers)
         if not isinstance(result, dict):
             raise FeedError("Browser fetch returned an unexpected response.")
         if not result.get("ok"):
             raise FeedError(
-                f"Browser GET {result.get('url') or url} returned HTTP {result.get('status')}: "
+                f"Browser GET {result.get('url') or isolated_url} returned HTTP "
+                f"{result.get('status')}: "
                 f"{(result.get('error') or result.get('text') or '')[:280]}"
             )
+
+        text = (result.get("text") or "").lstrip("\ufeff").strip()
         try:
-            return json.loads(result.get("text") or "")
+            return json.loads(text)
         except Exception as e:
-            raise FeedError(f"Browser GET {url} did not return JSON.") from e
+            ctype = result.get("contentType") or "unknown"
+            preview = text[:120].replace("\n", " ")
+            raise FeedError(
+                f"Browser GET {url} returned {ctype}, not JSON. "
+                f"Body preview: {preview!r}"
+            ) from e
 
     def _open_browser(self, headless: bool = True):
         driver = self._new_driver(headless=headless)
@@ -558,64 +580,34 @@ class BetPawaFeed:
         return current, source_idx, previous_candidates[:MAX_PREVIOUS_SEASONS]
 
     def _fetch_rounds(self, specs: list[dict[str, Any]], discovery_spec: dict[str, Any]):
-        """Discover the live event URL once, then reuse its exact shape."""
+        """Fetch required rounds as isolated JSON inside one real browser session."""
 
         def work(driver, captured):
             payloads: dict[str, Any] = {}
             modes: dict[str, str] = {}
-
-            discovery_round = str(discovery_spec["round"]["id"])
-            payload, live_url, live_headers = self._capture_live_round_request(
-                driver,
-                str(discovery_spec["season_id"]),
-                int(discovery_spec["matchday"]),
-                discovery_round,
-                seed_headers=captured,
-            )
-            captured.update(live_headers)
-            payloads[discovery_round] = payload
-            modes[discovery_round] = "page-capture"
 
             for spec in specs:
                 rid = str(spec["round"]["id"])
                 if rid in payloads:
                     continue
 
-                exact_url = self._replace_round_id(live_url, rid)
-                try:
-                    data = self._browser_fetch(driver, exact_url, captured)
-                    if not self._events(data):
-                        raise FeedError("event response contained no recognizable events")
-                    payloads[rid] = data
-                    modes[rid] = "live-template"
-                    continue
-                except Exception:
-                    pass
-
-                # Fallback: ask the real page for that matchday and capture its
-                # response body directly. Still no guessed API path.
-                data, observed_url, more_headers = self._capture_live_round_request(
-                    driver,
-                    str(spec["season_id"]),
-                    int(spec["matchday"]),
-                    rid,
-                    seed_headers=captured,
-                )
-                captured.update(more_headers)
-                live_url = observed_url
+                url = BASE + EVENTS_V3.format(round_id=rid)
+                data = self._browser_fetch(driver, url, captured)
+                if not self._events(data):
+                    raise FeedError(
+                        f"JSON feed for round {rid} returned no recognizable events."
+                    )
                 payloads[rid] = data
-                modes[rid] = "page-capture"
+                modes[rid] = "json-v3"
 
-            return payloads, modes, live_url
+            return payloads, modes
 
-        (payloads, modes, live_url), headless = self._with_browser(work)
-        parsed = urlparse(live_url)
-        endpoint_shape = parsed.path + (("?" + parsed.query) if parsed.query else "")
+        (payloads, modes), headless = self._with_browser(work)
         return (
             payloads,
             modes,
-            f"browser-assisted{'-headless' if headless else '-visible'}",
-            endpoint_shape,
+            f"browser-assisted-json-v3{'-headless' if headless else '-visible'}",
+            EVENTS_V3,
         )
 
     @staticmethod

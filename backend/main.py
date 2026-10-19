@@ -11,7 +11,7 @@ from .db import save_public_predictions, list_predictions
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend" / "index.html"
 
-app = FastAPI(title="BetPawa Predictor", version="0.2.3")
+app = FastAPI(title="BetPawa Predictor", version="0.2.4")
 feed = BetPawaFeed()
 
 
