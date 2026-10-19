@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.0
+# BetPawa Predictor v0.3.1
 
 The local folder remains **BetPawa Predictor**.
 
@@ -44,3 +44,24 @@ Open:
 - betPawa round data is requested as isolated JSON from inside the real browser session.
 - The private historical rules remain backend-only.
 - Predictions are historical-rule reminders, not guarantees.
+
+
+## v0.3.1 multi-market foundation
+
+No new prediction strategy is added in this release.
+
+The personal-results engine is now ready to grade and display approved strategies
+for:
+
+- FT Over / Under goal thresholds
+- BTTS Yes / No
+- Home Win / Away Win / FT Draw
+- HT Draw
+- HT/FT combinations such as Draw/Home, Home/Home and Away/Draw
+
+The frontend no longer hard-codes "Over 2.5 FT" in result cards. It displays the
+market supplied by the approved strategy, and personal performance is broken down
+by market. Unknown future market labels remain PENDING rather than being graded
+incorrectly.
+
+The original seven frozen Over 2.5 strategies are unchanged.

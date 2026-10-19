@@ -10,6 +10,12 @@ from typing import Any
 DB = Path(__file__).resolve().parent.parent / "data" / "predictor.db"
 
 
+def _ensure_column(con, table: str, column: str, definition: str):
+    cols = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def connect():
     DB.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB, timeout=20)
@@ -51,6 +57,8 @@ def connect():
       recent_tests INTEGER,
       expected TEXT NOT NULL DEFAULT 'Over 2.5 FT',
       outcome TEXT NOT NULL DEFAULT 'PENDING',
+      ht_home INTEGER,
+      ht_away INTEGER,
       ft_home INTEGER,
       ft_away INTEGER,
       graded_at TEXT,
@@ -58,6 +66,9 @@ def connect():
       UNIQUE(user_id, season, matchday, prediction_key)
     )
     """)
+
+    _ensure_column(con, "user_predictions", "ht_home", "INTEGER")
+    _ensure_column(con, "user_predictions", "ht_away", "INTEGER")
 
     con.execute("""
     CREATE TABLE IF NOT EXISTS round_cache (
@@ -127,6 +138,74 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
     con.close()
 
 
+def _result_side(home: int, away: int) -> str:
+    if home > away:
+        return "HOME"
+    if home < away:
+        return "AWAY"
+    return "DRAW"
+
+
+def _grade_market(expected: str, fixture: dict[str, Any]) -> bool | None:
+    """Grade supported public market labels without exposing strategy internals.
+
+    This prepares v0.3 for future approved strategies across Overs, Unders,
+    BTTS, 1X2, Draws and HT/FT. Unknown labels stay pending instead of being
+    incorrectly graded.
+    """
+    import re
+
+    label = " ".join(str(expected or "").strip().upper().split())
+    ht_home = fixture.get("ht_home")
+    ht_away = fixture.get("ht_away")
+    ft_home = fixture.get("ft_home")
+    ft_away = fixture.get("ft_away")
+
+    if not isinstance(ft_home, int) or not isinstance(ft_away, int):
+        return None
+
+    ft_total = ft_home + ft_away
+
+    m = re.search(r"\b(OVER|UNDER)\s+(\d+(?:\.5)?)\s*(?:FT)?\b", label)
+    if m:
+        side, threshold = m.group(1), float(m.group(2))
+        return ft_total > threshold if side == "OVER" else ft_total < threshold
+
+    if "BTTS" in label:
+        yes = ("YES" in label) or label.endswith("BTTS")
+        no = "NO" in label
+        if yes and not no:
+            return ft_home > 0 and ft_away > 0
+        if no:
+            return not (ft_home > 0 and ft_away > 0)
+
+    ft_side = _result_side(ft_home, ft_away)
+
+    if label in {"HOME WIN", "HOME FT", "1", "FT HOME"}:
+        return ft_side == "HOME"
+    if label in {"AWAY WIN", "AWAY FT", "2", "FT AWAY"}:
+        return ft_side == "AWAY"
+    if label in {"DRAW", "FT DRAW", "FULL-TIME DRAW", "FULL TIME DRAW", "X"}:
+        return ft_side == "DRAW"
+
+    if label in {"HT DRAW", "HALF-TIME DRAW", "HALF TIME DRAW"}:
+        if not isinstance(ht_home, int) or not isinstance(ht_away, int):
+            return None
+        return ht_home == ht_away
+
+    # HT/FT labels accepted in either form:
+    # "HT/FT DRAW/HOME" or "DRAW/HOME HT/FT".
+    if "HT/FT" in label or "HT FT" in label:
+        if not isinstance(ht_home, int) or not isinstance(ht_away, int):
+            return None
+        cleaned = label.replace("HT/FT", " ").replace("HT FT", " ")
+        tokens = re.findall(r"\b(HOME|DRAW|AWAY)\b", cleaned)
+        if len(tokens) >= 2:
+            return _result_side(ht_home, ht_away) == tokens[0] and ft_side == tokens[1]
+
+    return None
+
+
 def grade_user_predictions(user_id: str, completed_rounds: list[dict[str, Any]]) -> int:
     lookup: dict[tuple[str, str], dict[str, list[dict[str, Any]]]] = {}
     for item in completed_rounds or []:
@@ -162,12 +241,23 @@ def grade_user_predictions(user_id: str, completed_rounds: list[dict[str, Any]])
         if not isinstance(ft_home, int) or not isinstance(ft_away, int):
             continue
 
-        outcome = "WON" if ft_home + ft_away >= 3 else "LOST"
+        graded_value = _grade_market(row["expected"], fixture)
+        if graded_value is None:
+            continue
+
+        ht_home = fixture.get("ht_home")
+        ht_away = fixture.get("ht_away")
+        outcome = "WON" if graded_value else "LOST"
         con.execute("""
         UPDATE user_predictions
-        SET outcome=?, ft_home=?, ft_away=?, graded_at=?
+        SET outcome=?, ht_home=?, ht_away=?, ft_home=?, ft_away=?, graded_at=?
         WHERE id=?
-        """, (outcome, ft_home, ft_away, now, row["id"]))
+        """, (
+            outcome,
+            ht_home if isinstance(ht_home, int) else None,
+            ht_away if isinstance(ht_away, int) else None,
+            ft_home, ft_away, now, row["id"],
+        ))
         graded += 1
 
     con.commit()
@@ -179,7 +269,7 @@ def _batch_predictions(con, user_id: str, season: str, matchday: str):
     rows = con.execute("""
       SELECT league, selected_team, target_position, target_home, target_away,
              confidence, alignment, recent_wins, recent_tests, expected,
-             outcome, ft_home, ft_away, graded_at, created_at
+             outcome, ht_home, ht_away, ft_home, ft_away, graded_at, created_at
       FROM user_predictions
       WHERE user_id=? AND season=? AND matchday=?
       ORDER BY confidence DESC, league, id
@@ -225,6 +315,32 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         })
         batches.append(item)
 
+    market_rows = con.execute("""
+      SELECT expected,
+             SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
+             SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
+             SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending
+      FROM user_predictions
+      WHERE user_id=?
+      GROUP BY expected
+      ORDER BY expected
+    """, (user_id,)).fetchall()
+
+    by_market = []
+    for row in market_rows:
+        mw = int(row["wins"] or 0)
+        ml = int(row["losses"] or 0)
+        mp = int(row["pending"] or 0)
+        mg = mw + ml
+        by_market.append({
+            "market": row["expected"],
+            "wins": mw,
+            "losses": ml,
+            "pending": mp,
+            "graded": mg,
+            "win_rate": (mw / mg) if mg else None,
+        })
+
     con.close()
 
     wins = int(totals["wins"] or 0)
@@ -252,6 +368,7 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         },
         "last_batch": batches[0] if batches else None,
         "last_completed_batch": last_completed_batch,
+        "by_market": by_market,
         "recent_batches": batches,
     }
 

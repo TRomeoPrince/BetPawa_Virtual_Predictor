@@ -21,7 +21,7 @@ FRONTEND = ROOT / "frontend" / "index.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.0")
+app = FastAPI(title="BetPawa Predictor", version="0.3.1")
 feed = BetPawaFeed()
 
 
@@ -55,7 +55,7 @@ def home(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.0",
+        "version": "0.3.1",
         "rules_public": False,
         "mode": "personal history + cached on-demand prediction",
     }
