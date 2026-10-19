@@ -232,6 +232,16 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
     pending = int(totals["pending"] or 0)
     graded = wins + losses
 
+    last_completed_batch = next(
+        (
+            b for b in batches
+            if b.get("predictions")
+            and b.get("graded", 0) > 0
+            and b.get("pending", 0) == 0
+        ),
+        None,
+    )
+
     return {
         "overall": {
             "wins": wins,
@@ -241,6 +251,7 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
             "win_rate": (wins / graded) if graded else None,
         },
         "last_batch": batches[0] if batches else None,
+        "last_completed_batch": last_completed_batch,
         "recent_batches": batches,
     }
 

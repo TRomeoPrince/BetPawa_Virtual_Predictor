@@ -18,7 +18,7 @@
 </div>
 
 <section class="section">
-  <div class="sectionHead"><h2>Your last prediction</h2><button id="refreshResults" class="button secondary">Refresh results</button></div>
+  <div class="sectionHead"><h2>Your last prediction result</h2><button id="refreshResults" class="button secondary">Refresh results</button></div>
   <div id="lastPrediction"><div class="empty">No prediction saved for this browser yet.</div></div>
 </section>
 
@@ -71,11 +71,11 @@ function renderPersonal(h){
     '<div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">Pending</span></div>'+
   '</div>';
 
-  const b=h.last_batch;
+  const b=h.last_completed_batch||h.last_batch;
   if(!b){
     $('#lastPrediction').innerHTML='<div class="empty">No prediction saved for this browser yet.</div>';
   }else if(!b.predictions.length){
-    $('#lastPrediction').innerHTML='<div class="resultCard"><div class="resultTop"><div><h3>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</h3><div class="meta">Your last request had no active candidates.</div></div></div></div>';
+    $('#lastPrediction').innerHTML='<div class="resultCard"><div class="resultTop"><div><h3>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</h3><div class="meta">That request had no active candidates.</div></div></div></div>';
   }else{
     $('#lastPrediction').innerHTML='<div class="grid">'+b.predictions.map(p=>{
       const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
