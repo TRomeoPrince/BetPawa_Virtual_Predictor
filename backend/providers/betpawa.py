@@ -229,9 +229,16 @@ class BetPawaFeed:
         season_id: str,
         matchday: int,
         expected_round_id: str,
+        seed_headers: dict[str, str] | None = None,
         timeout_s: float = 12.0,
     ):
-        """Open a real betPawa matchday page and capture its own event response."""
+        """Open the real matchday page, observe its event URL, then read it reliably.
+
+        Chrome performance logs are used only to discover the exact successful URL.
+        Network.getResponseBody is attempted first, but Chrome can discard or hide
+        response bodies. When that happens, fetch the same observed URL again from
+        inside the already-open betPawa page using its browser session.
+        """
         try:
             self._read_performance(driver)  # clear stale log entries
         except Exception:
@@ -243,6 +250,7 @@ class BetPawaFeed:
         deadline = time.time() + timeout_s
         all_entries = []
         candidates: list[tuple[str, str, int]] = []
+        read_errors: list[str] = []
 
         while time.time() < deadline:
             entries = self._read_performance(driver)
@@ -251,35 +259,61 @@ class BetPawaFeed:
             for msg in entries:
                 if msg.get("method") != "Network.responseReceived":
                     continue
+
                 params = msg.get("params") or {}
                 response = params.get("response") or {}
                 url = str(response.get("url") or "")
                 status = int(response.get("status") or 0)
+
                 if EVENT_PATH_MARKER not in url or status != 200:
                     continue
-                rid = str(params.get("requestId") or "")
-                candidates.append((rid, url, status))
 
-                url_round = self._round_id_from_url(url)
-                if url_round != expected_round_id:
+                request_id = str(params.get("requestId") or "")
+                candidates.append((request_id, url, status))
+
+                if self._round_id_from_url(url) != expected_round_id:
                     continue
+
+                headers = dict(seed_headers or {})
+                headers.update(self._captured_headers(all_entries))
+
+                # Fast path: ask Chrome for the body of the request we just saw.
                 try:
-                    body = driver.execute_cdp_cmd("Network.getResponseBody", {"requestId": rid})
+                    body = driver.execute_cdp_cmd(
+                        "Network.getResponseBody", {"requestId": request_id}
+                    )
                     text = body.get("body") or ""
                     if body.get("base64Encoded"):
-                        text = base64.b64decode(text).decode("utf-8", errors="replace")
+                        text = base64.b64decode(text).decode(
+                            "utf-8", errors="replace"
+                        )
                     payload = json.loads(text)
-                    headers = self._captured_headers(all_entries)
+                    if self._events(payload):
+                        return payload, url, headers
+                    read_errors.append("captured body contained no recognizable events")
+                except Exception as exc:
+                    read_errors.append(f"Chrome response body unavailable: {exc}")
+
+                # Reliable path: the URL is already proven valid (HTTP 200), so
+                # fetch that exact URL from the live betPawa page/session instead
+                # of guessing a v2/v3 route or depending on Chrome's body cache.
+                try:
+                    payload = self._browser_fetch(driver, url, headers)
+                    if not self._events(payload):
+                        raise FeedError("refetched response contained no recognizable events")
                     return payload, url, headers
-                except Exception:
-                    continue
+                except Exception as exc:
+                    read_errors.append(f"in-page refetch failed: {exc}")
+
             time.sleep(0.25)
 
         seen = [url for _, url, _ in candidates[-5:]]
+        detail = read_errors[-2:]
         raise FeedError(
-            f"The live betPawa page did not expose a readable event response for "
+            f"betPawa exposed the event request but its data could not be read for "
             f"season {season_id} matchday {matchday} / round {expected_round_id}. "
-            f"Observed event requests: {seen or 'none'}"
+            f"Observed event requests: {seen or 'none'}. "
+            f"Read errors: {detail or 'none'}"
         )
 
     # ---------- parsing ----------
@@ -498,6 +532,7 @@ class BetPawaFeed:
                 str(discovery_spec["season_id"]),
                 int(discovery_spec["matchday"]),
                 discovery_round,
+                seed_headers=captured,
             )
             captured.update(live_headers)
             payloads[discovery_round] = payload
@@ -526,6 +561,7 @@ class BetPawaFeed:
                     str(spec["season_id"]),
                     int(spec["matchday"]),
                     rid,
+                    seed_headers=captured,
                 )
                 captured.update(more_headers)
                 live_url = observed_url

@@ -1,8 +1,8 @@
-# BetPawa Predictor v0.2.1
+# BetPawa Predictor v0.2.2
 
 The local folder name stays **BetPawa Predictor**.
 
-## v0.2.1 feed reliability update
+## v0.2.2 feed reliability update
 
 This update does not change the frozen prediction rules.
 
