@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import base64
 import json
-import random
+import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
-from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
+from urllib.parse import urlparse
 
 import requests
 
@@ -17,10 +18,9 @@ from ..private_rules import (
 
 BASE = "https://www.betpawa.ug"
 VIRTUAL_PAGE = BASE + "/virtual-sports?virtualTab=results&resultsTab=matches"
+MATCHDAY_PAGE = BASE + "/virtual-sports/matchday/{season_id}?matchday={matchday}&leagueId="
 ACTUAL = "/api/sportsbook/virtual/v2/seasons/list/actual"
 PAST = "/api/sportsbook/virtual/v2/seasons/list/past"
-EVENTS_V3 = "/api/sportsbook/virtual/v3/events/list/by-round/{round_id}"
-EVENTS_V2 = "/api/sportsbook/virtual/v2/events/list/by-round/{round_id}"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
@@ -36,10 +36,10 @@ HEADERS = {
 }
 
 BROWSER_FETCH_HEADERS = {
+    "Accept": "application/json, text/plain, */*",
     "X-Pawa-Brand": "betpawa-uganda",
-    "deviceType": "web",
-    "Accept": "application/json",
     "X-Pawa-Language": "en",
+    "deviceType": "web",
 }
 
 LEAGUE_IDS = {
@@ -59,17 +59,11 @@ SAFE_CAPTURE_NAMES = {
     "x-pawa-brand", "x-pawa-language", "x-device-fingerprint",
     "devicetype", "traceid", "vuejs", "accept", "accept-language",
 }
+EVENT_PATH_MARKER = "/events/list/by-round/"
 
 
 class FeedError(RuntimeError):
     pass
-
-
-def _cache_bust(url: str) -> str:
-    p = urlparse(url)
-    q = dict(parse_qsl(p.query, keep_blank_values=True))
-    q["_cb"] = f"{int(time.time() * 1000)}-{random.randint(100000, 999999)}"
-    return urlunparse((p.scheme, p.netloc, p.path, p.params, urlencode(q), p.fragment))
 
 
 def _parse_ts(value: Any) -> float | None:
@@ -82,11 +76,11 @@ def _parse_ts(value: Any) -> float | None:
 
 
 class BetPawaFeed:
-    """Read only the recent public virtual-football data needed for one request.
+    """Read only the public virtual-football data needed for one prediction request.
 
-    No full-season archive is written to disk. The app reads current/recent rounds
-    into memory, verifies the frozen rules, produces predictions, then discards the
-    raw feed payloads.
+    v0.2.1 does not guess a fixed matchday API path. It opens betPawa's own
+    matchday page, watches the request the live site makes, and reuses that exact
+    request shape for the other recent rounds needed by the verifier.
     """
 
     def __init__(self, timeout: int = 20):
@@ -147,34 +141,26 @@ class BetPawaFeed:
 
     @staticmethod
     def _captured_headers(entries):
-        by_id: dict[str, dict[str, str]] = {}
-        urls: dict[str, str] = {}
-        for msg in entries:
-            params = msg.get("params") or {}
-            rid = params.get("requestId")
-            if not rid:
-                continue
-            if msg.get("method") == "Network.requestWillBeSent":
-                req = params.get("request") or {}
-                url = req.get("url") or ""
-                if "/api/sportsbook/virtual/" not in url:
-                    continue
-                urls[rid] = url
-                by_id.setdefault(rid, {}).update({str(k): str(v) for k, v in (req.get("headers") or {}).items()})
-            elif msg.get("method") == "Network.requestWillBeSentExtraInfo":
-                by_id.setdefault(rid, {}).update({str(k): str(v) for k, v in (params.get("headers") or {}).items()})
-
         chosen: dict[str, str] = {}
-        for rid, headers in by_id.items():
-            if rid not in urls and not any(k.lower() == "x-pawa-brand" for k in headers):
+        for msg in entries:
+            if msg.get("method") != "Network.requestWillBeSent":
                 continue
-            for k, v in headers.items():
-                if k.lower() in SAFE_CAPTURE_NAMES:
-                    chosen[k] = v
+            req = (msg.get("params") or {}).get("request") or {}
+            url = str(req.get("url") or "")
+            if "/api/sportsbook/virtual/" not in url:
+                continue
+            for k, v in (req.get("headers") or {}).items():
+                if str(k).lower() in SAFE_CAPTURE_NAMES:
+                    chosen[str(k)] = str(v)
         return chosen
 
     @staticmethod
     def _browser_fetch(driver, url: str, captured_headers: dict[str, str] | None = None):
+        """Fetch the exact URL. Do not append custom query parameters.
+
+        Some betPawa endpoints reject unknown query parameters, so v0.2.1 relies
+        on fetch(cache='no-store') instead of adding a cache-busting parameter.
+        """
         headers = dict(BROWSER_FETCH_HEADERS)
         for k, v in (captured_headers or {}).items():
             if k.lower() in SAFE_CAPTURE_NAMES:
@@ -186,7 +172,7 @@ class BetPawaFeed:
           .then(async r => done({ok:r.ok,status:r.status,url:r.url,text:await r.text()}))
           .catch(e => done({ok:false,status:0,url,error:String(e),text:''}));
         """
-        result = driver.execute_async_script(script, _cache_bust(url), headers)
+        result = driver.execute_async_script(script, url, headers)
         if not isinstance(result, dict):
             raise FeedError("Browser fetch returned an unexpected response.")
         if not result.get("ok"):
@@ -203,8 +189,9 @@ class BetPawaFeed:
         driver = self._new_driver(headless=headless)
         try:
             driver.get(VIRTUAL_PAGE)
-            time.sleep(5)
-            captured = self._captured_headers(self._read_performance(driver))
+            time.sleep(3)
+            entries = self._read_performance(driver)
+            captured = self._captured_headers(entries)
             return driver, captured
         except Exception:
             driver.quit()
@@ -221,29 +208,109 @@ class BetPawaFeed:
                 last = e
             finally:
                 if driver is not None:
-                    try: driver.quit()
-                    except Exception: pass
+                    try:
+                        driver.quit()
+                    except Exception:
+                        pass
         raise FeedError(f"Browser-assisted feed failed: {last}")
+
+    @staticmethod
+    def _replace_round_id(url: str, round_id: str) -> str:
+        return re.sub(r"(/by-round/)\d+", rf"\g<1>{round_id}", url, count=1)
+
+    @staticmethod
+    def _round_id_from_url(url: str) -> str | None:
+        m = re.search(r"/by-round/(\d+)", url)
+        return m.group(1) if m else None
+
+    def _capture_live_round_request(
+        self,
+        driver,
+        season_id: str,
+        matchday: int,
+        expected_round_id: str,
+        timeout_s: float = 12.0,
+    ):
+        """Open a real betPawa matchday page and capture its own event response."""
+        try:
+            self._read_performance(driver)  # clear stale log entries
+        except Exception:
+            pass
+
+        page = MATCHDAY_PAGE.format(season_id=season_id, matchday=matchday)
+        driver.get(page)
+
+        deadline = time.time() + timeout_s
+        all_entries = []
+        candidates: list[tuple[str, str, int]] = []
+
+        while time.time() < deadline:
+            entries = self._read_performance(driver)
+            all_entries.extend(entries)
+
+            for msg in entries:
+                if msg.get("method") != "Network.responseReceived":
+                    continue
+                params = msg.get("params") or {}
+                response = params.get("response") or {}
+                url = str(response.get("url") or "")
+                status = int(response.get("status") or 0)
+                if EVENT_PATH_MARKER not in url or status != 200:
+                    continue
+                rid = str(params.get("requestId") or "")
+                candidates.append((rid, url, status))
+
+                url_round = self._round_id_from_url(url)
+                if url_round != expected_round_id:
+                    continue
+                try:
+                    body = driver.execute_cdp_cmd("Network.getResponseBody", {"requestId": rid})
+                    text = body.get("body") or ""
+                    if body.get("base64Encoded"):
+                        text = base64.b64decode(text).decode("utf-8", errors="replace")
+                    payload = json.loads(text)
+                    headers = self._captured_headers(all_entries)
+                    return payload, url, headers
+                except Exception:
+                    continue
+            time.sleep(0.25)
+
+        seen = [url for _, url, _ in candidates[-5:]]
+        raise FeedError(
+            f"The live betPawa page did not expose a readable event response for "
+            f"season {season_id} matchday {matchday} / round {expected_round_id}. "
+            f"Observed event requests: {seen or 'none'}"
+        )
 
     # ---------- parsing ----------
     @staticmethod
     def _items(obj):
         if isinstance(obj, list):
-            return obj
+            return [x for x in obj if isinstance(x, dict)]
         if isinstance(obj, dict):
-            for key in ("items", "data", "results"):
-                if isinstance(obj.get(key), list):
-                    return obj[key]
+            for key in ("responses", "items", "data", "results"):
+                value = obj.get(key)
+                if isinstance(value, list):
+                    return [x for x in value if isinstance(x, dict)]
+                if isinstance(value, dict):
+                    nested = BetPawaFeed._items(value)
+                    if nested:
+                        return nested
         return []
 
     @staticmethod
     def _events(obj):
         if isinstance(obj, list):
-            return obj
+            return [x for x in obj if isinstance(x, dict)]
         if isinstance(obj, dict):
             for key in ("responses", "items", "events", "data", "results"):
-                if isinstance(obj.get(key), list):
-                    return obj[key]
+                value = obj.get(key)
+                if isinstance(value, list):
+                    return [x for x in value if isinstance(x, dict)]
+                if isinstance(value, dict):
+                    nested = BetPawaFeed._events(value)
+                    if nested:
+                        return nested
         return []
 
     @staticmethod
@@ -264,8 +331,10 @@ class BetPawaFeed:
         for part in (event.get("participants") or []):
             ptype = str(part.get("type") or part.get("participantType") or "").upper()
             pname = part.get("name") or (part.get("participant") or {}).get("name")
-            if ptype == "HOME": home = pname
-            elif ptype == "AWAY": away = pname
+            if ptype == "HOME":
+                home = pname
+            elif ptype == "AWAY":
+                away = pname
         return home, away
 
     @staticmethod
@@ -276,8 +345,10 @@ class BetPawaFeed:
             for period in (entry.get("periodResults") or []):
                 if str((period.get("period") or {}).get("slug") or "") != slug:
                     continue
-                try: return int(float(period.get("result")))
-                except (TypeError, ValueError): return None
+                try:
+                    return int(float(period.get("result")))
+                except (TypeError, ValueError):
+                    return None
         return None
 
     @classmethod
@@ -289,8 +360,10 @@ class BetPawaFeed:
         if slug == FULL_TIME_SLUG:
             for hk, ak in (("HomeScore", "AwayScore"), ("homeScore", "awayScore")):
                 if event.get(hk) is not None and event.get(ak) is not None:
-                    try: return int(event[hk]), int(event[ak])
-                    except (TypeError, ValueError): pass
+                    try:
+                        return int(event[hk]), int(event[ak])
+                    except (TypeError, ValueError):
+                        pass
         return None, None
 
     @classmethod
@@ -308,9 +381,8 @@ class BetPawaFeed:
         out: dict[str, list[dict[str, Any]]] = {}
         for league, rows in grouped.items():
             # Current virtual UI has been observed to display league fixtures in
-            # fixture-name order rather than raw API order. Row-based frozen rules
-            # rely on that displayed order.
-            rows.sort(key=lambda x: x[0])
+            # fixture-name order rather than raw API order. Row rules depend on it.
+            rows.sort(key=lambda x: x[0].casefold())
             norm = []
             for position, (_, event, home, away) in enumerate(rows, start=1):
                 row: dict[str, Any] = {"position": position, "home": home, "away": away}
@@ -324,12 +396,15 @@ class BetPawaFeed:
 
     # ---------- live fetch ----------
     def _catalog(self):
-        # Direct HTTP is cheap; use it if the current gateway accepts it.
         actual = past = None
-        try: actual = self._get(ACTUAL)
-        except Exception: pass
-        try: past = self._get(PAST)
-        except Exception: pass
+        try:
+            actual = self._get(ACTUAL)
+        except Exception:
+            pass
+        try:
+            past = self._get(PAST)
+        except Exception:
+            pass
         if actual is not None and past is not None:
             return actual, past, "direct-http"
 
@@ -338,91 +413,136 @@ class BetPawaFeed:
                 self._browser_fetch(driver, BASE + ACTUAL, captured),
                 self._browser_fetch(driver, BASE + PAST, captured),
             )
+
         (actual, past), headless = self._with_browser(work)
         return actual, past, f"browser-assisted{'-headless' if headless else '-visible'}"
 
     @staticmethod
     def _season_rounds(season: dict[str, Any]):
-        rounds = [r for r in (season.get("rounds") or []) if isinstance(r, dict) and r.get("id") is not None]
+        rounds = [
+            r for r in (season.get("rounds") or [])
+            if isinstance(r, dict) and r.get("id") is not None
+        ]
         rounds.sort(key=lambda r: _parse_ts((r.get("tradingTime") or {}).get("start")) or 0)
         return rounds
 
     @staticmethod
     def _season_start(season: dict[str, Any]):
         rs = BetPawaFeed._season_rounds(season)
-        return _parse_ts(((rs[0].get("tradingTime") or {}).get("start"))) if rs else None
+        return _parse_ts((rs[0].get("tradingTime") or {}).get("start")) if rs else None
 
     @staticmethod
     def _season_end(season: dict[str, Any]):
         rs = BetPawaFeed._season_rounds(season)
-        return _parse_ts(((rs[-1].get("tradingTime") or {}).get("end"))) if rs else None
-
-    def _select_context_seasons(self, actual_obj: Any, past_obj: Any):
-        seasons_by_id: dict[str, dict[str, Any]] = {}
-        for obj in (actual_obj, past_obj):
-            for s in self._items(obj):
-                sid = str(s.get("id"))
-                if sid and self._season_rounds(s):
-                    # Prefer the richer duplicate if both endpoints return it.
-                    old = seasons_by_id.get(sid)
-                    if old is None or len(self._season_rounds(s)) > len(self._season_rounds(old)):
-                        seasons_by_id[sid] = s
-
-        seasons = list(seasons_by_id.values())
-        seasons.sort(key=lambda s: self._season_start(s) or 0)
-        now = time.time()
-        buffer_s = FINALITY_BUFFER_SECONDS
-
-        selected = None
-        selected_idx = None
-        source_idx = None
-        for si, season in enumerate(seasons):
-            rounds = self._season_rounds(season)
-            for i in range(len(rounds) - 1):
-                end = _parse_ts((rounds[i].get("tradingTime") or {}).get("end"))
-                if end is not None and end + buffer_s <= now:
-                    # Keep advancing; final value becomes the latest settled round
-                    # that has a next round in the same season.
-                    selected, selected_idx, source_idx = season, si, i
-
-        if selected is None or source_idx is None:
-            raise FeedError("Could not identify a settled matchday followed by a next matchday.")
-
-        previous = []
-        for s in reversed(seasons[:selected_idx]):
-            if self._season_end(s) and self._season_end(s) <= now:
-                previous.append(s)
-            if len(previous) >= MAX_PREVIOUS_SEASONS:
-                break
-        return selected, source_idx, previous
+        return _parse_ts((rs[-1].get("tradingTime") or {}).get("end")) if rs else None
 
     @staticmethod
-    def _round_url_candidates(round_id: Any):
-        v3 = BASE + EVENTS_V3.format(round_id=round_id)
-        v2 = BASE + EVENTS_V2.format(round_id=round_id)
-        return [v3, v3 + "?page=matchups", v2 + "?page=matchups", v2]
+    def _latest_settled_source_index(season: dict[str, Any], now: float) -> int | None:
+        rounds = BetPawaFeed._season_rounds(season)
+        latest = None
+        for i in range(len(rounds) - 1):
+            end = _parse_ts((rounds[i].get("tradingTime") or {}).get("end"))
+            if end is not None and end + FINALITY_BUFFER_SECONDS <= now:
+                latest = i
+        return latest
 
-    def _fetch_rounds(self, rounds: list[dict[str, Any]]):
-        # One browser session per prediction request; raw payloads stay in memory.
+    def _select_context_seasons(self, actual_obj: Any, past_obj: Any):
+        now = time.time()
+        actual = [s for s in self._items(actual_obj) if self._season_rounds(s)]
+        past = [s for s in self._items(past_obj) if self._season_rounds(s)]
+
+        # Prefer the ACTUAL feed first. This prevents an old season from winning
+        # simply because its round IDs happen to be returned later in a list.
+        viable_actual = [s for s in actual if self._latest_settled_source_index(s, now) is not None]
+        containing_now = [
+            s for s in viable_actual
+            if (self._season_start(s) or float("inf")) <= now <= (self._season_end(s) or 0) + 300
+        ]
+        if containing_now:
+            current = max(containing_now, key=lambda s: self._season_start(s) or 0)
+        elif viable_actual:
+            started = [s for s in viable_actual if (self._season_start(s) or 0) <= now]
+            current = max(started or viable_actual, key=lambda s: self._season_start(s) or 0)
+        else:
+            combined = [s for s in actual + past if self._latest_settled_source_index(s, now) is not None]
+            if not combined:
+                raise FeedError("Could not identify a current season with a settled matchday and a next matchday.")
+            current = max(combined, key=lambda s: self._season_start(s) or 0)
+
+        source_idx = self._latest_settled_source_index(current, now)
+        if source_idx is None:
+            raise FeedError("The selected current season has no settled source matchday yet.")
+
+        current_start = self._season_start(current) or 0
+        previous_candidates = [
+            s for s in actual + past
+            if str(s.get("id")) != str(current.get("id"))
+            and self._season_rounds(s)
+            and (self._season_end(s) or 0) <= now
+            and (self._season_start(s) or 0) < current_start
+        ]
+        previous_candidates.sort(key=lambda s: self._season_start(s) or 0, reverse=True)
+
+        return current, source_idx, previous_candidates[:MAX_PREVIOUS_SEASONS]
+
+    def _fetch_rounds(self, specs: list[dict[str, Any]], discovery_spec: dict[str, Any]):
+        """Discover the live event URL once, then reuse its exact shape."""
+
         def work(driver, captured):
-            out = {}
-            modes = {}
-            for rnd in rounds:
-                rid = str(rnd["id"])
-                last = None
-                for n, url in enumerate(self._round_url_candidates(rid), start=1):
-                    try:
-                        out[rid] = self._browser_fetch(driver, url, captured)
-                        modes[rid] = n
-                        break
-                    except Exception as e:
-                        last = e
-                if rid not in out:
-                    raise FeedError(f"Could not read matchday round {rid}: {last}")
-            return out, modes
+            payloads: dict[str, Any] = {}
+            modes: dict[str, str] = {}
 
-        (payloads, modes), headless = self._with_browser(work)
-        return payloads, modes, f"browser-assisted{'-headless' if headless else '-visible'}"
+            discovery_round = str(discovery_spec["round"]["id"])
+            payload, live_url, live_headers = self._capture_live_round_request(
+                driver,
+                str(discovery_spec["season_id"]),
+                int(discovery_spec["matchday"]),
+                discovery_round,
+            )
+            captured.update(live_headers)
+            payloads[discovery_round] = payload
+            modes[discovery_round] = "page-capture"
+
+            for spec in specs:
+                rid = str(spec["round"]["id"])
+                if rid in payloads:
+                    continue
+
+                exact_url = self._replace_round_id(live_url, rid)
+                try:
+                    data = self._browser_fetch(driver, exact_url, captured)
+                    if not self._events(data):
+                        raise FeedError("event response contained no recognizable events")
+                    payloads[rid] = data
+                    modes[rid] = "live-template"
+                    continue
+                except Exception:
+                    pass
+
+                # Fallback: ask the real page for that matchday and capture its
+                # response body directly. Still no guessed API path.
+                data, observed_url, more_headers = self._capture_live_round_request(
+                    driver,
+                    str(spec["season_id"]),
+                    int(spec["matchday"]),
+                    rid,
+                )
+                captured.update(more_headers)
+                live_url = observed_url
+                payloads[rid] = data
+                modes[rid] = "page-capture"
+
+            return payloads, modes, live_url
+
+        (payloads, modes, live_url), headless = self._with_browser(work)
+        parsed = urlparse(live_url)
+        endpoint_shape = parsed.path + (("?" + parsed.query) if parsed.query else "")
+        return (
+            payloads,
+            modes,
+            f"browser-assisted{'-headless' if headless else '-visible'}",
+            endpoint_shape,
+        )
 
     @staticmethod
     def _pairs_by_league(normalized_rounds: list[dict[str, list[dict[str, Any]]]]):
@@ -434,32 +554,50 @@ class BetPawaFeed:
                     out[league].append((a[league], b[league]))
         return out
 
+    @staticmethod
+    def _round_specs(season: dict[str, Any], indexes: list[int]):
+        rounds = BetPawaFeed._season_rounds(season)
+        sid = str(season.get("id"))
+        return [
+            {"season_id": sid, "matchday": i + 1, "round": rounds[i]}
+            for i in indexes
+            if 0 <= i < len(rounds)
+        ]
+
     def prediction_context(self):
         actual, past, catalog_mode = self._catalog()
         current, source_idx, previous = self._select_context_seasons(actual, past)
         current_rounds = self._season_rounds(current)
 
-        # If target is MD10, this reads MD1..MD9 for current verification and MD10
-        # only for fixture lookup. Nothing is archived to disk.
-        completed = current_rounds[:source_idx + 1]
-        target = current_rounds[source_idx + 1]
+        completed_indexes = list(range(0, source_idx + 1))
+        target_index = source_idx + 1
+        current_specs = self._round_specs(current, completed_indexes + [target_index])
+        discovery_spec = self._round_specs(current, [source_idx])[0]
 
-        selected_rounds = list(completed) + [target]
-        use_previous = len(completed) <= EARLY_SEASON_COMPLETED_ROUNDS
-        previous_round_groups: list[list[dict[str, Any]]] = []
+        use_previous = len(completed_indexes) <= EARLY_SEASON_COMPLETED_ROUNDS
+        previous_groups: list[tuple[dict[str, Any], list[int]]] = []
+        all_specs = list(current_specs)
+
         if use_previous:
             for season in previous:
                 rs = self._season_rounds(season)
-                if len(rs) >= 2:
-                    previous_round_groups.append(rs[-PREVIOUS_SEASON_ROUNDS_TO_CHECK:])
-                    selected_rounds.extend(previous_round_groups[-1])
+                if len(rs) < 2:
+                    continue
+                start = max(0, len(rs) - PREVIOUS_SEASON_ROUNDS_TO_CHECK)
+                indexes = list(range(start, len(rs)))
+                previous_groups.append((season, indexes))
+                all_specs.extend(self._round_specs(season, indexes))
 
-        # De-duplicate IDs before one browser-assisted batch.
-        uniq = {}
-        for r in selected_rounds:
-            uniq[str(r["id"])] = r
-        payloads, modes, event_feed_mode = self._fetch_rounds(list(uniq.values()))
+        uniq: dict[str, dict[str, Any]] = {}
+        for spec in all_specs:
+            uniq[str(spec["round"]["id"])] = spec
 
+        payloads, modes, event_feed_mode, endpoint_shape = self._fetch_rounds(
+            list(uniq.values()), discovery_spec
+        )
+
+        completed = current_rounds[:source_idx + 1]
+        target = current_rounds[target_index]
         current_normalized = [
             self.normalize_round(payloads[str(r["id"])], include_scores=True)
             for r in completed
@@ -468,8 +606,12 @@ class BetPawaFeed:
 
         previous_pairs = {league: [] for league in LEAGUE_IDS.values()}
         if use_previous:
-            for group in previous_round_groups:
-                norm = [self.normalize_round(payloads[str(r["id"])], include_scores=True) for r in group]
+            for season, indexes in previous_groups:
+                rs = self._season_rounds(season)
+                norm = [
+                    self.normalize_round(payloads[str(rs[i]["id"])], include_scores=True)
+                    for i in indexes
+                ]
                 group_pairs = self._pairs_by_league(norm)
                 for league, pairs in group_pairs.items():
                     previous_pairs[league].extend(pairs)
@@ -493,17 +635,25 @@ class BetPawaFeed:
             "feed_mode": event_feed_mode,
             "catalog_mode": catalog_mode,
             "round_endpoint_modes": modes,
+            "observed_event_endpoint": endpoint_shape,
         }
 
     def diagnose(self):
         try:
             actual, past, mode = self._catalog()
+            current, source_idx, previous = self._select_context_seasons(actual, past)
+            rounds = self._season_rounds(current)
             return {
                 "ok": True,
                 "mode": mode,
                 "actual_seasons": len(self._items(actual)),
                 "past_seasons": len(self._items(past)),
-                "note": "Public season feeds reached. Prediction requests read only recent matchdays into memory.",
+                "selected_season": current.get("id"),
+                "latest_completed_matchday": source_idx + 1,
+                "source_round_id": rounds[source_idx].get("id"),
+                "next_round_id": rounds[source_idx + 1].get("id"),
+                "previous_seasons_available": [s.get("id") for s in previous],
+                "note": "Season selection is current-time based. Event URLs are discovered from betPawa's live matchday page during prediction requests.",
             }
         except Exception as e:
             return {"ok": False, "error": str(e)}

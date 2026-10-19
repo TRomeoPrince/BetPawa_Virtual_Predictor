@@ -11,7 +11,7 @@ from .db import save_public_predictions, list_predictions
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend" / "index.html"
 
-app = FastAPI(title="BetPawa Predictor", version="0.2.0")
+app = FastAPI(title="BetPawa Predictor", version="0.2.1")
 feed = BetPawaFeed()
 
 
@@ -24,9 +24,9 @@ def home():
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.2.0",
+        "version": "0.2.1",
         "rules_public": False,
-        "mode": "on-demand recent verification",
+        "mode": "on-demand live-page feed discovery",
     }
 
 
@@ -35,7 +35,6 @@ def predict():
     try:
         context = feed.prediction_context()
         result = build_prediction(context)
-        # Feed/debug internals are not returned to the public dashboard.
         result["feed_mode"] = context.get("feed_mode")
         save_public_predictions(result)
         return result
@@ -50,5 +49,4 @@ def predictions(limit: int = 50):
 
 @app.get("/api/diagnose")
 def diagnose():
-    # Troubleshooting only. No strategy IDs/names/thresholds are exposed.
     return feed.diagnose()
