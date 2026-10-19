@@ -4,6 +4,7 @@ import base64
 import json
 import re
 import random
+import threading
 import time
 from datetime import datetime
 from typing import Any
@@ -16,6 +17,7 @@ from ..private_rules import (
     PREVIOUS_SEASON_ROUNDS_TO_CHECK,
     MAX_PREVIOUS_SEASONS,
 )
+from ..db import get_cached_round, save_cached_round
 
 BASE = "https://www.betpawa.ug"
 VIRTUAL_PAGE = BASE + "/virtual-sports?virtualTab=results&resultsTab=matches"
@@ -89,6 +91,20 @@ class BetPawaFeed:
         self.s = requests.Session()
         self.s.headers.update(HEADERS)
         self.timeout = timeout
+
+        # Performance: keep one Chrome session alive and serialize access to it.
+        self._browser_lock = threading.RLock()
+        self._driver = None
+        self._driver_headers: dict[str, str] = {}
+        self._driver_headless = True
+
+        # Small in-memory caches. Round payloads themselves are persisted in
+        # SQLite so they survive server restarts.
+        self._catalog_cache = None
+        self._catalog_cached_at = 0.0
+        self._catalog_ttl = 10.0
+        self._context_cache_key = None
+        self._context_cache = None
 
     # ---------- basic HTTP ----------
     def _request(self, path: str, params: dict[str, Any] | None = None):
@@ -219,22 +235,44 @@ class BetPawaFeed:
             driver.quit()
             raise
 
-    def _with_browser(self, fn):
-        last = None
-        for headless in (True, False):
-            driver = None
+    def _reset_browser(self):
+        if self._driver is not None:
             try:
-                driver, captured = self._open_browser(headless=headless)
-                return fn(driver, captured), headless
-            except Exception as e:
-                last = e
-            finally:
-                if driver is not None:
-                    try:
-                        driver.quit()
-                    except Exception:
-                        pass
-        raise FeedError(f"Browser-assisted feed failed: {last}")
+                self._driver.quit()
+            except Exception:
+                pass
+        self._driver = None
+        self._driver_headers = {}
+        self._driver_headless = True
+
+    def _ensure_browser(self, headless: bool = True):
+        if self._driver is not None:
+            try:
+                self._driver.execute_script("return 1")
+                return self._driver, self._driver_headers
+            except Exception:
+                self._reset_browser()
+
+        driver, captured = self._open_browser(headless=headless)
+        self._driver = driver
+        self._driver_headers = dict(captured)
+        self._driver_headless = headless
+        return driver, self._driver_headers
+
+    def _with_browser(self, fn):
+        # Selenium is not safely shareable across simultaneous FastAPI threads.
+        with self._browser_lock:
+            last = None
+            for headless in (True, False):
+                try:
+                    driver, captured = self._ensure_browser(headless=headless)
+                    result = fn(driver, captured)
+                    self._driver_headers.update(captured)
+                    return result, self._driver_headless
+                except Exception as e:
+                    last = e
+                    self._reset_browser()
+            raise FeedError(f"Browser-assisted feed failed: {last}")
 
     @staticmethod
     def _replace_round_id(url: str, round_id: str) -> str:
@@ -490,6 +528,11 @@ class BetPawaFeed:
 
     # ---------- live fetch ----------
     def _catalog(self):
+        now = time.monotonic()
+        if self._catalog_cache is not None and now - self._catalog_cached_at < self._catalog_ttl:
+            actual, past, mode = self._catalog_cache
+            return actual, past, mode + "+cache"
+
         actual = past = None
         try:
             actual = self._get(ACTUAL)
@@ -499,17 +542,26 @@ class BetPawaFeed:
             past = self._get(PAST)
         except Exception:
             pass
-        if actual is not None and past is not None:
-            return actual, past, "direct-http"
 
-        def work(driver, captured):
-            return (
-                self._browser_fetch(driver, BASE + ACTUAL, captured),
-                self._browser_fetch(driver, BASE + PAST, captured),
+        if actual is not None and past is not None:
+            result = (actual, past, "direct-http")
+        else:
+            def work(driver, captured):
+                return (
+                    self._browser_fetch(driver, BASE + ACTUAL, captured),
+                    self._browser_fetch(driver, BASE + PAST, captured),
+                )
+
+            (actual, past), headless = self._with_browser(work)
+            result = (
+                actual,
+                past,
+                f"browser-assisted{'-headless' if headless else '-visible'}",
             )
 
-        (actual, past), headless = self._with_browser(work)
-        return actual, past, f"browser-assisted{'-headless' if headless else '-visible'}"
+        self._catalog_cache = result
+        self._catalog_cached_at = now
+        return result
 
     @staticmethod
     def _season_rounds(season: dict[str, Any]):
@@ -580,35 +632,66 @@ class BetPawaFeed:
         return current, source_idx, previous_candidates[:MAX_PREVIOUS_SEASONS]
 
     def _fetch_rounds(self, specs: list[dict[str, Any]], discovery_spec: dict[str, Any]):
-        """Fetch required rounds as isolated JSON inside one real browser session."""
+        """Fetch only rounds that are not already cached.
 
-        def work(driver, captured):
-            payloads: dict[str, Any] = {}
-            modes: dict[str, str] = {}
+        Settled rounds are immutable for our purposes and are reused indefinitely.
+        Upcoming/current target rounds use a short TTL so fixture changes can still
+        be picked up.
+        """
+        payloads: dict[str, Any] = {}
+        modes: dict[str, str] = {}
+        missing: list[dict[str, Any]] = []
+        hits = 0
+        misses = 0
+        now = time.time()
 
-            for spec in specs:
-                rid = str(spec["round"]["id"])
-                if rid in payloads:
-                    continue
+        for spec in specs:
+            rid = str(spec["round"]["id"])
+            end = _parse_ts((spec["round"].get("tradingTime") or {}).get("end"))
+            settled = end is not None and end + FINALITY_BUFFER_SECONDS <= now
+            cached = get_cached_round(
+                rid,
+                require_settled=settled,
+                max_age_seconds=None if settled else 30,
+            )
+            if cached is not None:
+                payloads[rid] = cached
+                modes[rid] = "round-cache"
+                hits += 1
+            else:
+                missing.append(spec)
+                misses += 1
 
-                url = BASE + EVENTS_V3.format(round_id=rid)
-                data = self._browser_fetch(driver, url, captured)
-                if not self._events(data):
-                    raise FeedError(
-                        f"JSON feed for round {rid} returned no recognizable events."
+        if missing:
+            def work(driver, captured):
+                for spec in missing:
+                    rid = str(spec["round"]["id"])
+                    url = BASE + EVENTS_V3.format(round_id=rid)
+                    data = self._browser_fetch(driver, url, captured)
+                    if not self._events(data):
+                        raise FeedError(
+                            f"JSON feed for round {rid} returned no recognizable events."
+                        )
+
+                    end = _parse_ts((spec["round"].get("tradingTime") or {}).get("end"))
+                    settled = end is not None and end + FINALITY_BUFFER_SECONDS <= time.time()
+                    save_cached_round(
+                        round_id=rid,
+                        season_id=str(spec["season_id"]),
+                        matchday=int(spec["matchday"]),
+                        payload=data,
+                        settled=settled,
                     )
-                payloads[rid] = data
-                modes[rid] = "json-v3"
+                    payloads[rid] = data
+                    modes[rid] = "json-v3"
+                return None
 
-            return payloads, modes
+            _, headless = self._with_browser(work)
+            feed_mode = f"browser-assisted-json-v3{'-headless' if headless else '-visible'}"
+        else:
+            feed_mode = "round-cache-only"
 
-        (payloads, modes), headless = self._with_browser(work)
-        return (
-            payloads,
-            modes,
-            f"browser-assisted-json-v3{'-headless' if headless else '-visible'}",
-            EVENTS_V3,
-        )
+        return payloads, modes, feed_mode, EVENTS_V3, hits, misses
 
     @staticmethod
     def _pairs_by_league(normalized_rounds: list[dict[str, list[dict[str, Any]]]]):
@@ -635,6 +718,13 @@ class BetPawaFeed:
         current, source_idx, previous = self._select_context_seasons(actual, past)
         current_rounds = self._season_rounds(current)
 
+        context_key = (str(current.get("id")), int(source_idx))
+        if self._context_cache_key == context_key and self._context_cache is not None:
+            cached = dict(self._context_cache)
+            cached["context_cache_hit"] = True
+            cached["catalog_mode"] = catalog_mode
+            return cached
+
         completed_indexes = list(range(0, source_idx + 1))
         target_index = source_idx + 1
         current_specs = self._round_specs(current, completed_indexes + [target_index])
@@ -658,7 +748,7 @@ class BetPawaFeed:
         for spec in all_specs:
             uniq[str(spec["round"]["id"])] = spec
 
-        payloads, modes, event_feed_mode, endpoint_shape = self._fetch_rounds(
+        payloads, modes, event_feed_mode, endpoint_shape, cache_hits, cache_misses = self._fetch_rounds(
             list(uniq.values()), discovery_spec
         )
 
@@ -668,31 +758,57 @@ class BetPawaFeed:
             self.normalize_round(payloads[str(r["id"])], include_scores=True)
             for r in completed
         ]
-        target_normalized = self.normalize_round(payloads[str(target["id"])], include_scores=False)
+        target_normalized = self.normalize_round(
+            payloads[str(target["id"])], include_scores=False
+        )
+
+        # These finished rounds let the DB grade this browser user's previous
+        # predictions without another network pass.
+        grading_rounds = [
+            {
+                "season": str(current.get("id")),
+                "matchday": i + 1,
+                "round_id": str(completed[i].get("id")),
+                "leagues": current_normalized[i],
+            }
+            for i in range(len(current_normalized))
+        ]
 
         previous_pairs = {league: [] for league in LEAGUE_IDS.values()}
         if use_previous:
             for season, indexes in previous_groups:
                 rs = self._season_rounds(season)
                 norm = [
-                    self.normalize_round(payloads[str(rs[i]["id"])], include_scores=True)
+                    self.normalize_round(
+                        payloads[str(rs[i]["id"])], include_scores=True
+                    )
                     for i in indexes
                 ]
                 group_pairs = self._pairs_by_league(norm)
                 for league, pairs in group_pairs.items():
                     previous_pairs[league].extend(pairs)
 
+                for j, i in enumerate(indexes):
+                    grading_rounds.append({
+                        "season": str(season.get("id")),
+                        "matchday": i + 1,
+                        "round_id": str(rs[i].get("id")),
+                        "leagues": norm[j],
+                    })
+
         current_pairs = self._pairs_by_league(current_normalized)
         latest_source = current_normalized[-1]
 
-        return {
+        result = {
             "season": current.get("id"),
             "latest_completed_matchday": source_idx + 1,
             "next_matchday": source_idx + 2,
+            "next_round_id": str(target.get("id")),
             "current_pairs_by_league": current_pairs,
             "previous_pairs_by_league": previous_pairs,
             "latest_source": latest_source,
             "next_target": target_normalized,
+            "completed_rounds_for_grading": grading_rounds,
             "use_previous_for_alignment": use_previous,
             "alignment_scope": (
                 f"Current season MD1-{source_idx + 1} plus recent prior-season rounds"
@@ -702,7 +818,14 @@ class BetPawaFeed:
             "catalog_mode": catalog_mode,
             "round_endpoint_modes": modes,
             "observed_event_endpoint": endpoint_shape,
+            "round_cache_hits": cache_hits,
+            "round_cache_misses": cache_misses,
+            "context_cache_hit": False,
         }
+
+        self._context_cache_key = context_key
+        self._context_cache = dict(result)
+        return result
 
     def diagnose(self):
         try:

@@ -1,31 +1,31 @@
-# BetPawa Predictor v0.2.4
+# BetPawa Predictor v0.3.0
 
-The local folder name stays **BetPawa Predictor**.
+The local folder remains **BetPawa Predictor**.
 
-## v0.2.4 feed reliability update
+## v0.3.0
 
-This update does not change the frozen prediction rules.
+This update keeps the frozen prediction rules unchanged and adds two major product improvements.
 
-When **Get predictions** is pressed, the predictor now:
+### Personal results
 
-1. Selects the current virtual season from the actual-season feed using the current time instead of simply taking the last season/round returned.
-2. Finds the latest settled matchday inside that season and the immediately following matchday.
-3. Opens betPawa's real matchday page in Chrome and watches the network request made by betPawa itself.
-4. Captures the successful event response and reuses that exact endpoint shape for the recent rounds needed by the verifier.
-5. Falls back to opening the individual matchday page and capturing its response directly if an older round does not work with the discovered endpoint.
-6. Accepts season payloads wrapped in `responses`, `items`, `data`, or `results`.
-7. Does not append custom cache-busting query parameters to event endpoints.
-8. Runs locally on port **8010** so it does not clash with PrinceAI on port 8000.
+Each browser receives a random anonymous cookie ID. No signup is required.
 
-The hard-coded league rules, historical rates and current-season verification logic remain unchanged.
+- Predictions are stored against that browser ID.
+- One user cannot see another user's saved prediction history.
+- Previous predictions are automatically graded when their target matchday becomes completed.
+- The website shows the last prediction, final scores, WON/LOST/PENDING status, overall live wins/losses, and recent matchday performance.
+- A **Refresh results** button checks whether pending predictions have finished.
+
+### Faster prediction requests
+
+- Completed round payloads are cached in SQLite and reused across restarts.
+- Settled matchdays are never downloaded again unless the cache is missing.
+- Upcoming target rounds use a short cache so fixture updates can still be detected.
+- The Selenium Chrome session remains alive while the server is running instead of restarting for every request.
+- The completed prediction context is reused for everyone while the same source matchday remains current.
+- Multiple users therefore share the expensive public-data work without sharing personal prediction history.
 
 ## Run
-
-Double-click `run.bat` and open:
-
-`http://127.0.0.1:8010`
-
-## Normal update workflow
 
 ```bat
 cd /d "C:\Users\USER\Desktop\Bots\Personal_AI\BetPawa Predictor"
@@ -33,15 +33,14 @@ git pull origin main
 run.bat
 ```
 
+Open:
+
+`http://127.0.0.1:8010`
+
 ## Notes
 
 - Chrome is required.
 - No betPawa login, password or API key is required.
-- Raw public feed payloads are processed in memory and are not saved as season archives.
+- betPawa round data is requested as isolated JSON from inside the real browser session.
+- The private historical rules remain backend-only.
 - Predictions are historical-rule reminders, not guarantees.
-
-### v0.2.4 live-feed fix
-
-betPawa's native v3 by-round response is currently served as application/x-protobuf.
-The predictor now makes its own request from inside the real browser session with
-Accept: application/json and a unique _cb cache key, then parses the JSON response.
