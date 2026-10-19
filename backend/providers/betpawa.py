@@ -808,6 +808,8 @@ class BetPawaFeed:
             "previous_pairs_by_league": previous_pairs,
             "latest_source": latest_source,
             "next_target": target_normalized,
+            "strategy_rounds": current_normalized + [target_normalized],
+            "strategy_target_index": len(current_normalized),
             "completed_rounds_for_grading": grading_rounds,
             "use_previous_for_alignment": use_previous,
             "alignment_scope": (

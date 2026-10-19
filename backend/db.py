@@ -69,6 +69,7 @@ def connect():
 
     _ensure_column(con, "user_predictions", "ht_home", "INTEGER")
     _ensure_column(con, "user_predictions", "ht_away", "INTEGER")
+    _ensure_column(con, "user_predictions", "supports_json", "TEXT")
 
     con.execute("""
     CREATE TABLE IF NOT EXISTS round_cache (
@@ -124,14 +125,27 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
         INSERT OR IGNORE INTO user_predictions
           (user_id, season, matchday, target_round_id, prediction_key, league,
            selected_team, target_position, target_home, target_away, confidence,
-           alignment, recent_wins, recent_tests, expected, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           alignment, recent_wins, recent_tests, expected, supports_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, season, matchday, prediction_key) DO UPDATE SET
+          target_round_id=excluded.target_round_id,
+          selected_team=excluded.selected_team,
+          target_position=excluded.target_position,
+          target_home=excluded.target_home,
+          target_away=excluded.target_away,
+          confidence=excluded.confidence,
+          alignment=excluded.alignment,
+          recent_wins=excluded.recent_wins,
+          recent_tests=excluded.recent_tests,
+          expected=excluded.expected,
+          supports_json=excluded.supports_json
         """, (
             user_id, season, matchday, result.get("next_round_id"),
             _prediction_key(p), p.get("league"), p.get("selected_team"),
             p.get("target_position"), p.get("target_home"), p.get("target_away"),
             p.get("confidence"), p.get("alignment"), p.get("recent_wins"),
-            p.get("recent_tests"), p.get("expected") or "Over 2.5 FT", now,
+            p.get("recent_tests"), p.get("expected") or "Over 2.5 FT",
+            json.dumps(p.get("supports") or [], separators=(",", ":")), now,
         ))
 
     con.commit()
@@ -269,12 +283,22 @@ def _batch_predictions(con, user_id: str, season: str, matchday: str):
     rows = con.execute("""
       SELECT league, selected_team, target_position, target_home, target_away,
              confidence, alignment, recent_wins, recent_tests, expected,
-             outcome, ht_home, ht_away, ft_home, ft_away, graded_at, created_at
+             outcome, ht_home, ht_away, ft_home, ft_away, graded_at, created_at,
+             supports_json
       FROM user_predictions
       WHERE user_id=? AND season=? AND matchday=?
       ORDER BY confidence DESC, league, id
     """, (user_id, season, matchday)).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        item = dict(r)
+        raw = item.pop("supports_json", None)
+        try:
+            item["supports"] = json.loads(raw) if raw else []
+        except Exception:
+            item["supports"] = []
+        out.append(item)
+    return out
 
 
 def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
