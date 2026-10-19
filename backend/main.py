@@ -57,7 +57,7 @@ def status():
         "app": "BetPawa Predictor",
         "version": "0.3.2",
         "rules_public": False,
-        "mode": "personal history + cached on-demand prediction",
+        "mode": "41-rule multi-market + frozen rules + personal cached prediction",
     }
 
 

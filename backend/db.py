@@ -122,7 +122,7 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
 
     for p in predictions:
         con.execute("""
-        INSERT OR IGNORE INTO user_predictions
+        INSERT INTO user_predictions
           (user_id, season, matchday, target_round_id, prediction_key, league,
            selected_team, target_position, target_home, target_away, confidence,
            alignment, recent_wins, recent_tests, expected, supports_json, created_at)
