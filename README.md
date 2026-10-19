@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.1
+# BetPawa Predictor v0.3.2
 
 The local folder remains **BetPawa Predictor**.
 
@@ -65,3 +65,31 @@ by market. Unknown future market labels remain PENDING rather than being graded
 incorrectly.
 
 The original seven frozen Over 2.5 strategies are unchanged.
+
+
+## v0.3.2 qualified strategy implementation
+
+The original seven frozen Over 2.5 strategies remain intact.
+
+This release implements the 41 qualified multi-market rules from the latest
+validation shortlist:
+
+- 3 Over 1.5 FT strategies
+- 4 Under 4.5 FT strategies
+- 4 Under 3.5 FT strategies
+- 16 Over 2.5 FT strategies
+- 14 BTTS YES strategies
+
+Rules use completed source/prior matches only. Target scores are never used for
+qualification.
+
+When several strategies support the same market on the same fixture, the API and
+UI merge that market into one prediction and preserve every supporting rule's
+individual historical rate, wins/tests, baseline edge and positive-season count.
+No average or synthetic combined probability is calculated.
+
+The candidate view now groups different markets under one fixture card and adds
+filters for All, 80%+, 70%+, 60%+, Overs, Unders and BTTS.
+
+Personal history stores the supporting strategy metadata for each market pick so
+the later WON/LOST result remains auditable.
