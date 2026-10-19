@@ -1,117 +1,30 @@
-# TG Mining Bot
+# BetPawa Predictor v0.2.0
 
-Telegram mining/rewards bot MVP.
+The folder name is intentionally kept **BetPawa Predictor** for every update.
 
-This project is a **Telegram bot + planned Telegram Mini App**. The current mining engine accrues internal reward points over timed sessions. It does **not** perform proof-of-work mining on a user's phone or computer.
+## What changed
 
-## Current MVP
+This version no longer tries to build or download a historical archive each time.
 
-- Telegram `/start` onboarding
-- Referral links using `?start=ref_<telegram_id>`
-- 8-hour mining sessions
-- Server-side timestamp calculation
-- Claim/restart flow
-- Balance display
-- Referral statistics
-- One-time referral reward after an invitee completes their first mining session
-- SQLite persistence
-- Transaction ledger for mining and referral rewards
-- Inline Telegram buttons
+When **Get predictions** is pressed it:
 
-## Commands
+1. Reads the current public virtual-football season/round information.
+2. Reads only the completed matchdays needed for the current season check.
+3. At the very start of a season, supplements the small current sample with recent rounds from up to two prior completed seasons.
+4. Replays the frozen private rule for each league on those already-finished source→target pairs.
+5. Calculates recent alignment and a confidence value that is shrunk toward the multi-season historical validation rate, so a tiny recent sample cannot produce a fake 100% confidence.
+6. If a rule has at least 5 recent trigger outcomes and falls below 60% or below its league's normal O2.5 baseline, that league is marked **PAUSED**.
+7. Applies the same private rule to the latest completed matchday and maps any trigger to the next matchday fixture.
+8. Shows only league, fixture/team context, Over 2.5 FT, confidence, recent wins/tests and alignment status. Rule definitions remain backend-only.
 
-- `/start` — create/open account
-- `/mine` — start or check mining
-- `/claim` — claim a completed session
-- `/balance` — view balance and referral statistics
-- `/referral` — get your invite link
-- `/help` — show help
+## Run
 
-## Default economics
+Double-click `run.bat` and open `http://127.0.0.1:8000`.
 
-Configured in `.env`:
+There is no background scheduler in v0.2.0. Every click on **Get predictions** performs a fresh on-demand check.
 
-- Session duration: **8 hours**
-- Base rate: **100 MIN/hour**
-- Referral reward: **500 MIN**
+## Notes
 
-These are development defaults and can be changed without editing the bot source.
-
-## Run locally
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/TRomeoPrince/TG-MINING_BOT1.git
-cd TG-MINING_BOT1
-```
-
-### 2. Create a virtual environment
-
-Windows:
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure the bot
-
-Copy:
-
-```text
-.env.example
-```
-
-to:
-
-```text
-.env
-```
-
-Then replace:
-
-```text
-BOT_TOKEN=replace_with_botfather_token
-```
-
-with the token from BotFather.
-
-### 5. Start the bot
-
-```bash
-python -m app.bot
-```
-
-## Project structure
-
-```text
-TG-MINING_BOT1/
-├── app/
-│   ├── __init__.py
-│   ├── bot.py
-│   ├── config.py
-│   └── db.py
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
-```
-
-## Next build phase
-
-1. Telegram Mini App dashboard
-2. Live mining countdown UI
-3. Tasks and verification
-4. Mining boosts and levels
-5. Leaderboards
-6. Admin panel
-7. Anti-abuse controls
-8. PostgreSQL production migration
-9. Reward/withdrawal ledger
+- No betPawa account, password or API key is required.
+- Raw public feed payloads are processed in memory and are not saved as season archives.
+- Predictions are historical-rule reminders, not guarantees.
