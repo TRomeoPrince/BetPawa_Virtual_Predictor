@@ -78,7 +78,7 @@ def _parse_ts(value: Any) -> float | None:
 class BetPawaFeed:
     """Read only the public virtual-football data needed for one prediction request.
 
-    v0.2.1 does not guess a fixed matchday API path. It opens betPawa's own
+    v0.2.3 does not guess a fixed matchday API path. It opens betPawa's own
     matchday page, watches the request the live site makes, and reuses that exact
     request shape for the other recent rounds needed by the verifier.
     """
@@ -158,7 +158,7 @@ class BetPawaFeed:
     def _browser_fetch(driver, url: str, captured_headers: dict[str, str] | None = None):
         """Fetch the exact URL. Do not append custom query parameters.
 
-        Some betPawa endpoints reject unknown query parameters, so v0.2.1 relies
+        Some betPawa endpoints reject unknown query parameters, so the predictor relies
         on fetch(cache='no-store') instead of adding a cache-busting parameter.
         """
         headers = dict(BROWSER_FETCH_HEADERS)
@@ -230,14 +230,14 @@ class BetPawaFeed:
         matchday: int,
         expected_round_id: str,
         seed_headers: dict[str, str] | None = None,
-        timeout_s: float = 12.0,
+        timeout_s: float = 15.0,
     ):
-        """Open the real matchday page, observe its event URL, then read it reliably.
+        """Open betPawa's real matchday page and read its completed event request.
 
-        Chrome performance logs are used only to discover the exact successful URL.
-        Network.getResponseBody is attempted first, but Chrome can discard or hide
-        response bodies. When that happens, fetch the same observed URL again from
-        inside the already-open betPawa page using its browser session.
+        The important detail is timing: Network.responseReceived only means the
+        response headers have arrived. The body may still be empty at that point.
+        v0.2.3 therefore waits for Network.loadingFinished for the same requestId
+        before calling Network.getResponseBody.
         """
         try:
             self._read_performance(driver)  # clear stale log entries
@@ -248,36 +248,14 @@ class BetPawaFeed:
         driver.get(page)
 
         deadline = time.time() + timeout_s
-        all_entries = []
-        candidates: list[tuple[str, str, int]] = []
+        all_entries: list[dict[str, Any]] = []
+        pending: dict[str, dict[str, Any]] = {}
+        observed_urls: list[str] = []
         read_errors: list[str] = []
 
-        while time.time() < deadline:
-            entries = self._read_performance(driver)
-            all_entries.extend(entries)
-
-            for msg in entries:
-                if msg.get("method") != "Network.responseReceived":
-                    continue
-
-                params = msg.get("params") or {}
-                response = params.get("response") or {}
-                url = str(response.get("url") or "")
-                status = int(response.get("status") or 0)
-
-                if EVENT_PATH_MARKER not in url or status != 200:
-                    continue
-
-                request_id = str(params.get("requestId") or "")
-                candidates.append((request_id, url, status))
-
-                if self._round_id_from_url(url) != expected_round_id:
-                    continue
-
-                headers = dict(seed_headers or {})
-                headers.update(self._captured_headers(all_entries))
-
-                # Fast path: ask Chrome for the body of the request we just saw.
+        def parse_body(request_id: str):
+            last_error = None
+            for _ in range(3):
                 try:
                     body = driver.execute_cdp_cmd(
                         "Network.getResponseBody", {"requestId": request_id}
@@ -287,33 +265,93 @@ class BetPawaFeed:
                         text = base64.b64decode(text).decode(
                             "utf-8", errors="replace"
                         )
-                    payload = json.loads(text)
+                    text = text.lstrip("\ufeff").strip()
+                    if text.startswith(")]}',"):
+                        text = text.split("\n", 1)[1] if "\n" in text else ""
+                    if not text:
+                        raise ValueError("response body was empty")
+                    return json.loads(text)
+                except Exception as exc:
+                    last_error = exc
+                    time.sleep(0.12)
+            raise last_error
+
+        while time.time() < deadline:
+            entries = self._read_performance(driver)
+            if entries:
+                all_entries.extend(entries)
+
+            for msg in entries:
+                method = msg.get("method")
+                params = msg.get("params") or {}
+                request_id = str(params.get("requestId") or "")
+
+                if method == "Network.responseReceived":
+                    response = params.get("response") or {}
+                    url = str(response.get("url") or "")
+                    status = int(response.get("status") or 0)
+
+                    if EVENT_PATH_MARKER not in url or status != 200:
+                        continue
+                    if self._round_id_from_url(url) != expected_round_id:
+                        continue
+
+                    observed_urls.append(url)
+                    pending[request_id] = {
+                        "url": url,
+                        "mimeType": str(response.get("mimeType") or ""),
+                        "status": status,
+                    }
+                    continue
+
+                if method == "Network.loadingFailed" and request_id in pending:
+                    failure = str(params.get("errorText") or "request failed")
+                    read_errors.append(f"live request failed after HTTP response: {failure}")
+                    pending.pop(request_id, None)
+                    continue
+
+                if method != "Network.loadingFinished" or request_id not in pending:
+                    continue
+
+                meta = pending.pop(request_id)
+                url = meta["url"]
+                headers = dict(seed_headers or {})
+                headers.update(self._captured_headers(all_entries))
+
+                # Now the network request is complete, so Chrome should have the
+                # actual response body available.
+                try:
+                    payload = parse_body(request_id)
                     if self._events(payload):
                         return payload, url, headers
-                    read_errors.append("captured body contained no recognizable events")
+                    read_errors.append(
+                        f"completed response had no recognizable events "
+                        f"(mime={meta.get('mimeType') or 'unknown'})"
+                    )
                 except Exception as exc:
-                    read_errors.append(f"Chrome response body unavailable: {exc}")
+                    read_errors.append(
+                        f"completed Chrome body unreadable "
+                        f"(mime={meta.get('mimeType') or 'unknown'}): {exc}"
+                    )
 
-                # Reliable path: the URL is already proven valid (HTTP 200), so
-                # fetch that exact URL from the live betPawa page/session instead
-                # of guessing a v2/v3 route or depending on Chrome's body cache.
+                # Secondary fallback only after the original completed body could
+                # not be parsed. Reuse the exact proven URL in the same session.
                 try:
                     payload = self._browser_fetch(driver, url, headers)
-                    if not self._events(payload):
-                        raise FeedError("refetched response contained no recognizable events")
-                    return payload, url, headers
+                    if self._events(payload):
+                        return payload, url, headers
+                    read_errors.append("in-page refetch contained no recognizable events")
                 except Exception as exc:
                     read_errors.append(f"in-page refetch failed: {exc}")
 
-            time.sleep(0.25)
+            time.sleep(0.20)
 
-        seen = [url for _, url, _ in candidates[-5:]]
-        detail = read_errors[-2:]
+        seen = list(dict.fromkeys(observed_urls))[-5:]
         raise FeedError(
-            f"betPawa exposed the event request but its data could not be read for "
+            f"betPawa's live event request completed but its data could not be parsed for "
             f"season {season_id} matchday {matchday} / round {expected_round_id}. "
             f"Observed event requests: {seen or 'none'}. "
-            f"Read errors: {detail or 'none'}"
+            f"Read errors: {read_errors[-3:] or 'none'}"
         )
 
     # ---------- parsing ----------
