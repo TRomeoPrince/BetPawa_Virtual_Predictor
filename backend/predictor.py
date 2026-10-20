@@ -144,8 +144,13 @@ def _english_o25_tracker(context: dict[str, Any]) -> dict[str, Any]:
             "fixtures": fixtures,
         })
 
+        # The user's rule is to stop trusting this pattern for the remainder of
+        # the season after the second consecutive trigger failure.
+        if state == "ABANDONED":
+            break
+
     current_picks = []
-    if target_index < len(rounds):
+    if state != "ABANDONED" and target_index < len(rounds):
         for p in evaluate_multimarket_strategy(tracker_strategy, rounds, target_index):
             current_picks.append({
                 "league": "English",
