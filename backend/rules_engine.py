@@ -150,6 +150,8 @@ def _previous_team_matches(
 def _multi_support(strategy, target_index, source_fixtures, selected_teams, target):
     return {
         "strategy_id": strategy["strategy_id"],
+        "rule_id": strategy.get("rule_id") or strategy["strategy_id"],
+        "strategy_family": strategy.get("strategy_family") or "Pattern 1",
         "strategy_name": strategy["strategy_name"],
         "league": strategy["league"],
         "target_market": strategy["market"],

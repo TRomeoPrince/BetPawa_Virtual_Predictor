@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.6
+# BetPawa Predictor v0.3.7
 
 The local folder remains **BetPawa Predictor**.
 
@@ -35,7 +35,7 @@ run.bat
 
 Open:
 
-`http://127.0.0.1:8011`
+`http://127.0.0.1:8010`
 
 ## Notes
 
@@ -194,3 +194,40 @@ serving the backend, causing `/api/selection` to return 404 Not Found.
 `run.bat` now stops the existing listener on dedicated port 8010 before starting
 the current predictor, and the frontend warns when its version does not match the
 running backend.
+
+
+## v0.3.7 Pattern 2 transition / sequence family
+
+Pattern 1 remains the existing strategy family. Pattern 2 adds the eight approved
+transition/sequence rules from the latest research brief:
+
+- Dutch O2.5: 6+ source goals -> follow both teams
+- French O2.5: previous 3 team matches all O2.5
+- French O2.5: 5+ source goals -> follow home team
+- Spanish O2.5: highest-total previous-round fixture -> follow away team
+- Italian O2.5: HT 0-0 and FT O2.5 -> follow home team
+- Dutch BTTS YES: 6+ source goals -> follow winner
+- French BTTS YES: biggest-margin source match -> follow winner
+- Spanish BTTS YES: both target teams' previous matches were O2.5
+
+No new Pattern 2 Over 1.5 or Under 3.5 rule is added. The optional Italian Home
+Win P11.scored3conceded3 rule remains on hold because its exact original
+classifier is not present and is not guessed.
+
+Several of these exact mechanics were already present in the older broad research
+list. They remain preserved there for provenance, but are evaluated as Pattern 2
+only, avoiding duplicate support and artificial ranking inflation.
+
+Prediction cards now display Pattern 1, Pattern 2, or Pattern 1 + Pattern 2 when
+different family rules independently select the same fixture and market.
+
+A normalized prediction_supports table stores family and exact rule ID internally,
+along with league, fixture, market, historical rate, edge and later WON/LOST
+outcome. Public API responses continue to hide exact private rule IDs.
+
+Pattern-family live performance is shown separately by market. ROI is not
+calculated because the current feed does not store betting odds.
+
+Automated unittest coverage was added for no-lookahead, next-fixture lookup,
+season-boundary reset behavior, previous-round ranking, ties, both-team follow,
+winner/home/away roles, family labels and merged cards.

@@ -73,6 +73,30 @@ def connect():
     _ensure_column(con, "user_predictions", "selected", "INTEGER NOT NULL DEFAULT 0")
 
     con.execute("""
+    CREATE TABLE IF NOT EXISTS prediction_supports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      season TEXT NOT NULL,
+      matchday TEXT NOT NULL,
+      prediction_key TEXT NOT NULL,
+      strategy_family TEXT NOT NULL,
+      rule_id TEXT NOT NULL,
+      league TEXT NOT NULL,
+      target_home TEXT NOT NULL,
+      target_away TEXT NOT NULL,
+      market TEXT NOT NULL,
+      historical_win_rate REAL,
+      baseline REAL,
+      edge_pp REAL,
+      positive_seasons TEXT,
+      outcome TEXT NOT NULL DEFAULT 'PENDING',
+      created_at TEXT NOT NULL,
+      graded_at TEXT,
+      UNIQUE(user_id, season, matchday, prediction_key, strategy_family, rule_id)
+    )
+    """)
+
+    con.execute("""
     CREATE TABLE IF NOT EXISTS round_cache (
       round_id TEXT PRIMARY KEY,
       season_id TEXT,
@@ -122,6 +146,7 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
     ))
 
     for p in predictions:
+        prediction_key = _prediction_key(p)
         con.execute("""
         INSERT INTO user_predictions
           (user_id, season, matchday, target_round_id, prediction_key, league,
@@ -142,12 +167,41 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
           supports_json=excluded.supports_json
         """, (
             user_id, season, matchday, result.get("next_round_id"),
-            _prediction_key(p), p.get("league"), p.get("selected_team"),
+            prediction_key, p.get("league"), p.get("selected_team"),
             p.get("target_position"), p.get("target_home"), p.get("target_away"),
             p.get("confidence"), p.get("alignment"), p.get("recent_wins"),
             p.get("recent_tests"), p.get("expected") or "Over 2.5 FT",
             json.dumps(p.get("supports") or [], separators=(",", ":")), now,
         ))
+
+        for support in p.get("supports") or []:
+            family = str(support.get("strategy_family") or "Pattern 1")
+            rule_id = str(support.get("rule_id") or support.get("strategy_id") or "")
+            if not rule_id:
+                continue
+            con.execute("""
+            INSERT INTO prediction_supports
+              (user_id, season, matchday, prediction_key, strategy_family, rule_id,
+               league, target_home, target_away, market, historical_win_rate,
+               baseline, edge_pp, positive_seasons, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, season, matchday, prediction_key, strategy_family, rule_id)
+            DO UPDATE SET
+              league=excluded.league,
+              target_home=excluded.target_home,
+              target_away=excluded.target_away,
+              market=excluded.market,
+              historical_win_rate=excluded.historical_win_rate,
+              baseline=excluded.baseline,
+              edge_pp=excluded.edge_pp,
+              positive_seasons=excluded.positive_seasons
+            """, (
+                user_id, season, matchday, prediction_key, family, rule_id,
+                p.get("league"), p.get("target_home"), p.get("target_away"),
+                p.get("expected") or "Over 2.5 FT",
+                support.get("historical_win_rate"), support.get("baseline"),
+                support.get("edge_pp"), support.get("positive_seasons"), now,
+            ))
 
     con.commit()
     con.close()
@@ -301,6 +355,14 @@ def grade_user_predictions(user_id: str, completed_rounds: list[dict[str, Any]])
             ht_away if isinstance(ht_away, int) else None,
             ft_home, ft_away, now, row["id"],
         ))
+        con.execute("""
+        UPDATE prediction_supports
+        SET outcome=?, graded_at=?
+        WHERE user_id=? AND season=? AND matchday=? AND prediction_key=?
+        """, (
+            outcome, now, user_id, str(row["season"]), str(row["matchday"]),
+            str(row["prediction_key"]),
+        ))
         graded += 1
 
     con.commit()
@@ -394,6 +456,61 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
             "win_rate": (mw / mg) if mg else None,
         })
 
+    family_market_rows = con.execute("""
+      WITH family_picks AS (
+        SELECT DISTINCT user_id, season, matchday, prediction_key,
+               strategy_family, market, outcome
+        FROM prediction_supports
+        WHERE user_id=?
+      )
+      SELECT strategy_family, market,
+             SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
+             SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
+             SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending
+      FROM family_picks
+      GROUP BY strategy_family, market
+      ORDER BY strategy_family, market
+    """, (user_id,)).fetchall()
+
+    by_family_market = []
+    for row in family_market_rows:
+        fw = int(row["wins"] or 0)
+        fl = int(row["losses"] or 0)
+        fp = int(row["pending"] or 0)
+        fg = fw + fl
+        by_family_market.append({
+            "strategy_family": row["strategy_family"],
+            "market": row["market"],
+            "wins": fw,
+            "losses": fl,
+            "pending": fp,
+            "graded": fg,
+            "win_rate": (fw / fg) if fg else None,
+        })
+
+    rule_rows = con.execute("""
+      SELECT strategy_family, rule_id, league, market,
+             COUNT(*) AS predictions,
+             SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
+             SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
+             SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending,
+             MAX(historical_win_rate) AS historical_win_rate,
+             MAX(edge_pp) AS edge_pp
+      FROM prediction_supports
+      WHERE user_id=?
+      GROUP BY strategy_family, rule_id, league, market
+      ORDER BY strategy_family, rule_id
+    """, (user_id,)).fetchall()
+
+    by_rule_internal = []
+    for row in rule_rows:
+        item = dict(row)
+        graded_count = int(item["wins"] or 0) + int(item["losses"] or 0)
+        item["live_win_rate"] = (
+            int(item["wins"] or 0) / graded_count if graded_count else None
+        )
+        by_rule_internal.append(item)
+
     con.close()
 
     wins = int(totals["wins"] or 0)
@@ -422,6 +539,8 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         "last_batch": batches[0] if batches else None,
         "last_completed_batch": last_completed_batch,
         "by_market": by_market,
+        "by_family_market": by_family_market,
+        "by_rule_internal": by_rule_internal,
         "recent_batches": batches,
     }
 

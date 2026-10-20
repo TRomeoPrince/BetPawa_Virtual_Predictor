@@ -9,6 +9,8 @@ from .private_rules import (
     MIN_RECENT_RATE,
     HISTORICAL_PRIOR_WEIGHT,
     NEW_STRATEGIES,
+    PATTERN2_STRATEGIES,
+    PATTERN2_LEGACY_KEYS,
     ORIGINAL_RULE_META,
 )
 from .rules_engine import evaluate_league, grade_pick, evaluate_multimarket_strategy
@@ -278,6 +280,8 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         for p in picks:
             support = {
                 "strategy_id": rule["rule_id"],
+                "rule_id": rule["rule_id"],
+                "strategy_family": "Pattern 1",
                 "strategy_name": meta.get("strategy_name", rule["rule_id"]),
                 "league": league,
                 "target_market": "Over 2.5 FT",
@@ -311,12 +315,34 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         league_info["prediction_count"] = len(picks)
         leagues.append(league_info)
 
-    # Approved research rules. These fire only when every exact trigger condition
-    # is satisfied. The target round is used only to locate the next fixture.
+    # Pattern 1 research rules. Exact mechanics that were promoted to Pattern 2
+    # are skipped here to avoid counting the same rule twice under two families.
     strategy_rounds = context.get("strategy_rounds") or []
     target_index = context.get("strategy_target_index")
     if isinstance(target_index, int) and strategy_rounds:
-        for strategy in NEW_STRATEGIES:
+        pattern1_strategies = [
+            s for s in NEW_STRATEGIES
+            if (s["league"], s["market"], s["strategy_id"]) not in PATTERN2_LEGACY_KEYS
+        ]
+        for strategy in pattern1_strategies:
+            league_rounds = [
+                round_map.get(strategy["league"], [])
+                for round_map in strategy_rounds
+            ]
+            for p in evaluate_multimarket_strategy(strategy, league_rounds, target_index):
+                add_support(
+                    p["league"],
+                    p.get("target_position"),
+                    p.get("target_home"),
+                    p.get("target_away"),
+                    p["target_market"],
+                    p["support"],
+                    selected_team=p.get("selected_team"),
+                    selected_teams=p.get("selected_teams"),
+                )
+
+        # Pattern 2 transition / sequence rules.
+        for strategy in PATTERN2_STRATEGIES:
             league_rounds = [
                 round_map.get(strategy["league"], [])
                 for round_map in strategy_rounds
@@ -341,6 +367,14 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
             reverse=True,
         )
         item["supports"] = supports
+        families = []
+        for support in supports:
+            family = support.get("strategy_family") or "Pattern 1"
+            if family not in families:
+                families.append(family)
+        families.sort(key=lambda x: (0 if x == "Pattern 1" else 1, x))
+        item["strategy_families"] = families
+        item["strategy_family_label"] = " + ".join(families)
         item["support_count"] = len(supports)
         item["multiple_support"] = len(supports) > 1
         item["top_historical_win_rate"] = (
@@ -378,5 +412,12 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         "leagues": leagues,
         "predictions": predictions,
         "trackers": trackers,
-        "multi_market_strategy_count": len(NEW_STRATEGIES),
+        "multi_market_strategy_count": (
+            len([
+                s for s in NEW_STRATEGIES
+                if (s["league"], s["market"], s["strategy_id"]) not in PATTERN2_LEGACY_KEYS
+            ])
+            + len(PATTERN2_STRATEGIES)
+        ),
+        "pattern2_strategy_count": len(PATTERN2_STRATEGIES),
     }

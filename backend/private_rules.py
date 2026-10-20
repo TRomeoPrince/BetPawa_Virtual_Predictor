@@ -84,10 +84,13 @@ def _s(
     edge_pp,
     positive_seasons,
     kind,
+    strategy_family="Pattern 1",
     **params,
 ):
     return {
         "strategy_id": strategy_id,
+        "rule_id": strategy_id,
+        "strategy_family": strategy_family,
         "strategy_name": strategy_name,
         "league": league,
         "market": market,
@@ -156,3 +159,67 @@ NEW_STRATEGIES = [
     _s("P13.rank3.home", "Third-Highest Distinct Total → Home", "Spanish", "BTTS YES", 484, 784, 0.5829, 3.44, "8/11", "rank_total_follow", rank=3, role="home"),
     _s("P9.last3over", "Last 3 Team Matches O2.5", "Spanish", "BTTS YES", 764, 1242, 0.5829, 3.22, "9/11", "last3_over_team"),
 ]
+
+
+# Pattern 2: approved transition / sequence strategies.
+# These use only completed source history and never target-match results to qualify.
+# Over 1.5 and Under 3.5 are intentionally NOT added to Pattern 2.
+PATTERN2_STRATEGIES = [
+    _s(
+        "P2-O25-01", "Dutch Extreme-Goals Transition", "Dutch", "Over 2.5 FT",
+        511, 745, 0.6504, 3.55, "10/11", "total_threshold_follow",
+        strategy_family="Pattern 2", min_total=6, role="both",
+    ),
+    _s(
+        "P2-O25-02", "French 3-Match Over Streak", "French", "Over 2.5 FT",
+        745, 1180, 0.5960, 3.54, "11/11", "last3_over_team",
+        strategy_family="Pattern 2",
+    ),
+    _s(
+        "P2-O25-03", "French 5+ Goal Source Home", "French", "Over 2.5 FT",
+        404, 637, 0.5960, 3.83, "8/11", "total_threshold_follow",
+        strategy_family="Pattern 2", min_total=5, role="home",
+    ),
+    _s(
+        "P2-O25-04", "Spanish Highest-Total Away Follow", "Spanish", "Over 2.5 FT",
+        321, 518, 0.5722, 4.75, "8/11", "rank_total_follow",
+        strategy_family="Pattern 2", rank=1, role="away",
+    ),
+    _s(
+        "P2-O25-05", "Italian HT 0-0 to FT Over Transition", "Italian", "Over 2.5 FT",
+        174, 287, 0.5656, 4.07, "8/11", "ht00_over_follow",
+        strategy_family="Pattern 2", role="home",
+    ),
+    _s(
+        "P2-BTTS-01", "Dutch 6+ Goal Winner", "Dutch", "BTTS YES",
+        218, 325, 0.6315, 3.93, "8/11", "total_threshold_follow",
+        strategy_family="Pattern 2", min_total=6, role="winner",
+    ),
+    _s(
+        "P2-BTTS-02", "French Biggest-Margin Winner", "French", "BTTS YES",
+        351, 548, 0.5972, 4.33, "8/11", "largest_margin_follow",
+        strategy_family="Pattern 2", role="winner",
+    ),
+    _s(
+        "P2-BTTS-03", "Spanish Both-Previous-Over State", "Spanish", "BTTS YES",
+        732, 1161, 0.5829, 4.76, "10/11", "both_previous_over",
+        strategy_family="Pattern 2",
+    ),
+]
+
+# These exact mechanics were already present in the earlier broad research list.
+# Keep the old definitions in NEW_STRATEGIES for provenance, but evaluate them as
+# Pattern 2 only so we do not double-count identical logic as independent support.
+PATTERN2_LEGACY_KEYS = {
+    ("Dutch", "Over 2.5 FT", "P6.ge6.both"),
+    ("French", "Over 2.5 FT", "P9.last3over"),
+    ("French", "Over 2.5 FT", "P6.ge5.home"),
+    ("Spanish", "Over 2.5 FT", "P1.rank1.away"),
+    ("Italian", "Over 2.5 FT", "P7.ht00over.home"),
+    ("Dutch", "BTTS YES", "P6.ge6.winner"),
+    ("French", "BTTS YES", "P2.margin.winner"),
+    ("Spanish", "BTTS YES", "P11.bothover"),
+}
+
+# P2-HW-01 (Italian P11.scored3conceded3) remains ON HOLD because the exact
+# original classifier is not present in this repository and must not be guessed.

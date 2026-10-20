@@ -24,7 +24,7 @@ MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.6")
+app = FastAPI(title="BetPawa Predictor", version="0.3.7")
 feed = BetPawaFeed()
 
 
@@ -70,6 +70,12 @@ def _public_prediction(p: dict) -> dict:
         "top_tests": top.get("tests"),
         "top_edge_pp": top.get("edge_pp"),
         "top_positive_seasons": top.get("positive_seasons"),
+        "strategy_families": p.get("strategy_families") or sorted({
+            s.get("strategy_family") or "Pattern 1" for s in supports
+        }),
+        "strategy_family_label": p.get("strategy_family_label") or " + ".join(sorted({
+            s.get("strategy_family") or "Pattern 1" for s in supports
+        })),
     }
 
 
@@ -102,6 +108,8 @@ def _public_tracker(t: dict) -> dict:
 def _public_history(h: dict) -> dict:
     """Strip sensitive strategy metadata from personal history responses."""
     out = dict(h or {})
+    # Exact rule IDs remain backend-only.
+    out.pop("by_rule_internal", None)
 
     def clean_batch(batch):
         if not batch:
@@ -128,6 +136,12 @@ def _public_history(h: dict) -> dict:
                 "top_tests": top.get("tests"),
                 "top_edge_pp": top.get("edge_pp"),
                 "top_positive_seasons": top.get("positive_seasons"),
+                "strategy_families": sorted({
+                    s.get("strategy_family") or "Pattern 1" for s in supports
+                }),
+                "strategy_family_label": " + ".join(sorted({
+                    s.get("strategy_family") or "Pattern 1" for s in supports
+                })),
                 "created_at": p.get("created_at"),
                 "graded_at": p.get("graded_at"),
                 "selected": bool(p.get("selected")),
@@ -213,6 +227,31 @@ def _filter_public_history(history: dict, category: str) -> dict:
         "win_rate": (wins / graded) if graded else None,
     }
     out["by_market"] = market_rows
+
+    family_rows = [
+        dict(m) for m in (source.get("by_family_market") or [])
+        if _market_category(m.get("market")) == category
+    ]
+    family_map = {}
+    for row in family_rows:
+        family = row.get("strategy_family") or "Pattern 1"
+        item = family_map.setdefault(
+            family,
+            {"strategy_family": family, "wins": 0, "losses": 0, "pending": 0},
+        )
+        item["wins"] += int(row.get("wins") or 0)
+        item["losses"] += int(row.get("losses") or 0)
+        item["pending"] += int(row.get("pending") or 0)
+
+    by_family = []
+    for family in sorted(family_map):
+        item = family_map[family]
+        item["graded"] = item["wins"] + item["losses"]
+        item["win_rate"] = (
+            item["wins"] / item["graded"] if item["graded"] else None
+        )
+        by_family.append(item)
+    out["by_family"] = by_family
 
     filtered_batches = []
     for batch in source.get("recent_batches") or []:
@@ -314,9 +353,9 @@ def market_page(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.6",
+        "version": "0.3.7",
         "rules_public": False,
-        "mode": "ranked market pages + combos + live strategy lifecycle tracker",
+        "mode": "Pattern 1 + Pattern 2 comparison with ranked market pages",
     }
 
 
