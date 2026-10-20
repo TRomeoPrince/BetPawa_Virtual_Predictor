@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.2
+# BetPawa Predictor v0.3.3
 
 The local folder remains **BetPawa Predictor**.
 
@@ -93,3 +93,25 @@ filters for All, 80%+, 70%+, 60%+, Overs, Unders and BTTS.
 
 Personal history stores the supporting strategy metadata for each market pick so
 the later WON/LOST result remains auditable.
+
+
+## v0.3.3 strategy-output protection
+
+The browser no longer receives strategy IDs, strategy names, trigger descriptions,
+source fixtures, selected-team logic, or other private rule metadata.
+
+The backend still stores the full internal support metadata for grading and
+auditing, but public API responses expose only:
+
+- league and target fixture
+- target market
+- number of private supporting strategies
+- top historical hit rate
+- top rule's wins/tests
+- top baseline edge
+- positive-season summary
+
+This prevents the frontend and browser developer tools from revealing the
+underlying strategy logic. Full source protection still requires server-side
+hosting; a locally distributed backend remains inspectable by whoever owns that
+machine.

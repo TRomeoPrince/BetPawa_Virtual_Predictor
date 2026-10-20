@@ -9,7 +9,7 @@
 </style>
 </head>
 <body><div class="wrap">
-<div class="top"><div><h1>BetPawa Predictor</h1><div class="sub">Your personal on-demand virtual-football predictor. Predictions and results are kept separate for this browser, while completed matchdays are cached once for faster future checks.</div></div><div class="badge">v0.3.2 · 41 strategies live</div></div>
+<div class="top"><div><h1>BetPawa Predictor</h1><div class="sub">Your personal on-demand virtual-football predictor. Predictions and results are kept separate for this browser, while completed matchdays are cached once for faster future checks.</div></div><div class="badge">v0.3.3 · protected strategy output</div></div>
 
 <div class="hero">
   <button id="go" class="button">Get predictions</button>
@@ -83,16 +83,15 @@ function passesFilter(p){
   if(activeFilter==='btts') return m.includes('BTTS');
   return true;
 }
-function supportHtml(s){
-  const edge=s.edge_pp==null?'':(' · +'+Number(s.edge_pp).toFixed(2)+'pp');
-  const pos=s.positive_seasons?(' · '+esc(s.positive_seasons)+' positive seasons'):'';
-  const teams=(s.selected_teams||[]).length?('<div class="meta">Selected: '+esc((s.selected_teams||[]).join(', '))+'</div>'):'';
-  return '<div class="supportLine"><div class="supportTitle">'+pct(s.historical_win_rate)+' — '+esc(s.strategy_id)+' · '+esc(s.strategy_name)+'</div><div class="meta">'+Number(s.wins||0)+'/'+Number(s.tests||0)+' tests'+edge+' over baseline'+pos+'</div>'+teams+'</div>';
-}
 function marketHtml(p){
-  const supports=p.supports||[];
-  return '<div class="marketBlock"><div class="expected">'+esc(p.expected||'Prediction')+(supports.length>1?'<span class="multiple">MULTIPLE SUPPORT</span>':'')+'</div>'+supports.map(supportHtml).join('')+'</div>';
+  const rate=p.top_historical_win_rate ?? p.confidence;
+  const tests=(p.top_wins!=null&&p.top_tests!=null)?(p.top_wins+'/'+p.top_tests+' validated tests'):'Validated historical pattern';
+  const edge=p.top_edge_pp!=null?(' · +'+Number(p.top_edge_pp).toFixed(2)+'pp over baseline'):'';
+  const seasons=p.top_positive_seasons?(' · '+esc(p.top_positive_seasons)+' positive seasons'):'';
+  const support=p.support_count>1?('<div class="meta" style="margin-top:6px">'+p.support_count+' private strategies support this exact market.</div>'):'';
+  return '<div class="marketBlock"><div class="expected">'+esc(p.expected||'Prediction')+(p.multiple_support?'<span class="multiple">MULTIPLE SUPPORT</span>':'')+'</div><div class="supportLine"><div class="supportTitle">'+pct(rate)+' historical hit rate</div><div class="meta">'+esc(tests)+edge+seasons+'</div>'+support+'</div></div>';
 }
+
 function renderPredictions(){
   const filtered=latestPredictions.filter(passesFilter);
   $('#candidateCount').textContent=filtered.length+' market pick'+(filtered.length===1?'':'s');
@@ -134,8 +133,9 @@ function renderPersonal(h){
     $('#lastPrediction').innerHTML='<div class="grid">'+b.predictions.map(p=>{
       const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
       const ht=(p.ht_home!=null&&p.ht_away!=null)?(' · HT '+p.ht_home+' - '+p.ht_away):'';
-      const supports=p.supports||[];
-      return '<div class="resultCard"><div class="resultTop"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="score">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="expected">'+esc(p.expected||'Prediction')+'</div><div class="meta">'+esc(ht.replace(' · ',''))+'</div>'+supports.map(supportHtml).join('')+'</div>';
+      const support=p.support_count>1?(' · '+p.support_count+' private supports'):'';
+      const rate=p.top_historical_win_rate!=null?(' · '+pct(p.top_historical_win_rate)+' historical'):'';
+      return '<div class="resultCard"><div class="resultTop"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="score">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="expected">'+esc(p.expected||'Prediction')+'</div><div class="meta">'+esc(ht.replace(' · ',''))+esc(rate)+esc(support)+'</div></div>';
     }).join('')+'</div>';
   }
 
