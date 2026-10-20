@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
@@ -14,6 +15,7 @@ from .db import (
     get_user_history,
     grade_user_predictions,
     save_user_prediction_batch,
+    set_prediction_selected,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,7 +24,7 @@ MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.4")
+app = FastAPI(title="BetPawa Predictor", version="0.3.5")
 feed = BetPawaFeed()
 
 
@@ -102,6 +104,7 @@ def _public_history(h: dict) -> dict:
                 "top_positive_seasons": top.get("positive_seasons"),
                 "created_at": p.get("created_at"),
                 "graded_at": p.get("graded_at"),
+                "selected": bool(p.get("selected")),
             })
         b["predictions"] = cleaned
         return b
@@ -115,6 +118,17 @@ def _public_history(h: dict) -> dict:
 
 
 MARKET_CATEGORIES = {"overs", "unders", "btts", "wins"}
+
+
+class SelectionUpdate(BaseModel):
+    season: str
+    matchday: str
+    league: str
+    target_home: str
+    target_away: str
+    expected: str
+    selected: bool
+
 
 
 def _market_category(expected: str | None) -> str | None:
@@ -134,10 +148,22 @@ def _market_category(expected: str | None) -> str | None:
 
 
 def _filter_public_predictions(predictions: list[dict], category: str) -> list[dict]:
-    return [
-        p for p in (predictions or [])
+    filtered = [
+        dict(p) for p in (predictions or [])
         if _market_category(p.get("expected")) == category
     ]
+    filtered.sort(
+        key=lambda p: (
+            float(p.get("top_historical_win_rate") or 0.0),
+            int(p.get("top_wins") or 0),
+            int(p.get("support_count") or 0),
+            int(p.get("top_tests") or 0),
+        ),
+        reverse=True,
+    )
+    for index, p in enumerate(filtered, start=1):
+        p["market_rank"] = index
+    return filtered
 
 
 def _filter_public_history(history: dict, category: str) -> dict:
@@ -195,6 +221,49 @@ def _filter_public_history(history: dict, category: str) -> dict:
         ),
         None,
     )
+
+    selected_batches = []
+    sw = sl = sp = 0
+    for batch in filtered_batches:
+        chosen = [p for p in (batch.get("predictions") or []) if p.get("selected")]
+        if not chosen:
+            continue
+        b = dict(batch)
+        bw = sum(p.get("outcome") == "WON" for p in chosen)
+        bl = sum(p.get("outcome") == "LOST" for p in chosen)
+        bp = sum(p.get("outcome") == "PENDING" for p in chosen)
+        bg = bw + bl
+        sw += bw
+        sl += bl
+        sp += bp
+        b.update({
+            "predictions": chosen,
+            "candidate_count": len(chosen),
+            "wins": bw,
+            "losses": bl,
+            "pending": bp,
+            "graded": bg,
+            "win_rate": (bw / bg) if bg else None,
+        })
+        selected_batches.append(b)
+
+    selected_graded = sw + sl
+    out["selected_overall"] = {
+        "wins": sw,
+        "losses": sl,
+        "pending": sp,
+        "graded": selected_graded,
+        "win_rate": (sw / selected_graded) if selected_graded else None,
+    }
+    out["selected_batches"] = selected_batches
+    out["last_selected_batch"] = selected_batches[0] if selected_batches else None
+    out["last_completed_selected_batch"] = next(
+        (
+            b for b in selected_batches
+            if b.get("graded", 0) > 0 and b.get("pending", 0) == 0
+        ),
+        None,
+    )
     return out
 
 
@@ -219,9 +288,9 @@ def market_page(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.4",
+        "version": "0.3.5",
         "rules_public": False,
-        "mode": "separate market pages + private multi-market prediction",
+        "mode": "ranked market pages + persistent user combos",
     }
 
 
@@ -306,6 +375,24 @@ def predict_category(category: str, request: Request, response: Response):
         raise
     except Exception as e:
         raise HTTPException(502, str(e))
+
+
+@app.post("/api/selection")
+def update_selection(payload: SelectionUpdate, request: Request, response: Response):
+    user_id = _user_id(request, response)
+    changed = set_prediction_selected(
+        user_id=user_id,
+        season=payload.season,
+        matchday=payload.matchday,
+        league=payload.league,
+        target_home=payload.target_home,
+        target_away=payload.target_away,
+        expected=payload.expected,
+        selected=payload.selected,
+    )
+    if not changed:
+        raise HTTPException(404, "Prediction was not found for this browser.")
+    return {"ok": True, "selected": payload.selected}
 
 
 @app.get("/api/history")

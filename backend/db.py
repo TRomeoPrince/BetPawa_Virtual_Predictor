@@ -70,6 +70,7 @@ def connect():
     _ensure_column(con, "user_predictions", "ht_home", "INTEGER")
     _ensure_column(con, "user_predictions", "ht_away", "INTEGER")
     _ensure_column(con, "user_predictions", "supports_json", "TEXT")
+    _ensure_column(con, "user_predictions", "selected", "INTEGER NOT NULL DEFAULT 0")
 
     con.execute("""
     CREATE TABLE IF NOT EXISTS round_cache (
@@ -150,6 +151,34 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
 
     con.commit()
     con.close()
+
+
+def set_prediction_selected(
+    user_id: str,
+    season: str,
+    matchday: str,
+    league: str,
+    target_home: str,
+    target_away: str,
+    expected: str,
+    selected: bool,
+) -> bool:
+    """Persist one browser user's choice without changing the prediction itself."""
+    con = connect()
+    cur = con.execute("""
+      UPDATE user_predictions
+      SET selected=?
+      WHERE user_id=? AND season=? AND matchday=? AND league=?
+        AND target_home=? AND target_away=? AND expected=?
+    """, (
+        1 if selected else 0,
+        str(user_id), str(season), str(matchday), str(league),
+        str(target_home), str(target_away), str(expected),
+    ))
+    con.commit()
+    changed = cur.rowcount > 0
+    con.close()
+    return changed
 
 
 def _result_side(home: int, away: int) -> str:
@@ -284,7 +313,7 @@ def _batch_predictions(con, user_id: str, season: str, matchday: str):
       SELECT league, selected_team, target_position, target_home, target_away,
              confidence, alignment, recent_wins, recent_tests, expected,
              outcome, ht_home, ht_away, ft_home, ft_away, graded_at, created_at,
-             supports_json
+             supports_json, selected
       FROM user_predictions
       WHERE user_id=? AND season=? AND matchday=?
       ORDER BY confidence DESC, league, id

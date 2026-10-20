@@ -5,7 +5,7 @@
 <title>BetPawa Predictor</title>
 <style>
 :root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--green:#63e29a;--accent:#b8ef4c;--amber:#ffd166;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1050px;margin:auto;padding:24px}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}.nav a{color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-weight:800}.nav a.active{background:var(--accent);color:#11180a;border-color:var(--accent)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}h1{margin:0;font-size:clamp(32px,5vw,48px)}.sub{color:var(--muted);line-height:1.5;margin-top:7px;max-width:720px}.badge{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--accent);font-weight:900}.hero,.section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px}.button{background:var(--accent);color:#11180a;border:0;border-radius:12px;padding:12px 17px;font-size:15px;font-weight:900;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}.secondary{background:#172536;color:var(--txt);border:1px solid var(--line)}.meta{color:var(--muted);font-size:13px;line-height:1.5}.ok{color:var(--green)}.error{color:var(--red);font-weight:800}.overview,.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px}.stat b{display:block;font-size:20px}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.section h2{margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}.card h3{margin:0}.fixture{font-size:19px;font-weight:900;margin:9px 0}.market{color:var(--green);font-weight:900}.rate{font-size:26px;font-weight:950;color:var(--green)}.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.outcome{font-size:12px;font-weight:900;border-radius:999px;padding:5px 8px;display:inline-block;margin-top:6px}.WON{background:#102619;color:var(--green)}.LOST{background:#2a1417;color:var(--red)}.PENDING{background:#2b250e;color:var(--amber)}.empty{color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}@media(max-width:760px){.grid,.overview,.stats{grid-template-columns:1fr}.wrap{padding:16px}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1050px;margin:auto;padding:24px}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}.nav a{color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-weight:800}.nav a.active{background:var(--accent);color:#11180a;border-color:var(--accent)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}h1{margin:0;font-size:clamp(32px,5vw,48px)}.sub{color:var(--muted);line-height:1.5;margin-top:7px;max-width:720px}.badge{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--accent);font-weight:900}.hero,.section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px}.button{background:var(--accent);color:#11180a;border:0;border-radius:12px;padding:12px 17px;font-size:15px;font-weight:900;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}.secondary{background:#172536;color:var(--txt);border:1px solid var(--line)}.meta{color:var(--muted);font-size:13px;line-height:1.5}.ok{color:var(--green)}.error{color:var(--red);font-weight:800}.overview,.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px}.stat b{display:block;font-size:20px}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.section h2{margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}.card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.rank{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:999px;background:#172536;color:var(--accent);font-weight:950;margin-right:8px}.pickBtn{margin-top:11px;width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:#172536;color:var(--txt);font-weight:900;cursor:pointer}.pickBtn.on{background:var(--accent);color:#11180a;border-color:var(--accent)}.leagueGroup{margin-top:18px}.leagueName{font-size:18px;letter-spacing:.08em;color:var(--accent);margin:0 0 10px}.comboNote{border:1px dashed var(--line);border-radius:12px;padding:12px;color:var(--muted);margin-top:10px}.card h3{margin:0}.fixture{font-size:19px;font-weight:900;margin:9px 0}.market{color:var(--green);font-weight:900}.rate{font-size:26px;font-weight:950;color:var(--green)}.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.outcome{font-size:12px;font-weight:900;border-radius:999px;padding:5px 8px;display:inline-block;margin-top:6px}.WON{background:#102619;color:var(--green)}.LOST{background:#2a1417;color:var(--red)}.PENDING{background:#2b250e;color:var(--amber)}.empty{color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}@media(max-width:760px){.grid,.overview,.stats{grid-template-columns:1fr}.wrap{padding:16px}}
 </style>
 </head>
 <body><main class="wrap">
@@ -19,7 +19,7 @@
 
 <div class="top">
   <div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div>
-  <div class="badge">v0.3.4</div>
+  <div class="badge">v0.3.5</div>
 </div>
 
 <section class="hero">
@@ -29,13 +29,28 @@
 </section>
 
 <section class="section">
-  <div class="sectionHead"><h2 id="currentTitle">Current predictions</h2><span id="count" class="meta"></span></div>
-  <div id="predictions" class="grid"><div class="empty">Press the button above to check this market.</div></div>
+  <div class="sectionHead"><h2>Top Ranked Picks</h2><span class="meta">Win rate → past wins → support</span></div>
+  <div id="topPicks" class="grid"><div class="empty">Check predictions to rank the strongest picks.</div></div>
 </section>
 
 <section class="section">
-  <div class="sectionHead"><h2>Last result</h2><button id="refresh" class="button secondary">Refresh results</button></div>
-  <div id="last"><div class="empty">No saved result for this market yet.</div></div>
+  <div class="sectionHead"><h2>My Combo</h2><span id="comboCount" class="meta">0 selected</span></div>
+  <div id="combo" class="grid"><div class="empty">Choose the matches you personally want to follow.</div></div>
+</section>
+
+<section class="section">
+  <div class="sectionHead"><h2 id="currentTitle">Predictions by League</h2><span id="count" class="meta"></span></div>
+  <div id="predictions"><div class="empty">Press the button above to check this market.</div></div>
+</section>
+
+<section class="section">
+  <div class="sectionHead"><h2>My Combo Results</h2><button id="refresh" class="button secondary">Refresh results</button></div>
+  <div id="selectedResults"><div class="empty">No selected result for this market yet.</div></div>
+</section>
+
+<section class="section">
+  <h2>Other Prediction Results</h2>
+  <div id="last"><div class="empty">No other saved result for this market yet.</div></div>
 </section>
 
 <section class="section">
@@ -66,38 +81,101 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const pct=v=>v==null?'—':(Number(v)*100).toFixed(1)+'%';
 async function json(url,opt){const r=await fetch(url,opt);const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={detail:t}};if(!r.ok)throw new Error(d.detail||t||r.statusText);return d}
 
-function predictionCard(p){
+let currentSeason=null;
+let currentMatchday=null;
+let latestPredictions=[];
+let selectedKeys=new Set();
+
+function keyOf(p){
+  return [p.league,p.target_home,p.target_away,p.expected].join('|');
+}
+function rankSort(a,b){
+  return (Number(b.top_historical_win_rate||0)-Number(a.top_historical_win_rate||0))
+    || (Number(b.top_wins||0)-Number(a.top_wins||0))
+    || (Number(b.support_count||0)-Number(a.support_count||0))
+    || (Number(b.top_tests||0)-Number(a.top_tests||0));
+}
+function predictionCard(p,compact=false){
   const detail=(p.top_wins!=null&&p.top_tests!=null)?(p.top_wins+'/'+p.top_tests+' historical tests'):'Validated historical pattern';
   const support=p.support_count>1?(' · '+p.support_count+' private supports'):'';
-  return '<div class="card"><div class="row"><h3>'+esc(p.league)+'</h3><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div></div>';
+  const selected=selectedKeys.has(keyOf(p));
+  const rank=p.market_rank?('<span class="rank">#'+p.market_rank+'</span>'):'';
+  const button=compact?'':('<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+(selected?'✓ In My Combo':'+ Add to My Combo')+'</button>');
+  return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+'<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div>'+button+'</div>';
 }
+function bindPickButtons(){
+  document.querySelectorAll('[data-pick]').forEach(btn=>btn.onclick=async()=>{
+    const p=latestPredictions.find(x=>keyOf(x)===btn.dataset.pick);
+    if(!p||currentSeason==null||currentMatchday==null)return;
+    const selected=!selectedKeys.has(keyOf(p));
+    btn.disabled=true;
+    try{
+      await json('/api/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        season:String(currentSeason),matchday:String(currentMatchday),league:p.league,
+        target_home:p.target_home,target_away:p.target_away,expected:p.expected,selected
+      })});
+      if(selected) selectedKeys.add(keyOf(p)); else selectedKeys.delete(keyOf(p));
+      renderCurrent();
+      await loadHistory();
+    }catch(e){alert(e.message)}
+  });
+}
+function renderCurrent(){
+  latestPredictions.sort(rankSort);
+  latestPredictions.forEach((p,i)=>p.market_rank=i+1);
 
+  const top=latestPredictions.slice(0,Math.min(5,latestPredictions.length));
+  $('#topPicks').innerHTML=top.length?top.map(p=>predictionCard(p)).join(''):'<div class="empty">No ranked picks are available.</div>';
+
+  const selected=latestPredictions.filter(p=>selectedKeys.has(keyOf(p)));
+  $('#comboCount').textContent=selected.length+' selected';
+  $('#combo').innerHTML=selected.length?selected.map(p=>predictionCard(p,true)).join(''):'<div class="empty">Choose the matches you personally want to follow.</div>';
+
+  const groups={};
+  for(const p of latestPredictions){
+    (groups[p.league]??=[]).push(p);
+  }
+  const leagues=Object.keys(groups).sort();
+  $('#predictions').innerHTML=leagues.length?leagues.map(league=>
+    '<div class="leagueGroup"><h3 class="leagueName">'+esc(league.toUpperCase())+'</h3><div class="grid">'+groups[league].map(p=>predictionCard(p)).join('')+'</div></div>'
+  ).join(''):'<div class="empty">No '+esc(cfg.title)+' candidate triggered for the next matchday.</div>';
+  bindPickButtons();
+}
+function cardResult(p){
+  const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
+  return '<div class="card"><div class="row"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div></div>';
+}
 function renderHistory(h){
   h=h||{};
-  const o=h.overall||{};
+  const o=h.selected_overall||{wins:0,losses:0,pending:0,graded:0,win_rate:null};
   $('#stats').innerHTML=
-    '<div class="stat"><b>'+Number(o.wins||0)+'</b><span class="meta">Wins</span></div>'+
-    '<div class="stat"><b>'+Number(o.losses||0)+'</b><span class="meta">Losses</span></div>'+
-    '<div class="stat"><b>'+pct(o.win_rate)+'</b><span class="meta">Win rate</span></div>'+
-    '<div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">Pending</span></div>';
+    '<div class="stat"><b>'+Number(o.wins||0)+'</b><span class="meta">My wins</span></div>'+
+    '<div class="stat"><b>'+Number(o.losses||0)+'</b><span class="meta">My losses</span></div>'+
+    '<div class="stat"><b>'+pct(o.win_rate)+'</b><span class="meta">My combo win rate</span></div>'+
+    '<div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">My pending</span></div>';
 
-  const b=h.last_completed_batch||h.last_batch;
-  if(!b){
-    $('#last').innerHTML='<div class="empty">No saved result for this market yet.</div>';
-  }else if(!(b.predictions||[]).length){
-    $('#last').innerHTML='<div class="empty">The latest saved request had no '+esc(cfg.title)+' candidates.</div>';
-  }else{
-    $('#last').innerHTML='<div class="grid">'+b.predictions.map(p=>{
-      const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
-      return '<div class="card"><div class="row"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div></div>';
-    }).join('')+'</div>';
+  const current=h.last_batch;
+  if(current&&String(current.season)===String(currentSeason)&&String(current.matchday)===String(currentMatchday)){
+    selectedKeys=new Set((current.predictions||[]).filter(p=>p.selected).map(keyOf));
+    if(latestPredictions.length) renderCurrent();
   }
 
-  const batches=h.recent_batches||[];
+  const sb=h.last_completed_selected_batch||h.last_selected_batch;
+  $('#selectedResults').innerHTML=sb&&(sb.predictions||[]).length
+    ?'<div class="grid">'+sb.predictions.map(cardResult).join('')+'</div>'
+    :'<div class="empty">No selected result for this market yet.</div>';
+
+  const b=h.last_completed_batch||h.last_batch;
+  const others=b?(b.predictions||[]).filter(p=>!p.selected):[];
+  $('#last').innerHTML=others.length
+    ?'<div class="grid">'+others.map(cardResult).join('')+'</div>'
+    :'<div class="empty">No other saved result for this market yet.</div>';
+
+  const batches=h.selected_batches||[];
   $('#history').innerHTML=batches.length?batches.map(b=>{
     const r=b.graded?(b.wins+'/'+b.graded+' won'):(b.candidate_count?'Pending':'No candidates');
     return '<tr><td>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</td><td>'+esc(r)+'</td><td>'+pct(b.win_rate)+'</td><td>'+Number(b.pending||0)+'</td></tr>';
-  }).join(''):'<tr><td colspan="4" class="meta">No history for this market yet.</td></tr>';
+  }).join(''):'<tr><td colspan="4" class="meta">No selected-match history yet.</td></tr>';
 }
 
 async function loadHistory(){
@@ -118,8 +196,12 @@ async function run(){
       '<div class="stat"><b>'+esc(x.latest_completed_matchday)+'</b><span class="meta">Latest completed MD</span></div>'+
       '<div class="stat"><b>'+esc(x.next_matchday)+'</b><span class="meta">Next MD</span></div>'+
       '<div class="stat"><b>'+x.predictions.length+'</b><span class="meta">'+esc(cfg.title)+' picks</span></div>';
-    $('#count').textContent=x.predictions.length+' pick'+(x.predictions.length===1?'':'s');
-    $('#predictions').innerHTML=x.predictions.length?x.predictions.map(predictionCard).join(''):'<div class="empty">No '+esc(cfg.title)+' candidate triggered for the next matchday.</div>';
+    currentSeason=x.season;
+    currentMatchday=x.next_matchday;
+    latestPredictions=x.predictions||[];
+    selectedKeys=new Set(((x.personal&&x.personal.last_batch&&x.personal.last_batch.predictions)||[]).filter(p=>p.selected).map(keyOf));
+    $('#count').textContent=latestPredictions.length+' pick'+(latestPredictions.length===1?'':'s');
+    renderCurrent();
     renderHistory(x.personal);
   }catch(e){m.innerHTML='<span class="error">'+esc(e.message)+'</span>'}
   finally{b.disabled=false}

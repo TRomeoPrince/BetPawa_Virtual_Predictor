@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.4
+# BetPawa Predictor v0.3.5
 
 The local folder remains **BetPawa Predictor**.
 
@@ -134,3 +134,30 @@ so the Overs page does not render BTTS or Under predictions and vice versa.
 
 The existing private rules, v0.3.3 strategy-output protection, caching, personal
 history and grading logic remain unchanged.
+
+
+## v0.3.5 ranked picks, personal combos and league sections
+
+Each market page now ranks its available picks by:
+
+1. historical win rate
+2. number of historical wins
+3. number of private supporting strategies
+4. historical test count
+
+The ranking does not manufacture a combined probability.
+
+Users can add exact predictions to **My Combo**. That choice is stored against the
+browser user's saved prediction row, so it survives page refreshes and can be
+graded later.
+
+The page separates:
+
+- Top Ranked Picks
+- My Combo
+- Predictions by League (ENGLISH, DUTCH, SPANISH, etc.)
+- My Combo Results
+- Other Prediction Results
+
+Personal stats on a market page now emphasize the user's selected matches rather
+than mixing every generated candidate into the same result summary.
