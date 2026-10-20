@@ -24,7 +24,7 @@ MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.5")
+app = FastAPI(title="BetPawa Predictor", version="0.3.6")
 feed = BetPawaFeed()
 
 
@@ -70,6 +70,32 @@ def _public_prediction(p: dict) -> dict:
         "top_tests": top.get("tests"),
         "top_edge_pp": top.get("edge_pp"),
         "top_positive_seasons": top.get("positive_seasons"),
+    }
+
+
+def _public_tracker(t: dict) -> dict:
+    """Expose tracker state/results without exposing private trigger internals."""
+    return {
+        "tracker_key": t.get("tracker_key"),
+        "league": t.get("league"),
+        "market": t.get("market"),
+        "state": t.get("state"),
+        "season_wins": t.get("season_wins"),
+        "season_losses": t.get("season_losses"),
+        "season_triggers": t.get("season_triggers"),
+        "season_rate": t.get("season_rate"),
+        "last_outcome": t.get("last_outcome"),
+        "last_matchday": t.get("last_matchday"),
+        "candidate_count": t.get("candidate_count"),
+        "current_candidates": [
+            {
+                "league": p.get("league"),
+                "target_home": p.get("target_home"),
+                "target_away": p.get("target_away"),
+                "expected": p.get("expected"),
+            }
+            for p in (t.get("current_candidates") or [])
+        ],
     }
 
 
@@ -288,9 +314,9 @@ def market_page(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.5",
+        "version": "0.3.6",
         "rules_public": False,
-        "mode": "ranked market pages + persistent user combos",
+        "mode": "ranked market pages + combos + live strategy lifecycle tracker",
     }
 
 
@@ -324,6 +350,9 @@ def predict(request: Request, response: Response):
         public_result = dict(result)
         public_result["predictions"] = [
             _public_prediction(p) for p in result.get("predictions", [])
+        ]
+        public_result["trackers"] = [
+            _public_tracker(t) for t in result.get("trackers", [])
         ]
         public_result["personal"] = _public_history(get_user_history(user_id))
         return public_result
@@ -365,6 +394,11 @@ def predict_category(category: str, request: Request, response: Response):
             [_public_prediction(p) for p in result.get("predictions", [])],
             category,
         )
+        public_result["trackers"] = [
+            _public_tracker(t)
+            for t in result.get("trackers", [])
+            if _market_category(t.get("market")) == category
+        ]
         public_result["personal"] = _filter_public_history(
             _public_history(get_user_history(user_id)),
             category,

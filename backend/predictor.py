@@ -53,6 +53,127 @@ def alignment_status(rule: dict[str, Any], recent: Alignment) -> str:
     return "ALIGNED" if (recent.rate or 0.0) >= floor else "PAUSED"
 
 
+def _english_o25_tracker(context: dict[str, Any]) -> dict[str, Any]:
+    """Track one English O2.5 pattern through the current season.
+
+    Internal rule: highest FT goal-total level in a completed English round,
+    follow the winner(s) into the next fixture, then grade O2.5.
+
+    Lifecycle:
+      ACTIVE -> loss -> RISKY
+      RISKY -> win -> ACTIVE
+      RISKY -> loss -> ABANDONED for the season
+
+    If several source matches tie for the highest total, all decisive winners
+    are followed. A trigger round counts as a success only when every resulting
+    target pick finishes O2.5; this keeps the tracker conservative.
+    """
+    all_round_maps = context.get("strategy_rounds") or []
+    target_index = context.get("strategy_target_index")
+    if not isinstance(target_index, int) or target_index <= 0:
+        return {}
+
+    rounds = [round_map.get("English", []) for round_map in all_round_maps]
+    tracker_strategy = {
+        "strategy_id": "_tracker.english.rank1.winner",
+        "strategy_name": "English O2.5 live tracker",
+        "league": "English",
+        "market": "Over 2.5 FT",
+        "wins": 0,
+        "tests": 1,
+        "win_rate": 0.0,
+        "baseline": 0.0,
+        "edge_pp": 0.0,
+        "positive_seasons": None,
+        "kind": "rank_total_follow",
+        "params": {"rank": 1, "role": "winner"},
+    }
+
+    state = "ACTIVE"
+    events: list[dict[str, Any]] = []
+
+    # Index target_index is the upcoming round, so only earlier targets can be
+    # graded. Each idx represents one source->target trigger opportunity.
+    for idx in range(1, min(target_index, len(rounds))):
+        picks = evaluate_multimarket_strategy(tracker_strategy, rounds, idx)
+        if not picks:
+            continue
+
+        outcomes = []
+        fixtures = []
+        for p in picks:
+            row = next(
+                (
+                    m for m in rounds[idx]
+                    if m.get("home") == p.get("target_home")
+                    and m.get("away") == p.get("target_away")
+                ),
+                None,
+            )
+            if not row:
+                continue
+            fh, fa = row.get("ft_home"), row.get("ft_away")
+            if not isinstance(fh, int) or not isinstance(fa, int):
+                continue
+            outcomes.append((fh + fa) >= 3)
+            fixtures.append({
+                "home": row.get("home"),
+                "away": row.get("away"),
+                "ft_home": fh,
+                "ft_away": fa,
+            })
+
+        if not outcomes:
+            continue
+
+        worked = all(outcomes)
+        before_state = state
+        if state != "ABANDONED":
+            if worked:
+                state = "ACTIVE"
+            elif state == "RISKY":
+                state = "ABANDONED"
+            else:
+                state = "RISKY"
+
+        events.append({
+            "matchday": idx + 1,
+            "outcome": "WIN" if worked else "LOSS",
+            "state_before": before_state,
+            "state_after": state,
+            "fixtures": fixtures,
+        })
+
+    current_picks = []
+    if target_index < len(rounds):
+        for p in evaluate_multimarket_strategy(tracker_strategy, rounds, target_index):
+            current_picks.append({
+                "league": "English",
+                "target_home": p.get("target_home"),
+                "target_away": p.get("target_away"),
+                "expected": "Over 2.5 FT",
+            })
+
+    wins = sum(e["outcome"] == "WIN" for e in events)
+    losses = sum(e["outcome"] == "LOSS" for e in events)
+    last = events[-1] if events else None
+
+    return {
+        "tracker_key": "english_o25_live",
+        "league": "English",
+        "market": "Over 2.5 FT",
+        "state": state,
+        "season_wins": wins,
+        "season_losses": losses,
+        "season_triggers": len(events),
+        "season_rate": (wins / len(events)) if events else None,
+        "last_outcome": last.get("outcome") if last else None,
+        "last_matchday": last.get("matchday") if last else None,
+        "current_candidates": current_picks,
+        "candidate_count": len(current_picks),
+    }
+
+
 def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
     """Build original frozen-rule picks plus the approved multi-market set.
 
@@ -236,6 +357,11 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         reverse=True,
     )
 
+    trackers = []
+    english_tracker = _english_o25_tracker(context)
+    if english_tracker:
+        trackers.append(english_tracker)
+
     return {
         "ok": True,
         "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -246,5 +372,6 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         "alignment_scope": context["alignment_scope"],
         "leagues": leagues,
         "predictions": predictions,
+        "trackers": trackers,
         "multi_market_strategy_count": len(NEW_STRATEGIES),
     }

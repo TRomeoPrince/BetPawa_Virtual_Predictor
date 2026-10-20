@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.5
+# BetPawa Predictor v0.3.6
 
 The local folder remains **BetPawa Predictor**.
 
@@ -161,3 +161,36 @@ The page separates:
 
 Personal stats on a market page now emphasize the user's selected matches rather
 than mixing every generated candidate into the same result summary.
+
+
+## v0.3.6 English live tracker + reliable restart
+
+The Overs page now includes a live current-season tracker for the English pattern
+the user requested to watch.
+
+Internal tracker logic:
+- identify the highest full-time goal-total level in the completed English round
+- follow the winner(s) into their next fixture
+- grade whether the next fixture finishes Over 2.5 FT
+
+Lifecycle:
+- ACTIVE + loss -> RISKY
+- RISKY + win -> ACTIVE
+- RISKY + loss -> ABANDONED for the rest of that season
+
+No future target score is used to qualify a pick.
+
+The tracker is intentionally separate from ranked validated strategies because it
+does not yet have an approved historical validation rate for the main ranking.
+
+The market page exposes only tracker state, season record and target fixture(s);
+the private trigger implementation remains backend-side.
+
+### Combo Not Found fix
+
+A browser could load the new v0.3.5 HTML while an older Uvicorn process was still
+serving the backend, causing `/api/selection` to return 404 Not Found.
+
+`run.bat` now stops the existing listener on dedicated port 8010 before starting
+the current predictor, and the frontend warns when its version does not match the
+running backend.
