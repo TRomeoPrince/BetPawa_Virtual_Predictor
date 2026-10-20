@@ -25,7 +25,7 @@ MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.9")
+app = FastAPI(title="BetPawa Predictor", version="0.3.10")
 feed = BetPawaFeed()
 
 
@@ -375,11 +375,22 @@ def _filter_public_history(history: dict, category: str) -> dict:
     return out
 
 
-@app.get("/")
-def home(request: Request):
-    response = FileResponse(FRONTEND)
+def _frontend_response(path: Path, request: Request):
+    response = FileResponse(
+        path,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
     _user_id(request, response)
     return response
+
+
+@app.get("/")
+def home(request: Request):
+    return _frontend_response(FRONTEND, request)
 
 
 @app.get("/overs")
@@ -387,18 +398,16 @@ def home(request: Request):
 @app.get("/btts")
 @app.get("/wins")
 def market_page(request: Request):
-    response = FileResponse(MARKET_PAGE)
-    _user_id(request, response)
-    return response
+    return _frontend_response(MARKET_PAGE, request)
 
 
 @app.get("/api/status")
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.9",
+        "version": "0.3.10",
         "rules_public": False,
-        "mode": "Pattern 1 + Pattern 2 + time confirmation + recoverable season tracker",
+        "mode": "Pattern 1 + Pattern 2 + time confirmation + cache-safe frontend",
     }
 
 

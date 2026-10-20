@@ -19,7 +19,7 @@
 
 <div class="top">
   <div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div>
-  <div class="badge">v0.3.9</div>
+  <div class="badge">v0.3.10</div>
 </div>
 <div id="backendWarn" class="backendWarn"></div>
 
@@ -126,10 +126,10 @@ function renderTrackers(trackers){
 async function checkBackendVersion(){
   try{
     const s=await json('/api/status');
-    if(s.version!=='0.3.9'){
+    if(s.version!=='0.3.10'){
       const w=$('#backendWarn');
       w.style.display='block';
-      w.textContent='Frontend v0.3.9 is loaded, but the running backend is v'+String(s.version||'?')+'. Close the old server window and run run.bat again.';
+      w.textContent='Frontend v0.3.10 is loaded, but the running backend is v'+String(s.version||'?')+'. Close the old server window and run run.bat again.';
     }
   }catch(e){}
 }

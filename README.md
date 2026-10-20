@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.9
+# BetPawa Predictor v0.3.10
 
 The local folder remains **BetPawa Predictor**.
 
@@ -291,3 +291,12 @@ New lifecycle:
 WATCHING continues evaluating every future actual trigger. Current WATCHING
 candidates are shown as observation-only so a later recovery is visible instead
 of being missed.
+
+
+## v0.3.10 cache-safe frontend
+
+Frontend HTML responses now send no-store/no-cache headers. This prevents Chrome
+from keeping an older market page after the backend has already been updated.
+
+run.bat also opens the home page with a version query string so a freshly started
+predictor requests the current frontend immediately.

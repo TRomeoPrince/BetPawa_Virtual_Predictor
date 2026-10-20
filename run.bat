@@ -14,7 +14,7 @@ for /f "tokens=5" %%P in ('netstat -aon ^| findstr ":8010" ^| findstr "LISTENING
 timeout /t 1 /nobreak >nul
 
 echo.
-echo Starting BetPawa Predictor v0.3.9 at http://127.0.0.1:8010
-start "" http://127.0.0.1:8010
+echo Starting BetPawa Predictor v0.3.10 at http://127.0.0.1:8010
+start "" "http://127.0.0.1:8010/?v=0.3.10"
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010
 pause
