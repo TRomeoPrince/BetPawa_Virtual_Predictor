@@ -18,10 +18,11 @@ from .db import (
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend" / "index.html"
+MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.3")
+app = FastAPI(title="BetPawa Predictor", version="0.3.4")
 feed = BetPawaFeed()
 
 
@@ -113,9 +114,103 @@ def _public_history(h: dict) -> dict:
     return out
 
 
+MARKET_CATEGORIES = {"overs", "unders", "btts", "wins"}
+
+
+def _market_category(expected: str | None) -> str | None:
+    label = " ".join(str(expected or "").upper().split())
+    if label.startswith("OVER "):
+        return "overs"
+    if label.startswith("UNDER "):
+        return "unders"
+    if "BTTS" in label:
+        return "btts"
+    if label in {
+        "HOME WIN", "AWAY WIN", "HOME FT", "AWAY FT",
+        "FT HOME", "FT AWAY", "1", "2",
+    }:
+        return "wins"
+    return None
+
+
+def _filter_public_predictions(predictions: list[dict], category: str) -> list[dict]:
+    return [
+        p for p in (predictions or [])
+        if _market_category(p.get("expected")) == category
+    ]
+
+
+def _filter_public_history(history: dict, category: str) -> dict:
+    """Return one market family's personal history without mixing other markets."""
+    source = dict(history or {})
+    out = dict(source)
+
+    market_rows = [
+        dict(m) for m in (source.get("by_market") or [])
+        if _market_category(m.get("market")) == category
+    ]
+    wins = sum(int(m.get("wins") or 0) for m in market_rows)
+    losses = sum(int(m.get("losses") or 0) for m in market_rows)
+    pending = sum(int(m.get("pending") or 0) for m in market_rows)
+    graded = wins + losses
+    out["overall"] = {
+        "wins": wins,
+        "losses": losses,
+        "pending": pending,
+        "graded": graded,
+        "win_rate": (wins / graded) if graded else None,
+    }
+    out["by_market"] = market_rows
+
+    filtered_batches = []
+    for batch in source.get("recent_batches") or []:
+        b = dict(batch)
+        preds = [
+            dict(p) for p in (batch.get("predictions") or [])
+            if _market_category(p.get("expected")) == category
+        ]
+        bw = sum(p.get("outcome") == "WON" for p in preds)
+        bl = sum(p.get("outcome") == "LOST" for p in preds)
+        bp = sum(p.get("outcome") == "PENDING" for p in preds)
+        bg = bw + bl
+        b.update({
+            "predictions": preds,
+            "candidate_count": len(preds),
+            "wins": bw,
+            "losses": bl,
+            "pending": bp,
+            "graded": bg,
+            "win_rate": (bw / bg) if bg else None,
+        })
+        filtered_batches.append(b)
+
+    out["recent_batches"] = filtered_batches
+    out["last_batch"] = filtered_batches[0] if filtered_batches else None
+    out["last_completed_batch"] = next(
+        (
+            b for b in filtered_batches
+            if b.get("predictions")
+            and b.get("graded", 0) > 0
+            and b.get("pending", 0) == 0
+        ),
+        None,
+    )
+    return out
+
+
 @app.get("/")
 def home(request: Request):
     response = FileResponse(FRONTEND)
+    _user_id(request, response)
+    return response
+
+
+@app.get("/overs")
+@app.get("/unders")
+@app.get("/btts")
+@app.get("/wins")
+def market_page(request: Request):
+    response = FileResponse(MARKET_PAGE)
     _user_id(request, response)
     return response
 
@@ -124,9 +219,9 @@ def home(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.3",
+        "version": "0.3.4",
         "rules_public": False,
-        "mode": "41-rule multi-market + frozen rules + personal cached prediction",
+        "mode": "separate market pages + private multi-market prediction",
     }
 
 
@@ -167,6 +262,52 @@ def predict(request: Request, response: Response):
         raise HTTPException(502, str(e))
 
 
+@app.post("/api/predict/{category}")
+def predict_category(category: str, request: Request, response: Response):
+    if category not in MARKET_CATEGORIES:
+        raise HTTPException(404, "Unknown market page.")
+
+    user_id = _user_id(request, response)
+    started = time.perf_counter()
+    try:
+        context = feed.prediction_context()
+        graded_now = grade_user_predictions(
+            user_id,
+            context.get("completed_rounds_for_grading", []),
+        )
+
+        result = build_prediction(context)
+        result["feed_mode"] = context.get("feed_mode")
+        result["next_round_id"] = context.get("next_round_id")
+        result["performance"] = {
+            "seconds": round(time.perf_counter() - started, 3),
+            "round_cache_hits": context.get("round_cache_hits", 0),
+            "round_cache_misses": context.get("round_cache_misses", 0),
+            "context_cache_hit": bool(context.get("context_cache_hit")),
+            "graded_previous_now": graded_now,
+        }
+
+        # Save the complete prediction snapshot once. The browser only receives
+        # the market family it explicitly opened.
+        save_user_prediction_batch(user_id, result)
+
+        public_result = dict(result)
+        public_result["predictions"] = _filter_public_predictions(
+            [_public_prediction(p) for p in result.get("predictions", [])],
+            category,
+        )
+        public_result["personal"] = _filter_public_history(
+            _public_history(get_user_history(user_id)),
+            category,
+        )
+        public_result["market_page"] = category
+        return public_result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
 @app.get("/api/history")
 def history(request: Request, response: Response):
     user_id = _user_id(request, response)
@@ -184,6 +325,44 @@ def refresh_history(request: Request, response: Response):
             context.get("completed_rounds_for_grading", []),
         )
         history = _public_history(get_user_history(user_id))
+        history["refresh"] = {
+            "graded_now": graded,
+            "seconds": round(time.perf_counter() - started, 3),
+            "context_cache_hit": bool(context.get("context_cache_hit")),
+        }
+        return history
+    except Exception as e:
+        raise HTTPException(502, str(e))
+
+
+@app.get("/api/history/{category}")
+def history_category(category: str, request: Request, response: Response):
+    if category not in MARKET_CATEGORIES:
+        raise HTTPException(404, "Unknown market page.")
+    user_id = _user_id(request, response)
+    return _filter_public_history(
+        _public_history(get_user_history(user_id)),
+        category,
+    )
+
+
+@app.post("/api/history/{category}/refresh")
+def refresh_history_category(category: str, request: Request, response: Response):
+    if category not in MARKET_CATEGORIES:
+        raise HTTPException(404, "Unknown market page.")
+
+    user_id = _user_id(request, response)
+    started = time.perf_counter()
+    try:
+        context = feed.prediction_context()
+        graded = grade_user_predictions(
+            user_id,
+            context.get("completed_rounds_for_grading", []),
+        )
+        history = _filter_public_history(
+            _public_history(get_user_history(user_id)),
+            category,
+        )
         history["refresh"] = {
             "graded_now": graded,
             "seconds": round(time.perf_counter() - started, 3),

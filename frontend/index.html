@@ -4,192 +4,23 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BetPawa Predictor</title>
 <style>
-:root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--green:#63e29a;--accent:#b8ef4c;--amber:#ffd166;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1120px;margin:auto;padding:26px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}h1{margin:0;font-size:clamp(30px,5vw,48px)}.sub{color:var(--muted);line-height:1.55;max-width:790px;margin-top:8px}.badge{border:1px solid var(--line);border-radius:999px;padding:9px 14px;color:var(--accent);font-weight:800}.hero,.section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px}.hero{background:linear-gradient(180deg,#101b27,#0d1721);padding:20px;margin-top:22px}.button{background:var(--accent);color:#11180a;border:0;border-radius:12px;padding:13px 19px;font-weight:900;font-size:16px;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}.secondary{background:#172536;color:var(--txt);border:1px solid var(--line);padding:9px 13px;font-size:13px}.meta{color:var(--muted);font-size:13px;line-height:1.55}.overview{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px}.stat b{display:block;font-size:20px}.section h2{margin:0 0 12px}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.league,.resultCard{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}.leagueTop,.resultTop{display:flex;justify-content:space-between;gap:12px;align-items:start}.league h3,.resultCard h3{margin:0}.conf{font-size:27px;font-weight:950;color:var(--green)}.status,.outcome{font-size:12px;font-weight:900;border-radius:999px;padding:5px 8px;display:inline-block;margin-top:7px}.ALIGNED,.WON{background:#102619;color:var(--green)}.WARMUP,.PENDING{background:#2b250e;color:var(--amber)}.PAUSED,.LOST{background:#2a1417;color:var(--red)}.fixture{font-size:19px;font-weight:900;margin:9px 0}.expected{color:var(--green);font-weight:850}.empty{color:var(--muted);margin-top:9px}.error{color:var(--red);font-weight:700}.ok{color:var(--green)}.score{font-weight:900;font-size:19px}.personalSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.filters{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}.filter{background:#172536;color:var(--txt);border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-weight:800;cursor:pointer}.filter.active{background:var(--accent);color:#11180a}.marketBlock{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}.marketBlock:first-of-type{border-top:0;padding-top:0}.supportLine{margin-top:7px;padding:8px 9px;border-radius:9px;background:#0d1823}.supportTitle{font-weight:850}.multiple{color:var(--amber);font-size:11px;font-weight:900;margin-left:6px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}details{margin-top:16px}pre{white-space:pre-wrap;word-break:break-word;background:#071019;border:1px solid var(--line);border-radius:10px;padding:12px;color:#cbd8e5;max-height:300px;overflow:auto}@media(max-width:800px){.grid,.overview,.personalSummary{grid-template-columns:1fr}.wrap{padding:16px}}
+:root{--bg:#071019;--panel:#101a25;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--accent:#b8ef4c;--green:#63e29a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:980px;margin:auto;padding:34px 22px}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}h1{margin:0;font-size:clamp(34px,6vw,56px)}.sub{color:var(--muted);max-width:680px;line-height:1.55;margin-top:8px}.badge{border:1px solid var(--line);border-radius:999px;padding:9px 13px;color:var(--accent);font-weight:900}.markets{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:34px}.card{display:block;text-decoration:none;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:25px;min-height:170px;transition:.15s transform,.15s border-color}.card:hover{transform:translateY(-2px);border-color:#4d647a}.icon{font-size:30px}.card h2{font-size:28px;margin:16px 0 7px}.card p{color:var(--muted);line-height:1.5;margin:0}.open{display:inline-block;margin-top:18px;color:var(--green);font-weight:900}.note{margin-top:24px;color:var(--muted);font-size:13px;text-align:center}@media(max-width:700px){.markets{grid-template-columns:1fr}.wrap{padding:24px 16px}}
 </style>
 </head>
-<body><div class="wrap">
-<div class="top"><div><h1>BetPawa Predictor</h1><div class="sub">Your personal on-demand virtual-football predictor. Predictions and results are kept separate for this browser, while completed matchdays are cached once for faster future checks.</div></div><div class="badge">v0.3.3 · protected strategy output</div></div>
-
-<div class="hero">
-  <button id="go" class="button">Get predictions</button>
-  <span id="msg" class="meta" style="margin-left:10px">Finished rounds are reused automatically, so repeat checks become much faster.</span>
-  <div id="overview" class="overview" style="display:none"></div>
+<body><main class="wrap">
+<div class="top">
+  <div><h1>BetPawa Predictor</h1><div class="sub">Choose the market you want to check. Each market now has its own page, predictions and personal results.</div></div>
+  <div class="badge">v0.3.4</div>
 </div>
 
-<section class="section">
-  <div class="sectionHead"><h2>Your last prediction result</h2><button id="refreshResults" class="button secondary">Refresh results</button></div>
-  <div id="lastPrediction"><div class="empty">No prediction saved for this browser yet.</div></div>
-</section>
-
-<section class="section">
-  <div class="sectionHead"><h2>Current candidates</h2><span id="candidateCount" class="meta"></span></div>
-  <div class="filters" id="filters">
-    <button class="filter active" data-filter="all">All predictions</button>
-    <button class="filter" data-filter="80">80%+</button>
-    <button class="filter" data-filter="70">70%+</button>
-    <button class="filter" data-filter="60">60%+</button>
-    <button class="filter" data-filter="overs">Overs</button>
-    <button class="filter" data-filter="unders">Unders</button>
-    <button class="filter" data-filter="btts">BTTS</button>
-  </div>
-  <div id="predictions" class="grid"><div class="empty">No prediction request yet.</div></div>
-</section>
-
-<section class="section">
-  <h2>Latest league outlook</h2>
-  <div id="leagues" class="grid"><div class="empty">Press <b>Get predictions</b> to check the current season.</div></div>
-</section>
-
-<section class="section">
-  <h2>Your results</h2>
-  <div id="overall"></div>
-  <div id="marketStats"></div>
-  <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Matchday</th><th>Result</th><th>Win rate</th><th>Pending</th><th>Checked</th></tr></thead><tbody id="historyRows"></tbody></table></div>
-</section>
-
-<details><summary class="meta">Connection diagnostics</summary><button id="diagBtn" class="button secondary" style="margin-top:10px">Test connection</button><pre id="diag">Not tested.</pre></details>
+<div class="markets">
+  <a class="card" href="/overs"><div class="icon">↗</div><h2>OVERS</h2><p>Over 1.5, Over 2.5 and other approved goal-over patterns.</p><span class="open">Open Overs →</span></a>
+  <a class="card" href="/unders"><div class="icon">↘</div><h2>UNDERS</h2><p>Qualified Under 3.5, Under 4.5 and future goal-under patterns.</p><span class="open">Open Unders →</span></a>
+  <a class="card" href="/btts"><div class="icon">⇄</div><h2>BTTS</h2><p>Both Teams To Score predictions kept separate from goal totals.</p><span class="open">Open BTTS →</span></a>
+  <a class="card" href="/wins"><div class="icon">✓</div><h2>WINS</h2><p>Home-win and away-win strategies will live here once they qualify.</p><span class="open">Open Wins →</span></a>
 </div>
 
-<script>
-const $=s=>document.querySelector(s);
-async function json(url,opt){const r=await fetch(url,opt);const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={detail:t}};if(!r.ok)throw new Error(d.detail||t||r.statusText);return d}
-const pct=v=>v==null?'—':(v*100).toFixed(1)+'%';
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-function leagueCard(x){
-  let line='';
-  if(x.alignment==='PAUSED') line='<div class="empty">Recent results are not aligning strongly enough, so this league is paused.</div>';
-  else if(x.triggered) line='<div class="expected">Candidate found for the next matchday.</div>';
-  else line='<div class="empty">Pattern is available, but no setup triggered for the next matchday.</div>';
-  const rr=x.recent_tests?x.recent_wins+'/'+x.recent_tests+' ('+pct(x.recent_rate)+')':'No recent trigger outcomes yet';
-  return '<div class="league"><div class="leagueTop"><div><h3>'+esc(x.league)+'</h3><span class="status '+esc(x.alignment)+'">'+esc(x.alignment)+'</span></div><div class="conf">'+pct(x.confidence)+'</div></div><div class="meta" style="margin-top:9px">Recent alignment: '+rr+(x.used_previous_season?' · includes recent prior-season checks':'')+'</div>'+line+'</div>';
-}
-
-let latestPredictions=[];
-let activeFilter='all';
-
-function rateOf(p){
-  return Number(p.top_historical_win_rate ?? p.confidence ?? 0);
-}
-function passesFilter(p){
-  const r=rateOf(p);
-  const m=String(p.expected||'').toUpperCase();
-  if(activeFilter==='80') return r>=0.80;
-  if(activeFilter==='70') return r>=0.70;
-  if(activeFilter==='60') return r>=0.60;
-  if(activeFilter==='overs') return m.startsWith('OVER ');
-  if(activeFilter==='unders') return m.startsWith('UNDER ');
-  if(activeFilter==='btts') return m.includes('BTTS');
-  return true;
-}
-function marketHtml(p){
-  const rate=p.top_historical_win_rate ?? p.confidence;
-  const tests=(p.top_wins!=null&&p.top_tests!=null)?(p.top_wins+'/'+p.top_tests+' validated tests'):'Validated historical pattern';
-  const edge=p.top_edge_pp!=null?(' · +'+Number(p.top_edge_pp).toFixed(2)+'pp over baseline'):'';
-  const seasons=p.top_positive_seasons?(' · '+esc(p.top_positive_seasons)+' positive seasons'):'';
-  const support=p.support_count>1?('<div class="meta" style="margin-top:6px">'+p.support_count+' private strategies support this exact market.</div>'):'';
-  return '<div class="marketBlock"><div class="expected">'+esc(p.expected||'Prediction')+(p.multiple_support?'<span class="multiple">MULTIPLE SUPPORT</span>':'')+'</div><div class="supportLine"><div class="supportTitle">'+pct(rate)+' historical hit rate</div><div class="meta">'+esc(tests)+edge+seasons+'</div>'+support+'</div></div>';
-}
-
-function renderPredictions(){
-  const filtered=latestPredictions.filter(passesFilter);
-  $('#candidateCount').textContent=filtered.length+' market pick'+(filtered.length===1?'':'s');
-  if(!filtered.length){
-    $('#predictions').innerHTML='<div class="empty">No candidates match this filter.</div>';
-    return;
-  }
-  const fixtures=new Map();
-  for(const p of filtered){
-    const key=[p.league,p.target_position,p.target_home,p.target_away].join('|');
-    if(!fixtures.has(key)) fixtures.set(key,{league:p.league,home:p.target_home,away:p.target_away,markets:[]});
-    fixtures.get(key).markets.push(p);
-  }
-  $('#predictions').innerHTML=[...fixtures.values()].map(f=>{
-    f.markets.sort((a,b)=>rateOf(b)-rateOf(a));
-    return '<div class="league"><h3>'+esc(f.league)+'</h3><div class="fixture">'+esc(f.home||'?')+' - '+esc(f.away||'?')+'</div>'+f.markets.map(marketHtml).join('')+'</div>';
-  }).join('');
-}
-
-function renderPersonal(h){
-  h=h||{overall:{wins:0,losses:0,pending:0,graded:0,win_rate:null},recent_batches:[],last_batch:null};
-  const o=h.overall||{};
-  $('#overall').innerHTML='<div class="personalSummary">'+
-    '<div class="stat"><b>'+Number(o.wins||0)+'</b><span class="meta">Wins</span></div>'+
-    '<div class="stat"><b>'+Number(o.losses||0)+'</b><span class="meta">Losses</span></div>'+
-    '<div class="stat"><b>'+pct(o.win_rate)+'</b><span class="meta">Live win rate</span></div>'+
-    '<div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">Pending</span></div>'+
-  '</div>';
-
-  const markets=h.by_market||[];
-  $('#marketStats').innerHTML=markets.length?'<div class="meta" style="margin:8px 0 6px">By market</div><div class="grid">'+markets.map(m=>'<div class="stat"><b>'+pct(m.win_rate)+'</b><span class="meta">'+esc(m.market)+' · '+m.wins+'W/'+m.losses+'L'+(m.pending?' · '+m.pending+' pending':'')+'</span></div>').join('')+'</div>':'';
-
-  const b=h.last_completed_batch||h.last_batch;
-  if(!b){
-    $('#lastPrediction').innerHTML='<div class="empty">No prediction saved for this browser yet.</div>';
-  }else if(!b.predictions.length){
-    $('#lastPrediction').innerHTML='<div class="resultCard"><div class="resultTop"><div><h3>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</h3><div class="meta">That request had no active candidates.</div></div></div></div>';
-  }else{
-    $('#lastPrediction').innerHTML='<div class="grid">'+b.predictions.map(p=>{
-      const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
-      const ht=(p.ht_home!=null&&p.ht_away!=null)?(' · HT '+p.ht_home+' - '+p.ht_away):'';
-      const support=p.support_count>1?(' · '+p.support_count+' private supports'):'';
-      const rate=p.top_historical_win_rate!=null?(' · '+pct(p.top_historical_win_rate)+' historical'):'';
-      return '<div class="resultCard"><div class="resultTop"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="score">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="expected">'+esc(p.expected||'Prediction')+'</div><div class="meta">'+esc(ht.replace(' · ',''))+esc(rate)+esc(support)+'</div></div>';
-    }).join('')+'</div>';
-  }
-
-  const batches=h.recent_batches||[];
-  $('#historyRows').innerHTML=batches.length?batches.map(b=>{
-    const result=b.graded?(b.wins+'/'+b.graded+' won'):(b.candidate_count?'Pending':'No candidates');
-    return '<tr><td>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</td><td>'+esc(result)+'</td><td>'+pct(b.win_rate)+'</td><td>'+Number(b.pending||0)+'</td><td>'+new Date(b.checked_at).toLocaleString()+'</td></tr>';
-  }).join(''):'<tr><td colspan="5" class="meta">No personal history yet.</td></tr>';
-}
-
-async function loadHistory(){
-  try{renderPersonal(await json('/api/history'))}
-  catch(e){$('#lastPrediction').innerHTML='<div class="error">'+esc(e.message)+'</div>'}
-}
-
-async function run(){
-  const b=$('#go'),m=$('#msg');
-  b.disabled=true;m.textContent='Checking current matchday…';
-  try{
-    const x=await json('/api/predict',{method:'POST'});
-    const perf=x.performance||{};
-    let speed=perf.context_cache_hit?'instant matchday cache':(perf.round_cache_hits+' cached rounds · '+perf.round_cache_misses+' fetched');
-    m.innerHTML='<span class="ok">Check complete in '+Number(perf.seconds||0).toFixed(2)+'s</span> <span class="meta">· '+speed+'</span>';
-    $('#overview').style.display='grid';
-    $('#overview').innerHTML='<div class="stat"><b>'+esc(x.season)+'</b><span class="meta">Season</span></div><div class="stat"><b>'+esc(x.latest_completed_matchday)+'</b><span class="meta">Latest completed MD</span></div><div class="stat"><b>'+esc(x.next_matchday)+'</b><span class="meta">Next MD</span></div><div class="stat"><b>'+x.predictions.length+'</b><span class="meta">Candidates</span></div>';
-    $('#leagues').innerHTML=x.leagues.map(leagueCard).join('');
-    latestPredictions=x.predictions||[];
-    renderPredictions();
-    renderPersonal(x.personal);
-  }catch(e){m.innerHTML='<span class="error">'+esc(e.message)+'</span>'}
-  finally{b.disabled=false}
-}
-
-async function refreshResults(){
-  const b=$('#refreshResults');
-  b.disabled=true;b.textContent='Refreshing…';
-  try{
-    const h=await json('/api/history/refresh',{method:'POST'});
-    renderPersonal(h);
-    b.textContent=h.refresh&&h.refresh.graded_now?'Updated '+h.refresh.graded_now+' result(s)':'Results checked';
-    setTimeout(()=>b.textContent='Refresh results',1800);
-  }catch(e){
-    b.textContent='Refresh failed';
-    setTimeout(()=>b.textContent='Refresh results',1800);
-  }finally{b.disabled=false}
-}
-
-async function diagnose(){const d=$('#diag');d.textContent='Testing…';try{d.textContent=JSON.stringify(await json('/api/diagnose'),null,2)}catch(e){d.textContent=e.message}}
-$('#go').onclick=run;$('#refreshResults').onclick=refreshResults;$('#diagBtn').onclick=diagnose;
-document.querySelectorAll('.filter').forEach(btn=>btn.onclick=()=>{
-  activeFilter=btn.dataset.filter;
-  document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('active',x===btn));
-  renderPredictions();
-});
-loadHistory();
-</script>
-</body></html>
+<div class="note">Private strategies remain on the backend. These pages show only the prediction output.</div>
+</main></body>
+</html>

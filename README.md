@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.3
+# BetPawa Predictor v0.3.4
 
 The local folder remains **BetPawa Predictor**.
 
@@ -115,3 +115,22 @@ This prevents the frontend and browser developer tools from revealing the
 underlying strategy logic. Full source protection still requires server-side
 hosting; a locally distributed backend remains inspectable by whoever owns that
 machine.
+
+
+## v0.3.4 simplified market pages
+
+The previous all-in-one candidate screen was replaced with separate pages:
+
+- /overs
+- /unders
+- /btts
+- /wins
+
+The home page is now a simple market chooser.
+
+Each market page has its own current candidates, last result and personal
+performance view. Public API responses can also be scoped to one market family,
+so the Overs page does not render BTTS or Under predictions and vice versa.
+
+The existing private rules, v0.3.3 strategy-output protection, caching, personal
+history and grading logic remain unchanged.
