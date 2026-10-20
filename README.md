@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.8
+# BetPawa Predictor v0.3.9
 
 The local folder remains **BetPawa Predictor**.
 
@@ -273,3 +273,21 @@ automatically rewrite the frozen historical time labels.
 Automated tests cover anchor reconstruction, 5-minute progression, 34-matchday
 rollover, midnight rollover, EAT metadata, hour buckets, exact-rule isolation,
 no target-result leakage, family preservation and no percentage averaging.
+
+
+## v0.3.9 recoverable English season tracker
+
+The English highest-total -> winner -> next-match O2.5 tracker no longer becomes
+ABANDONED for the entire season after two losses.
+
+New lifecycle:
+
+- ACTIVE + loss -> RISKY
+- RISKY + win -> ACTIVE
+- RISKY + loss -> WATCHING
+- WATCHING + loss -> remain WATCHING
+- WATCHING + win -> ACTIVE again
+
+WATCHING continues evaluating every future actual trigger. Current WATCHING
+candidates are shown as observation-only so a later recovery is visible instead
+of being missed.

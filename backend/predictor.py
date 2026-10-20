@@ -65,7 +65,12 @@ def _english_o25_tracker(context: dict[str, Any]) -> dict[str, Any]:
     Lifecycle:
       ACTIVE -> loss -> RISKY
       RISKY -> win -> ACTIVE
-      RISKY -> loss -> ABANDONED for the season
+      RISKY -> loss -> WATCHING
+      WATCHING -> win -> ACTIVE
+      WATCHING -> loss -> WATCHING
+
+    WATCHING means the pattern is not trusted yet, but future triggers continue
+    to be observed so a later recovery can reactivate it.
 
     If several source matches tie for the highest total, all decisive winners
     are followed. A trigger round counts as a success only when every resulting
@@ -131,13 +136,16 @@ def _english_o25_tracker(context: dict[str, Any]) -> dict[str, Any]:
 
         worked = all(outcomes)
         before_state = state
-        if state != "ABANDONED":
-            if worked:
-                state = "ACTIVE"
-            elif state == "RISKY":
-                state = "ABANDONED"
-            else:
-                state = "RISKY"
+        if worked:
+            # Any successful observed trigger proves the pattern has started
+            # working again, including after a WATCHING period.
+            state = "ACTIVE"
+        elif state == "ACTIVE":
+            state = "RISKY"
+        else:
+            # A second loss moves RISKY -> WATCHING. Additional losses keep it
+            # under observation rather than killing it for the whole season.
+            state = "WATCHING"
 
         events.append({
             "matchday": idx + 1,
@@ -147,13 +155,8 @@ def _english_o25_tracker(context: dict[str, Any]) -> dict[str, Any]:
             "fixtures": fixtures,
         })
 
-        # The user's rule is to stop trusting this pattern for the remainder of
-        # the season after the second consecutive trigger failure.
-        if state == "ABANDONED":
-            break
-
     current_picks = []
-    if state != "ABANDONED" and target_index < len(rounds):
+    if target_index < len(rounds):
         for p in evaluate_multimarket_strategy(tracker_strategy, rounds, target_index):
             current_picks.append({
                 "league": "English",

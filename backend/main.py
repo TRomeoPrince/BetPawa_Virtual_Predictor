@@ -25,7 +25,7 @@ MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.8")
+app = FastAPI(title="BetPawa Predictor", version="0.3.9")
 feed = BetPawaFeed()
 
 
@@ -396,9 +396,9 @@ def market_page(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.8",
+        "version": "0.3.9",
         "rules_public": False,
-        "mode": "Pattern 1 + Pattern 2 + estimated EAT time confirmation",
+        "mode": "Pattern 1 + Pattern 2 + time confirmation + recoverable season tracker",
     }
 
 

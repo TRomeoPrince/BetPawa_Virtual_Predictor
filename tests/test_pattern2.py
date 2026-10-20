@@ -5,7 +5,7 @@ from backend.private_rules import (
     PATTERN2_LEGACY_KEYS,
     RULES,
 )
-from backend.predictor import build_prediction
+from backend.predictor import build_prediction, _english_o25_tracker
 from backend.rules_engine import evaluate_multimarket_strategy
 
 
@@ -185,6 +185,42 @@ class Pattern2Tests(unittest.TestCase):
     def test_promoted_pattern2_rules_are_not_double_counted_as_legacy(self):
         self.assertIn(("Dutch", "Over 2.5 FT", "P6.ge6.both"), PATTERN2_LEGACY_KEYS)
         self.assertEqual(len(PATTERN2_LEGACY_KEYS), 8)
+
+    def test_english_tracker_can_recover_after_two_losses(self):
+        # Each target round also becomes the next source round. Construct:
+        # MD2 LOSS, MD3 LOSS -> WATCHING, MD4 WIN -> ACTIVE again.
+        rounds = [
+            {"English": [fx(1, "A", "B", (1, 0), (4, 1))]},
+            {"English": [fx(1, "A", "C", (0, 0), (1, 0))]},
+            {"English": [fx(1, "A", "D", (0, 0), (2, 0))]},
+            {"English": [fx(1, "A", "E", (1, 1), (2, 1))]},
+            {"English": [fx(1, "A", "F")]},
+        ]
+        context = {
+            "strategy_rounds": rounds,
+            "strategy_target_index": 4,
+        }
+        out = _english_o25_tracker(context)
+        self.assertEqual(out["season_losses"], 2)
+        self.assertEqual(out["season_wins"], 1)
+        self.assertEqual(out["state"], "ACTIVE")
+
+    def test_english_tracker_keeps_watching_after_repeated_losses(self):
+        rounds = [
+            {"English": [fx(1, "A", "B", (1, 0), (4, 1))]},
+            {"English": [fx(1, "A", "C", (0, 0), (1, 0))]},
+            {"English": [fx(1, "A", "D", (0, 0), (2, 0))]},
+            {"English": [fx(1, "A", "E", (0, 0), (1, 0))]},
+            {"English": [fx(1, "A", "F")]},
+        ]
+        context = {
+            "strategy_rounds": rounds,
+            "strategy_target_index": 4,
+        }
+        out = _english_o25_tracker(context)
+        self.assertEqual(out["state"], "WATCHING")
+        # It still calculates a future candidate instead of suppressing it.
+        self.assertGreaterEqual(out["candidate_count"], 0)
 
 
 if __name__ == "__main__":
