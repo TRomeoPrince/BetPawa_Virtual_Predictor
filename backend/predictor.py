@@ -14,6 +14,7 @@ from .private_rules import (
     ORIGINAL_RULE_META,
 )
 from .rules_engine import evaluate_league, grade_pick, evaluate_multimarket_strategy
+from .time_windows import apply_time_confirmation, time_priority
 
 
 @dataclass
@@ -386,11 +387,18 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         item["recent_wins"] = None
         item["recent_tests"] = None
         item["alignment"] = None
+        item = apply_time_confirmation(
+            item,
+            context["season"],
+            context["next_matchday"],
+        )
         predictions.append(item)
 
     predictions.sort(
         key=lambda p: (
+            time_priority(p.get("time_status")),
             p.get("top_historical_win_rate") or 0.0,
+            (p.get("supports") or [{}])[0].get("wins") or 0,
             p.get("support_count") or 0,
         ),
         reverse=True,

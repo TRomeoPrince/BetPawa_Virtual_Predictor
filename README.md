@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.7
+# BetPawa Predictor v0.3.8
 
 The local folder remains **BetPawa Predictor**.
 
@@ -241,3 +241,35 @@ test.bat
 ```
 
 The same unittest suite is also configured in GitHub Actions for pushes to main.
+
+
+## v0.3.8 estimated EAT time-window confirmation
+
+A valid Pattern 1 / Pattern 2 strategy signal is still mandatory. The time layer
+cannot create a prediction by itself.
+
+Estimated target times are reconstructed from:
+
+- anchor: season 139222 / matchday 33 / 2026-10-18 15:05 EAT
+- 5 minutes per virtual matchday
+- 34 matchdays per season (170 minutes)
+
+The UI labels each valid pick with its estimated EAT kickoff, one-hour bucket and
+one of: VERY STRONG, STRONG, MODERATE-STRONG, NORMAL or UNCONFIRMED.
+
+Historical time evidence is keyed to the exact rule + league + market. It is never
+borrowed from another rule. When multiple rules support one fixture, their time
+records stay separate and the public overall TIME SUPPORT uses the strongest
+record without averaging percentages.
+
+Time is a ranking / confirmation signal only. NORMAL and UNCONFIRMED do not block
+otherwise valid strategy predictions.
+
+The database now stores time metadata on both the combined prediction and each
+exact private support record. Completed supports accumulate live per-rule,
+per-hour-window wins/losses for future research. These live counts do not
+automatically rewrite the frozen historical time labels.
+
+Automated tests cover anchor reconstruction, 5-minute progression, 34-matchday
+rollover, midnight rollover, EAT metadata, hour buckets, exact-rule isolation,
+no target-result leakage, family preservation and no percentage averaging.

@@ -71,6 +71,15 @@ def connect():
     _ensure_column(con, "user_predictions", "ht_away", "INTEGER")
     _ensure_column(con, "user_predictions", "supports_json", "TEXT")
     _ensure_column(con, "user_predictions", "selected", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(con, "user_predictions", "time_historical_rate", "REAL")
+    _ensure_column(con, "user_predictions", "time_historical_tests", "INTEGER")
+    _ensure_column(con, "user_predictions", "time_historical_wins", "INTEGER")
+    _ensure_column(con, "user_predictions", "time_status", "TEXT")
+    _ensure_column(con, "user_predictions", "utc_offset", "TEXT")
+    _ensure_column(con, "user_predictions", "timezone", "TEXT")
+    _ensure_column(con, "user_predictions", "time_source", "TEXT")
+    _ensure_column(con, "user_predictions", "time_window", "TEXT")
+    _ensure_column(con, "user_predictions", "estimated_target_time_eat", "TEXT")
 
     con.execute("""
     CREATE TABLE IF NOT EXISTS prediction_supports (
@@ -95,6 +104,16 @@ def connect():
       UNIQUE(user_id, season, matchday, prediction_key, strategy_family, rule_id)
     )
     """)
+
+    _ensure_column(con, "prediction_supports", "estimated_target_time_eat", "TEXT")
+    _ensure_column(con, "prediction_supports", "time_window", "TEXT")
+    _ensure_column(con, "prediction_supports", "time_source", "TEXT")
+    _ensure_column(con, "prediction_supports", "timezone", "TEXT")
+    _ensure_column(con, "prediction_supports", "utc_offset", "TEXT")
+    _ensure_column(con, "prediction_supports", "time_status", "TEXT")
+    _ensure_column(con, "prediction_supports", "time_historical_wins", "INTEGER")
+    _ensure_column(con, "prediction_supports", "time_historical_tests", "INTEGER")
+    _ensure_column(con, "prediction_supports", "time_historical_rate", "REAL")
 
     con.execute("""
     CREATE TABLE IF NOT EXISTS round_cache (
@@ -151,8 +170,11 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
         INSERT INTO user_predictions
           (user_id, season, matchday, target_round_id, prediction_key, league,
            selected_team, target_position, target_home, target_away, confidence,
-           alignment, recent_wins, recent_tests, expected, supports_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           alignment, recent_wins, recent_tests, expected, supports_json,
+           estimated_target_time_eat, time_window, time_source, timezone, utc_offset,
+           time_status, time_historical_wins, time_historical_tests,
+           time_historical_rate, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, season, matchday, prediction_key) DO UPDATE SET
           target_round_id=excluded.target_round_id,
           selected_team=excluded.selected_team,
@@ -164,14 +186,27 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
           recent_wins=excluded.recent_wins,
           recent_tests=excluded.recent_tests,
           expected=excluded.expected,
-          supports_json=excluded.supports_json
+          supports_json=excluded.supports_json,
+          estimated_target_time_eat=excluded.estimated_target_time_eat,
+          time_window=excluded.time_window,
+          time_source=excluded.time_source,
+          timezone=excluded.timezone,
+          utc_offset=excluded.utc_offset,
+          time_status=excluded.time_status,
+          time_historical_wins=excluded.time_historical_wins,
+          time_historical_tests=excluded.time_historical_tests,
+          time_historical_rate=excluded.time_historical_rate
         """, (
             user_id, season, matchday, result.get("next_round_id"),
             prediction_key, p.get("league"), p.get("selected_team"),
             p.get("target_position"), p.get("target_home"), p.get("target_away"),
             p.get("confidence"), p.get("alignment"), p.get("recent_wins"),
             p.get("recent_tests"), p.get("expected") or "Over 2.5 FT",
-            json.dumps(p.get("supports") or [], separators=(",", ":")), now,
+            json.dumps(p.get("supports") or [], separators=(",", ":")),
+            p.get("estimated_target_time_eat"), p.get("time_window"),
+            p.get("time_source"), p.get("timezone"), p.get("utc_offset"),
+            p.get("time_status"), p.get("time_historical_wins"),
+            p.get("time_historical_tests"), p.get("time_historical_rate"), now,
         ))
 
         for support in p.get("supports") or []:
@@ -183,8 +218,11 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
             INSERT INTO prediction_supports
               (user_id, season, matchday, prediction_key, strategy_family, rule_id,
                league, target_home, target_away, market, historical_win_rate,
-               baseline, edge_pp, positive_seasons, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               baseline, edge_pp, positive_seasons,
+               estimated_target_time_eat, time_window, time_source, timezone,
+               utc_offset, time_status, time_historical_wins,
+               time_historical_tests, time_historical_rate, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, season, matchday, prediction_key, strategy_family, rule_id)
             DO UPDATE SET
               league=excluded.league,
@@ -194,13 +232,28 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
               historical_win_rate=excluded.historical_win_rate,
               baseline=excluded.baseline,
               edge_pp=excluded.edge_pp,
-              positive_seasons=excluded.positive_seasons
+              positive_seasons=excluded.positive_seasons,
+              estimated_target_time_eat=excluded.estimated_target_time_eat,
+              time_window=excluded.time_window,
+              time_source=excluded.time_source,
+              timezone=excluded.timezone,
+              utc_offset=excluded.utc_offset,
+              time_status=excluded.time_status,
+              time_historical_wins=excluded.time_historical_wins,
+              time_historical_tests=excluded.time_historical_tests,
+              time_historical_rate=excluded.time_historical_rate
             """, (
                 user_id, season, matchday, prediction_key, family, rule_id,
                 p.get("league"), p.get("target_home"), p.get("target_away"),
                 p.get("expected") or "Over 2.5 FT",
                 support.get("historical_win_rate"), support.get("baseline"),
-                support.get("edge_pp"), support.get("positive_seasons"), now,
+                support.get("edge_pp"), support.get("positive_seasons"),
+                support.get("estimated_target_time_eat"), support.get("time_window"),
+                support.get("time_source"), support.get("timezone"),
+                support.get("utc_offset"), support.get("time_status"),
+                support.get("time_historical_wins"),
+                support.get("time_historical_tests"),
+                support.get("time_historical_rate"), now,
             ))
 
     con.commit()
@@ -375,7 +428,9 @@ def _batch_predictions(con, user_id: str, season: str, matchday: str):
       SELECT league, selected_team, target_position, target_home, target_away,
              confidence, alignment, recent_wins, recent_tests, expected,
              outcome, ht_home, ht_away, ft_home, ft_away, graded_at, created_at,
-             supports_json, selected
+             supports_json, selected, estimated_target_time_eat, time_window,
+             time_source, timezone, utc_offset, time_status,
+             time_historical_wins, time_historical_tests, time_historical_rate
       FROM user_predictions
       WHERE user_id=? AND season=? AND matchday=?
       ORDER BY confidence DESC, league, id
@@ -511,6 +566,33 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         )
         by_rule_internal.append(item)
 
+    time_rows = con.execute("""
+      SELECT strategy_family, rule_id, league, market, time_window,
+             COUNT(*) AS predictions,
+             SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
+             SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
+             SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending
+      FROM prediction_supports
+      WHERE user_id=? AND time_window IS NOT NULL
+      GROUP BY strategy_family, rule_id, league, market, time_window
+      ORDER BY strategy_family, rule_id, time_window
+    """, (user_id,)).fetchall()
+
+    by_rule_time_internal = []
+    for row in time_rows:
+        item = dict(row)
+        graded_count = int(item["wins"] or 0) + int(item["losses"] or 0)
+        item["live_win_rate"] = (
+            int(item["wins"] or 0) / graded_count if graded_count else None
+        )
+        item["sample_status"] = (
+            "stronger evidence" if graded_count >= 50
+            else "usable" if graded_count >= 30
+            else "provisional" if graded_count >= 20
+            else "early"
+        )
+        by_rule_time_internal.append(item)
+
     con.close()
 
     wins = int(totals["wins"] or 0)
@@ -541,6 +623,7 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         "by_market": by_market,
         "by_family_market": by_family_market,
         "by_rule_internal": by_rule_internal,
+        "by_rule_time_internal": by_rule_time_internal,
         "recent_batches": batches,
     }
 

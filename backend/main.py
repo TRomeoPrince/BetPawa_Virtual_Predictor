@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
+from .time_windows import time_priority
 from .db import (
     get_user_history,
     grade_user_predictions,
@@ -24,7 +25,7 @@ MARKET_PAGE = ROOT / "frontend" / "market.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-app = FastAPI(title="BetPawa Predictor", version="0.3.7")
+app = FastAPI(title="BetPawa Predictor", version="0.3.8")
 feed = BetPawaFeed()
 
 
@@ -76,6 +77,26 @@ def _public_prediction(p: dict) -> dict:
         "strategy_family_label": p.get("strategy_family_label") or " + ".join(sorted({
             s.get("strategy_family") or "Pattern 1" for s in supports
         })),
+        "estimated_target_time_eat": p.get("estimated_target_time_eat"),
+        "time_window": p.get("time_window"),
+        "time_source": p.get("time_source"),
+        "timezone": p.get("timezone"),
+        "utc_offset": p.get("utc_offset"),
+        "time_status": p.get("time_status") or "UNCONFIRMED",
+        "time_historical_wins": p.get("time_historical_wins"),
+        "time_historical_tests": p.get("time_historical_tests"),
+        "time_historical_rate": p.get("time_historical_rate"),
+        "time_supports": [
+            {
+                "strategy_family": x.get("strategy_family") or "Pattern 1",
+                "time_status": x.get("time_status") or "UNCONFIRMED",
+                "time_historical_wins": x.get("time_historical_wins"),
+                "time_historical_tests": x.get("time_historical_tests"),
+                "time_historical_rate": x.get("time_historical_rate"),
+                "time_window": x.get("time_window"),
+            }
+            for x in (p.get("time_supports") or [])
+        ],
     }
 
 
@@ -110,6 +131,7 @@ def _public_history(h: dict) -> dict:
     out = dict(h or {})
     # Exact rule IDs remain backend-only.
     out.pop("by_rule_internal", None)
+    out.pop("by_rule_time_internal", None)
 
     def clean_batch(batch):
         if not batch:
@@ -142,6 +164,26 @@ def _public_history(h: dict) -> dict:
                 "strategy_family_label": " + ".join(sorted({
                     s.get("strategy_family") or "Pattern 1" for s in supports
                 })),
+                "estimated_target_time_eat": p.get("estimated_target_time_eat"),
+                "time_window": p.get("time_window"),
+                "time_source": p.get("time_source"),
+                "timezone": p.get("timezone"),
+                "utc_offset": p.get("utc_offset"),
+                "time_status": p.get("time_status") or "UNCONFIRMED",
+                "time_historical_wins": p.get("time_historical_wins"),
+                "time_historical_tests": p.get("time_historical_tests"),
+                "time_historical_rate": p.get("time_historical_rate"),
+                "time_supports": [
+                    {
+                        "strategy_family": s.get("strategy_family") or "Pattern 1",
+                        "time_status": s.get("time_status") or "UNCONFIRMED",
+                        "time_historical_wins": s.get("time_historical_wins"),
+                        "time_historical_tests": s.get("time_historical_tests"),
+                        "time_historical_rate": s.get("time_historical_rate"),
+                        "time_window": s.get("time_window"),
+                    }
+                    for s in supports
+                ],
                 "created_at": p.get("created_at"),
                 "graded_at": p.get("graded_at"),
                 "selected": bool(p.get("selected")),
@@ -194,6 +236,7 @@ def _filter_public_predictions(predictions: list[dict], category: str) -> list[d
     ]
     filtered.sort(
         key=lambda p: (
+            time_priority(p.get("time_status")),
             float(p.get("top_historical_win_rate") or 0.0),
             int(p.get("top_wins") or 0),
             int(p.get("support_count") or 0),
@@ -353,9 +396,9 @@ def market_page(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.3.7",
+        "version": "0.3.8",
         "rules_public": False,
-        "mode": "Pattern 1 + Pattern 2 comparison with ranked market pages",
+        "mode": "Pattern 1 + Pattern 2 + estimated EAT time confirmation",
     }
 
 
