@@ -231,3 +231,13 @@ calculated because the current feed does not store betting odds.
 Automated unittest coverage was added for no-lookahead, next-fixture lookup,
 season-boundary reset behavior, previous-round ranking, ties, both-team follow,
 winner/home/away roles, family labels and merged cards.
+
+
+### Run the automated strategy tests
+
+```bat
+cd /d "C:\Users\USER\Desktop\Bots\Personal_AI\BetPawa Predictor"
+test.bat
+```
+
+The same unittest suite is also configured in GitHub Actions for pushes to main.
