@@ -1,5 +1,8 @@
+import tempfile
 import unittest
+from pathlib import Path
 
+from backend import db as dbmod
 from backend.time_windows import (
     EAT,
     TIME_SOURCE,
@@ -146,6 +149,82 @@ class TimeWindowTests(unittest.TestCase):
             [x["strategy_family"] for x in out["time_supports"]],
             ["Pattern 1", "Pattern 2"],
         )
+
+    def test_database_persists_and_grades_time_supports(self):
+        old_db = dbmod.DB
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                dbmod.DB = Path(td) / "predictor.db"
+                raw = {
+                    "league": "Spanish",
+                    "target_position": 1,
+                    "target_home": "BAR",
+                    "target_away": "RMA",
+                    "expected": "BTTS YES",
+                    "target_market": "BTTS YES",
+                    "selected_team": None,
+                    "supports": [
+                        support(
+                            "Pattern 2", "P2-BTTS-03",
+                            "Spanish", "BTTS YES", 0.6305,
+                        )
+                    ],
+                }
+                # Find a 22:xx reconstructed target for the configured window.
+                found = None
+                for season in range(139222, 139240):
+                    for md in range(1, 35):
+                        if estimate_target_datetime_eat(season, md).hour == 22:
+                            found = (season, md)
+                            break
+                    if found:
+                        break
+                self.assertIsNotNone(found)
+                season, md = found
+                pred = apply_time_confirmation(raw, season, md)
+                pred.update({
+                    "confidence": 0.6305,
+                    "alignment": None,
+                    "recent_wins": None,
+                    "recent_tests": None,
+                })
+                result = {
+                    "season": str(season),
+                    "next_matchday": md,
+                    "next_round_id": "r1",
+                    "predictions": [pred],
+                }
+                user_id = "a" * 32
+                dbmod.save_user_prediction_batch(user_id, result)
+
+                graded = dbmod.grade_user_predictions(user_id, [{
+                    "season": str(season),
+                    "matchday": str(md),
+                    "leagues": {
+                        "Spanish": [{
+                            "home": "BAR",
+                            "away": "RMA",
+                            "ht_home": 1,
+                            "ht_away": 1,
+                            "ft_home": 2,
+                            "ft_away": 1,
+                        }]
+                    },
+                }])
+                self.assertEqual(graded, 1)
+
+                hist = dbmod.get_user_history(user_id)
+                self.assertEqual(hist["overall"]["wins"], 1)
+                self.assertEqual(
+                    hist["recent_batches"][0]["predictions"][0]["time_status"],
+                    "VERY STRONG",
+                )
+                rows = hist["by_rule_time_internal"]
+                self.assertEqual(len(rows), 1)
+                self.assertEqual(rows[0]["wins"], 1)
+                self.assertEqual(rows[0]["rule_id"], "P2-BTTS-03")
+        finally:
+            dbmod.DB = old_db
 
 
 if __name__ == "__main__":

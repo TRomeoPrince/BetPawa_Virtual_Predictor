@@ -152,7 +152,7 @@ class Pattern2Tests(unittest.TestCase):
         ]
         empty = {k: [] for k in RULES}
         context = {
-            "season": "s1",
+            "season": "139240",
             "latest_completed_matchday": 1,
             "next_matchday": 2,
             "alignment_scope": "test",
