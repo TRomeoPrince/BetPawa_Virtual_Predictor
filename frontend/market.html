@@ -10,16 +10,16 @@
 </head>
 <body><main class="wrap">
 <nav class="nav">
-  <a href="/">Markets</a>
-  <a href="/overs" data-page="overs">Overs</a>
-  <a href="/unders" data-page="unders">Unders</a>
-  <a href="/btts" data-page="btts">BTTS</a>
-  <a href="/wins" data-page="wins">Wins</a>
+  <a href="/client">Dashboard</a>
+  <a href="/client/overs" data-page="overs">Overs</a>
+  <a href="/client/unders" data-page="unders">Unders</a>
+  <a href="/client/btts" data-page="btts">BTTS</a>
+  <a href="/client/wins" data-page="wins">Wins</a>
 </nav>
 
 <div class="top">
   <div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div>
-  <div class="badge">v0.3.10</div>
+  <div class="badge">v0.4.0</div>
 </div>
 <div id="backendWarn" class="backendWarn"></div>
 
@@ -62,14 +62,13 @@
 <section class="section">
   <h2>Your results</h2>
   <div id="stats" class="stats"></div>
-  <div id="familyStats" class="stats"></div>
   <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Matchday</th><th>Result</th><th>Win rate</th><th>Pending</th></tr></thead><tbody id="history"></tbody></table></div>
 </section>
 </main>
 
 <script>
 const $=s=>document.querySelector(s);
-const page=location.pathname.replace(/^\/+|\/+$/g,'').toLowerCase();
+const page=location.pathname.split('/').filter(Boolean).pop().toLowerCase();
 const config={
   overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},
   unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},
@@ -126,10 +125,10 @@ function renderTrackers(trackers){
 async function checkBackendVersion(){
   try{
     const s=await json('/api/status');
-    if(s.version!=='0.3.10'){
+    if(s.version!=='0.4.0'){
       const w=$('#backendWarn');
       w.style.display='block';
-      w.textContent='Frontend v0.3.10 is loaded, but the running backend is v'+String(s.version||'?')+'. Close the old server window and run run.bat again.';
+      w.textContent='Frontend v0.4.0 is loaded, but the running backend is v'+String(s.version||'?')+'. Close the old server window and run run.bat again.';
     }
   }catch(e){}
 }
@@ -140,12 +139,11 @@ function predictionCard(p,compact=false){
   const selected=selectedKeys.has(keyOf(p));
   const rank=p.market_rank?('<span class="rank">#'+p.market_rank+'</span>'):'';
   const button=compact?'':('<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+(selected?'✓ In My Combo':'+ Add to My Combo')+'</button>');
-  const family=p.strategy_family_label||'Pattern 1';
   const ts=p.time_status||'UNCONFIRMED';
   const tr=p.time_historical_rate==null?'':(' · '+pct(p.time_historical_rate));
-  const tdetail=(p.time_supports||[]).map(x=>'<div class="timeLine"><b>'+esc(x.strategy_family)+':</b> '+esc(x.time_status||'UNCONFIRMED')+(x.time_historical_rate==null?'':(' · '+pct(x.time_historical_rate)+' ('+Number(x.time_historical_wins||0)+'/'+Number(x.time_historical_tests||0)+')'))+'</div>').join('');
+  const tdetail=(p.time_supports||[]).map((x,i)=>'<div class="timeLine"><b>Support '+(i+1)+':</b> '+esc(x.time_status||'UNCONFIRMED')+(x.time_historical_rate==null?'':(' · '+pct(x.time_historical_rate)+' ('+Number(x.time_historical_wins||0)+'/'+Number(x.time_historical_tests||0)+')'))+'</div>').join('');
   const timeBox='<div class="timeBox meta"><b>Estimated EAT kickoff:</b> '+esc(p.estimated_target_time_eat||'—')+' · '+esc(p.time_window||'—')+'<br><b>TIME SUPPORT:</b> '+esc(ts)+tr+(tdetail?tdetail:'')+'</div>';
-  return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+'<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><span class="family">'+esc(family)+'</span><span class="timeTag '+esc(ts.replaceAll(' ','-'))+'">'+esc(ts)+'</span><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div>'+timeBox+button+'</div>';
+  return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+'<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><span class="timeTag '+esc(ts.replaceAll(' ','-'))+'">'+esc(ts)+'</span><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div>'+timeBox+button+'</div>';
 }
 function bindPickButtons(){
   document.querySelectorAll('[data-pick]').forEach(btn=>btn.onclick=async()=>{
@@ -194,7 +192,7 @@ function renderCurrent(){
 function cardResult(p){
   const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
   const ts=p.time_status||'UNCONFIRMED';
-  return '<div class="card"><div class="row"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><span class="family">'+esc(p.strategy_family_label||'Pattern 1')+'</span><span class="timeTag '+esc(ts.replaceAll(' ','-'))+'">'+esc(ts)+'</span><div class="meta" style="margin-top:7px">Estimated EAT '+esc(p.estimated_target_time_eat||'—')+' · '+esc(p.time_window||'—')+(p.time_historical_rate==null?'':(' · time history '+pct(p.time_historical_rate)))+'</div></div>';
+  return '<div class="card"><div class="row"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><span class="timeTag '+esc(ts.replaceAll(' ','-'))+'">'+esc(ts)+'</span><div class="meta" style="margin-top:7px">Estimated EAT '+esc(p.estimated_target_time_eat||'—')+' · '+esc(p.time_window||'—')+(p.time_historical_rate==null?'':(' · time history '+pct(p.time_historical_rate)))+'</div></div>';
 }
 function renderHistory(h){
   h=h||{};
@@ -204,11 +202,6 @@ function renderHistory(h){
     '<div class="stat"><b>'+Number(o.losses||0)+'</b><span class="meta">My losses</span></div>'+
     '<div class="stat"><b>'+pct(o.win_rate)+'</b><span class="meta">My combo win rate</span></div>'+
     '<div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">My pending</span></div>';
-
-  const families=h.by_family||[];
-  $('#familyStats').innerHTML=families.length?families.map(f=>
-    '<div class="stat"><b>'+pct(f.win_rate)+'</b><span class="meta">'+esc(f.strategy_family)+' · '+Number(f.wins||0)+'W/'+Number(f.losses||0)+'L'+(f.pending?' · '+f.pending+' pending':'')+'</span></div>'
-  ).join(''):'';
 
   const current=h.last_batch;
   if(current&&String(current.season)===String(currentSeason)&&String(current.matchday)===String(currentMatchday)){
