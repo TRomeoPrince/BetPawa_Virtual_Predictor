@@ -115,7 +115,7 @@ def hash_password(password: str) -> str:
     digest = hashlib.pbkdf2_hmac(
         "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
     )
-    return f"pbkdf2_sha256$${PBKDF2_ITERATIONS}$${salt.hex()}$${digest.hex()}"
+    return "pbkdf2_sha256$" + str(PBKDF2_ITERATIONS) + "$" + salt.hex() + "$" + digest.hex()
 
 
 def verify_password(password: str, encoded: str) -> bool:
