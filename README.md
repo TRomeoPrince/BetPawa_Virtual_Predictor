@@ -1,4 +1,4 @@
-# BetPawa Predictor v0.3.10
+# BetPawa Predictor v0.4.0
 
 The local folder remains **BetPawa Predictor**.
 
@@ -300,3 +300,34 @@ from keeping an older market page after the backend has already been updated.
 
 run.bat also opens the home page with a version query string so a freshly started
 predictor requests the current frontend immediately.
+
+
+## v0.4.0 client/admin split
+
+The app now has separate authenticated areas:
+
+- /login
+- /client
+- /client/overs
+- /client/unders
+- /client/btts
+- /client/wins
+- /admin
+
+Client accounts have time-limited access states. Available durations are Daily,
+Weekly, Monthly, 3 Months, 6 Months and Annual; the admin can also grant a custom
+number of days.
+
+The admin console can create clients, grant/extend/revoke access, review access
+requests, and inspect the private strategy catalog with exact rule IDs, trigger
+mechanics and historical statistics.
+
+Client prediction responses intentionally omit private rule IDs, names, trigger
+logic and internal strategy-family labels.
+
+On the first v0.4 server start, a bootstrap admin account is created. Username is
+admin and the temporary password is printed once in the server terminal. Change
+it from Admin > Security after signing in.
+
+Automated tests cover account authentication, sessions, password changes, access
+durations and request approval.
