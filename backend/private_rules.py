@@ -113,11 +113,6 @@ NEW_STRATEGIES = [
     _s("P6.ge6.home", "6+ Goals → Home", "Portuguese", "Over 1.5 FT", 252, 300, 0.8096, 3.04, "8/11", "total_threshold_follow", min_total=6, role="home"),
     _s("P3.sh3.loser", "3+ Second-Half Goals → Loser", "Spanish", "Over 1.5 FT", 586, 703, 0.8008, 3.27, "9/11", "second_half_follow", min_second_half=3, role="loser"),
 
-    # UNDER 4.5 FT
-    _s("P6.eq4.away", "Exactly 4 Goals → Away", "Spanish", "Under 4.5 FT", 480, 564, 0.8171, 3.40, "9/11", "total_exact_follow", total=4, role="away"),
-    _s("P7.htdrawdecisive.loser", "HT Draw → FT Decisive → Loser", "Spanish", "Under 4.5 FT", 743, 877, 0.8171, 3.01, "8/11", "ht_draw_decisive_follow", role="loser"),
-    _s("P12.avgge3.5", "Source Round Avg ≥3.5 → All Next Fixtures", "English", "Under 4.5 FT", 689, 820, 0.8088, 3.14, "9/11", "matchday_avg_all", min_avg=3.5),
-    _s("P7.ht00over.home", "HT 0-0 → O2.5 → Home", "German", "Under 4.5 FT", 197, 235, 0.7796, 5.87, "8/11", "ht00_over_follow", role="home"),
 
     # UNDER 3.5 FT
     _s("P1.rank1.winner", "Highest Goal-Total Rank → Winner", "Italian", "Under 3.5 FT", 307, 444, 0.6562, 3.52, "8/11", "rank_total_follow", rank=1, role="winner"),
