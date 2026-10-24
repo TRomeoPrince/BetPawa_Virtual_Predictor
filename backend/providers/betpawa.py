@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import random
 import threading
@@ -129,15 +130,25 @@ class BetPawaFeed:
             raise FeedError("Selenium is not installed. Run run.bat again.") from e
 
         options = Options()
+        chrome_binary = os.environ.get("CHROME_BIN")
+        if chrome_binary:
+            options.binary_location = chrome_binary
         if headless:
             options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1400,1000")
         options.add_argument("--disable-notifications")
         options.add_argument("--disable-popup-blocking")
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
         options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
-        driver = webdriver.Chrome(options=options)
+        driver_path = os.environ.get("CHROMEDRIVER_PATH")
+        if driver_path:
+            from selenium.webdriver.chrome.service import Service
+            driver = webdriver.Chrome(service=Service(executable_path=driver_path), options=options)
+        else:
+            driver = webdriver.Chrome(options=options)
         driver.set_page_load_timeout(45)
         driver.set_script_timeout(60)
         driver.execute_cdp_cmd("Network.enable", {})
@@ -263,7 +274,9 @@ class BetPawaFeed:
         # Selenium is not safely shareable across simultaneous FastAPI threads.
         with self._browser_lock:
             last = None
-            for headless in (True, False):
+            headless_only = os.environ.get("PREDICTOR_HEADLESS_ONLY", "").strip().lower() in {"1", "true", "yes"}
+            modes = (True,) if headless_only else (True, False)
+            for headless in modes:
                 try:
                     driver, captured = self._ensure_browser(headless=headless)
                     result = fn(driver, captured)
