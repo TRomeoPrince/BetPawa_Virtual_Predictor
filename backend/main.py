@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import time
 import uuid
@@ -61,12 +62,15 @@ feed = BetPawaFeed()
 
 _bootstrap_password = ensure_bootstrap_admin()
 if _bootstrap_password:
-    print("\n" + "=" * 68)
-    print("FIRST-RUN ADMIN LOGIN")
-    print("Username: admin")
-    print("Password:", _bootstrap_password)
-    print("Change this password from Admin > Security after signing in.")
-    print("=" * 68 + "\n")
+    if os.environ.get("PREDICTOR_ADMIN_PASSWORD"):
+        print("Initial admin account created from PREDICTOR_ADMIN_PASSWORD.")
+    else:
+        print("\n" + "=" * 68)
+        print("FIRST-RUN ADMIN LOGIN")
+        print("Username: admin")
+        print("Password:", _bootstrap_password)
+        print("Change this password from Admin > Security after signing in.")
+        print("=" * 68 + "\n")
 
 
 def _valid_user_id(value: str | None) -> bool:
