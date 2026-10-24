@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-DB = Path(os.environ.get("PREDICTOR_DB_PATH", str(Path(__file__).resolve().parent.parent / "data" / "predictor.db")) )
+DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "predictor.db"
+DB = Path(os.environ.get("PREDICTOR_DB_PATH", str(DEFAULT_DB)))
 
 
 def _ensure_column(con, table: str, column: str, definition: str):
