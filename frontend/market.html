@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BetPawa Predictor</title>
 <style>
-:root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--green:#63e29a;--accent:#b8ef4c;--amber:#ffd166;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1050px;margin:auto;padding:24px}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}.nav a{color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-weight:800}.nav a.active{background:var(--accent);color:#11180a;border-color:var(--accent)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}h1{margin:0;font-size:clamp(32px,5vw,48px)}.sub{color:var(--muted);line-height:1.5;margin-top:7px;max-width:720px}.badge{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--accent);font-weight:900}.hero,.section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px}.button{background:var(--accent);color:#11180a;border:0;border-radius:12px;padding:12px 17px;font-size:15px;font-weight:900;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}.secondary{background:#172536;color:var(--txt);border:1px solid var(--line)}.meta{color:var(--muted);font-size:13px;line-height:1.5}.ok{color:var(--green)}.error{color:var(--red);font-weight:800}.overview,.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px}.stat b{display:block;font-size:20px}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.section h2{margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}.card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.rank{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:999px;background:#172536;color:var(--accent);font-weight:950;margin-right:8px}.pickBtn{margin-top:11px;width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:#172536;color:var(--txt);font-weight:900;cursor:pointer}.pickBtn.on{background:var(--accent);color:#11180a;border-color:var(--accent)}.leagueGroup{margin-top:18px}.leagueName{font-size:18px;letter-spacing:.08em;color:var(--accent);margin:0 0 10px}.comboNote{border:1px dashed var(--line);border-radius:12px;padding:12px;color:var(--muted);margin-top:10px}.tracker{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:15px}.trackerState{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:950}.trackerState.ACTIVE{background:#102619;color:var(--green)}.trackerState.RISKY{background:#2b250e;color:var(--amber)}.trackerState.WATCHING{background:#241d33;color:#c8a9ff}.family{display:inline-block;margin-top:7px;border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;color:var(--accent)}.timeTag{display:inline-block;margin:7px 0 0 6px;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:950}.timeTag.VERY-STRONG{background:#14341f;color:#7ff0aa}.timeTag.STRONG{background:#17301f;color:#69df91}.timeTag.MODERATE-STRONG{background:#30280e;color:#ffd166}.timeTag.NORMAL{background:#172536;color:#b7c5d4}.timeTag.UNCONFIRMED{background:#25252b;color:#a9a9b2}.timeBox{margin-top:9px;padding:9px 10px;border:1px dashed var(--line);border-radius:10px}.timeLine{margin-top:4px}.backendWarn{display:none;background:#2a1417;border:1px solid #693039;color:#ffb0b0;border-radius:12px;padding:11px 13px;margin-top:14px;font-weight:800}.card h3{margin:0}.fixture{font-size:19px;font-weight:900;margin:9px 0}.market{color:var(--green);font-weight:900}.rate{font-size:26px;font-weight:950;color:var(--green)}.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.outcome{font-size:12px;font-weight:900;border-radius:999px;padding:5px 8px;display:inline-block;margin-top:6px}.WON{background:#102619;color:var(--green)}.LOST{background:#2a1417;color:var(--red)}.PENDING{background:#2b250e;color:var(--amber)}.empty{color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}@media(max-width:760px){.grid,.overview,.stats{grid-template-columns:1fr}.wrap{padding:16px}}
+:root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--green:#63e29a;--accent:#b8ef4c;--amber:#ffd166;--red:#ff8181;--purple:#c8a9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1050px;margin:auto;padding:24px}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}.nav a{color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-weight:800}.nav a.active{background:var(--accent);color:#11180a;border-color:var(--accent)}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}h1{margin:0;font-size:clamp(32px,5vw,48px)}.sub{color:var(--muted);line-height:1.5;margin-top:7px;max-width:720px}.badge{border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--accent);font-weight:900}.hero,.section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px}.button{background:var(--accent);color:#11180a;border:0;border-radius:12px;padding:12px 17px;font-size:15px;font-weight:900;cursor:pointer}.button:disabled{opacity:.55;cursor:wait}.secondary{background:#172536;color:var(--txt);border:1px solid var(--line)}.meta{color:var(--muted);font-size:13px;line-height:1.5}.ok{color:var(--green)}.error{color:var(--red);font-weight:800}.overview,.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px}.stat b{display:block;font-size:20px}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.section h2{margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:15px}.card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.rank{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;border-radius:999px;background:#172536;color:var(--accent);font-weight:950;margin-right:8px}.pickBtn{margin-top:11px;width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:#172536;color:var(--txt);font-weight:900;cursor:pointer}.pickBtn.on{background:var(--accent);color:#11180a;border-color:var(--accent)}.leagueGroup{margin-top:18px}.leagueName{font-size:18px;letter-spacing:.08em;color:var(--accent);margin:0 0 10px}.timeBox{margin-top:10px;padding:11px;border:1px dashed var(--line);border-radius:10px}.timeBox.MATCH{border-color:#2f704d;background:#0d2117}.timeBox.NO-MATCH{border-color:#6b3d3d;background:#241416}.timeBox.UNCONFIRMED{background:#141a22}.timeLabel{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:950;margin-bottom:7px}.timeLabel.MATCH{background:#14341f;color:#7ff0aa}.timeLabel.NO-MATCH{background:#2a1417;color:#ff9c9c}.timeLabel.UNCONFIRMED{background:#25252b;color:#a9a9b2}.timeLine{margin-top:4px}.fixture{font-size:19px;font-weight:900;margin:9px 0}.market{color:var(--green);font-weight:900}.rate{font-size:26px;font-weight:950;color:var(--green)}.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.outcome{font-size:12px;font-weight:900;border-radius:999px;padding:5px 8px;display:inline-block;margin-top:6px}.WON{background:#102619;color:var(--green)}.LOST{background:#2a1417;color:var(--red)}.PENDING{background:#2b250e;color:var(--amber)}.empty{color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{color:var(--muted)}.backendWarn{display:none;background:#2a1417;border:1px solid #693039;color:#ffb0b0;border-radius:12px;padding:11px 13px;margin-top:14px;font-weight:800}@media(max-width:760px){.grid,.overview,.stats{grid-template-columns:1fr}.wrap{padding:16px}}
 </style>
 </head>
 <body><main class="wrap">
@@ -15,12 +15,10 @@
   <a href="/client/unders" data-page="unders">Unders</a>
   <a href="/client/btts" data-page="btts">BTTS</a>
   <a href="/client/wins" data-page="wins">Wins</a>
+  <a href="#" id="logoutLink">Sign out</a>
 </nav>
 
-<div class="top">
-  <div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div>
-  <div class="badge">v0.4.0</div>
-</div>
+<div class="top"><div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div><div class="badge">v0.4.1</div></div>
 <div id="backendWarn" class="backendWarn"></div>
 
 <section class="hero">
@@ -29,247 +27,61 @@
   <div id="overview" class="overview" style="display:none"></div>
 </section>
 
-<section class="section" id="trackerSection" style="display:none">
-  <div class="sectionHead"><h2>English Season Tracker</h2><span class="meta">Live pattern health</span></div>
-  <div id="trackerBox"></div>
-</section>
+<section class="section"><div class="sectionHead"><h2>Top Ranked Picks</h2><span class="meta">Time alignment → win rate → past wins</span></div><div id="topPicks" class="grid"><div class="empty">Check predictions to rank the strongest picks.</div></div></section>
 
-<section class="section">
-  <div class="sectionHead"><h2>Top Ranked Picks</h2><span class="meta">Win rate → past wins → support</span></div>
-  <div id="topPicks" class="grid"><div class="empty">Check predictions to rank the strongest picks.</div></div>
-</section>
+<section class="section"><div class="sectionHead"><h2>My Combo</h2><span id="comboCount" class="meta">0 selected</span></div><div id="combo" class="grid"><div class="empty">Choose the matches you personally want to follow.</div></div></section>
 
-<section class="section">
-  <div class="sectionHead"><h2>My Combo</h2><span id="comboCount" class="meta">0 selected</span></div>
-  <div id="combo" class="grid"><div class="empty">Choose the matches you personally want to follow.</div></div>
-</section>
+<section class="section"><div class="sectionHead"><h2 id="currentTitle">Predictions by League</h2><span id="count" class="meta"></span></div><div id="predictions"><div class="empty">Press the button above to check this market.</div></div></section>
 
-<section class="section">
-  <div class="sectionHead"><h2 id="currentTitle">Predictions by League</h2><span id="count" class="meta"></span></div>
-  <div id="predictions"><div class="empty">Press the button above to check this market.</div></div>
-</section>
+<section class="section"><div class="sectionHead"><h2>My Combo Results</h2><button id="refresh" class="button secondary">Refresh results</button></div><div id="selectedResults"><div class="empty">No selected result for this market yet.</div></div></section>
 
-<section class="section">
-  <div class="sectionHead"><h2>My Combo Results</h2><button id="refresh" class="button secondary">Refresh results</button></div>
-  <div id="selectedResults"><div class="empty">No selected result for this market yet.</div></div>
-</section>
+<section class="section"><h2>Other Prediction Results</h2><div id="last"><div class="empty">No other saved result for this market yet.</div></div></section>
 
-<section class="section">
-  <h2>Other Prediction Results</h2>
-  <div id="last"><div class="empty">No other saved result for this market yet.</div></div>
-</section>
-
-<section class="section">
-  <h2>Your results</h2>
-  <div id="stats" class="stats"></div>
-  <div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Matchday</th><th>Result</th><th>Win rate</th><th>Pending</th></tr></thead><tbody id="history"></tbody></table></div>
-</section>
+<section class="section"><h2>Your results</h2><div id="stats" class="stats"></div><div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Matchday</th><th>Result</th><th>Win rate</th><th>Pending</th></tr></thead><tbody id="history"></tbody></table></div></section>
 </main>
 
 <script>
 const $=s=>document.querySelector(s);
 const page=location.pathname.split('/').filter(Boolean).pop().toLowerCase();
-const config={
-  overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},
-  unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},
-  btts:{title:'BTTS',button:'Check BTTS',desc:'Both Teams To Score predictions only.'},
-  wins:{title:'WINS',button:'Check Wins',desc:'Home-win and away-win predictions only.'}
-};
+const config={overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},btts:{title:'BTTS',button:'Check BTTS',desc:'Both Teams To Score predictions only.'},wins:{title:'WINS',button:'Check Wins',desc:'Home-win and away-win predictions only.'}};
 const cfg=config[page]||config.overs;
 document.title=cfg.title+' · BetPawa Predictor';
-$('#title').textContent=cfg.title;
-$('#subtitle').textContent=cfg.desc;
-$('#go').textContent=cfg.button;
-$('#currentTitle').textContent='Current '+cfg.title+' predictions';
+$('#title').textContent=cfg.title;$('#subtitle').textContent=cfg.desc;$('#go').textContent=cfg.button;$('#currentTitle').textContent='Current '+cfg.title+' predictions';
 document.querySelectorAll('[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===page));
-
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=v=>v==null?'—':(Number(v)*100).toFixed(1)+'%';
-async function json(url,opt){const r=await fetch(url,opt);const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={detail:t}};if(!r.ok)throw new Error(d.detail||t||r.statusText);return d}
-
-let currentSeason=null;
-let currentMatchday=null;
-let latestPredictions=[];
-let selectedKeys=new Set();
-
-function keyOf(p){
-  return [p.league,p.target_home,p.target_away,p.expected].join('|');
+async function json(url,opt){const r=await fetch(url,opt);const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={detail:t}}if(r.status===401){location.href='/login';throw new Error('Please sign in.')}if(r.status===403){location.href='/client';throw new Error('Active subscription required.')}if(!r.ok)throw new Error(d.detail||t||r.statusText);return d}
+let currentSeason=null,currentMatchday=null,latestPredictions=[],selectedKeys=new Set();
+function keyOf(p){return [p.league,p.target_home,p.target_away,p.expected].join('|')}
+function timeRank(p){const a=p.time_alignment;const s=p.time_status;return a==='MATCH'?4:(s==='VERY STRONG'?3:s==='STRONG'?2:s==='MODERATE-STRONG'?1:s==='NORMAL'?0:(a==='NO MATCH'?-1:-2))}
+function rankSort(a,b){return (timeRank(b)-timeRank(a))||(Number(b.top_historical_win_rate||0)-Number(a.top_historical_win_rate||0))||(Number(b.top_wins||0)-Number(a.top_wins||0))||(Number(b.support_count||0)-Number(a.support_count||0))||(Number(b.top_tests||0)-Number(a.top_tests||0))}
+function timeComparison(p){
+  const align=p.time_alignment||'UNCONFIRMED';
+  const cls=align==='MATCH'?'MATCH':align==='NO MATCH'?'NO-MATCH':'UNCONFIRMED';
+  const label=align==='MATCH'?'TIME ALIGNED':align==='NO MATCH'?'NO TIME ALIGNMENT':'TIME UNCONFIRMED';
+  const windows=p.time_historical_windows||[];
+  const historical=windows.length?windows.map(w=>esc(w.time_window)+' EAT · '+Number(w.wins||0)+'/'+Number(w.tests||0)+' · '+pct(w.rate)).join('<br>'):'No historical successful time window recorded.';
+  const current=esc(p.estimated_target_time_eat||'—')+' EAT · '+esc(p.time_window||'—');
+  const note=esc(p.time_alignment_note||'Time evidence is confirmation only.');
+  return '<div class="timeBox '+cls+'"><span class="timeLabel '+cls+'">'+label+'</span><div class="timeLine"><b>Current estimated kickoff:</b> '+current+'</div><div class="timeLine"><b>Historical successful time:</b><br>'+historical+'</div><div class="timeLine"><b>Comparison:</b> '+note+'</div></div>';
 }
-function timeRank(s){return {'VERY STRONG':4,'STRONG':3,'MODERATE-STRONG':2,'NORMAL':1,'UNCONFIRMED':0}[s]??0}
-function rankSort(a,b){
-  return (timeRank(b.time_status)-timeRank(a.time_status))
-    || (Number(b.top_historical_win_rate||0)-Number(a.top_historical_win_rate||0))
-    || (Number(b.top_wins||0)-Number(a.top_wins||0))
-    || (Number(b.support_count||0)-Number(a.support_count||0))
-    || (Number(b.top_tests||0)-Number(a.top_tests||0));
-}
-function renderTrackers(trackers){
-  if(page!=='overs'||!(trackers||[]).length){
-    $('#trackerSection').style.display='none';
-    return;
-  }
-  const t=trackers[0];
-  $('#trackerSection').style.display='block';
-  const last=t.last_outcome?('Last trigger: '+t.last_outcome+' on MD'+t.last_matchday):'No completed trigger yet this season';
-  const rate=t.season_rate==null?'—':pct(t.season_rate);
-  let guidance='';
-  if(t.state==='ACTIVE') guidance='Pattern is currently active.';
-  else if(t.state==='RISKY') guidance='One failure recorded. The next actual trigger is a recovery test.';
-  else guidance='Two or more consecutive failures were reached. Keep watching future triggers; one later win reactivates the pattern.';
-  const candidates=(t.current_candidates||[]).length
-    ?'<div class="comboNote"><b>Current tracker candidate'+(t.current_candidates.length===1?'':'s')+':</b>'+(t.state==='WATCHING'?'<br><b>Observation only:</b> waiting to see if the pattern recovers.':'')+'<br>'+t.current_candidates.map(p=>esc(p.target_home)+' - '+esc(p.target_away)+' · '+esc(p.expected)).join('<br>')+'</div>'
-    :'<div class="comboNote">No tracker trigger for the next matchday.</div>';
-  $('#trackerBox').innerHTML='<div class="tracker"><div class="row"><div><b>English O2.5 Tracker</b><div class="meta">'+esc(last)+'</div></div><span class="trackerState '+esc(t.state)+'">'+esc(t.state)+'</span></div><div class="stats" style="margin-top:12px"><div class="stat"><b>'+Number(t.season_wins||0)+'</b><span class="meta">Trigger wins</span></div><div class="stat"><b>'+Number(t.season_losses||0)+'</b><span class="meta">Trigger losses</span></div><div class="stat"><b>'+rate+'</b><span class="meta">Season rate</span></div><div class="stat"><b>'+Number(t.season_triggers||0)+'</b><span class="meta">Triggers</span></div></div><div class="meta" style="margin-top:10px">'+esc(guidance)+'</div>'+candidates+'</div>';
-}
-
-async function checkBackendVersion(){
-  try{
-    const s=await json('/api/status');
-    if(s.version!=='0.4.0'){
-      const w=$('#backendWarn');
-      w.style.display='block';
-      w.textContent='Frontend v0.4.0 is loaded, but the running backend is v'+String(s.version||'?')+'. Close the old server window and run run.bat again.';
-    }
-  }catch(e){}
-}
-
 function predictionCard(p,compact=false){
-  const detail=(p.top_wins!=null&&p.top_tests!=null)?(p.top_wins+'/'+p.top_tests+' historical tests'):'Validated historical pattern';
-  const support=p.support_count>1?(' · '+p.support_count+' private supports'):'';
   const selected=selectedKeys.has(keyOf(p));
-  const rank=p.market_rank?('<span class="rank">#'+p.market_rank+'</span>'):'';
-  const button=compact?'':('<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+(selected?'✓ In My Combo':'+ Add to My Combo')+'</button>');
-  const ts=p.time_status||'UNCONFIRMED';
-  const tr=p.time_historical_rate==null?'':(' · '+pct(p.time_historical_rate));
-  const tdetail=(p.time_supports||[]).map((x,i)=>'<div class="timeLine"><b>Support '+(i+1)+':</b> '+esc(x.time_status||'UNCONFIRMED')+(x.time_historical_rate==null?'':(' · '+pct(x.time_historical_rate)+' ('+Number(x.time_historical_wins||0)+'/'+Number(x.time_historical_tests||0)+')'))+'</div>').join('');
-  const timeBox='<div class="timeBox meta"><b>Estimated EAT kickoff:</b> '+esc(p.estimated_target_time_eat||'—')+' · '+esc(p.time_window||'—')+'<br><b>TIME SUPPORT:</b> '+esc(ts)+tr+(tdetail?tdetail:'')+'</div>';
-  return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+'<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><span class="timeTag '+esc(ts.replaceAll(' ','-'))+'">'+esc(ts)+'</span><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div>'+timeBox+button+'</div>';
+  const rank=p.market_rank?'<span class="rank">#'+p.market_rank+'</span>':'';
+  const detail=(p.top_wins!=null&&p.top_tests!=null)?(p.top_wins+'/'+p.top_tests+' historical tests'):'Validated historical pattern';
+  const support=p.support_count>1?' · '+p.support_count+' private supports':'';
+  const button=compact?'':'<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+(selected?'✓ In My Combo':'+ Add to My Combo')+'</button>';
+  return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+'<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div>'+timeComparison(p)+button+'</div>';
 }
-function bindPickButtons(){
-  document.querySelectorAll('[data-pick]').forEach(btn=>btn.onclick=async()=>{
-    const p=latestPredictions.find(x=>keyOf(x)===btn.dataset.pick);
-    if(!p||currentSeason==null||currentMatchday==null)return;
-    const selected=!selectedKeys.has(keyOf(p));
-    btn.disabled=true;
-    try{
-      await json('/api/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        season:String(currentSeason),matchday:String(currentMatchday),league:p.league,
-        target_home:p.target_home,target_away:p.target_away,expected:p.expected,selected
-      })});
-      if(selected) selectedKeys.add(keyOf(p)); else selectedKeys.delete(keyOf(p));
-      renderCurrent();
-      await loadHistory();
-    }catch(e){
-      if(String(e.message).toLowerCase().includes('not found')){
-        alert('The page is newer than the running backend. Close the old predictor server window, then run run.bat again.');
-      }else{
-        alert(e.message);
-      }
-    }
-  });
-}
-function renderCurrent(){
-  latestPredictions.sort(rankSort);
-  latestPredictions.forEach((p,i)=>p.market_rank=i+1);
-
-  const top=latestPredictions.slice(0,Math.min(5,latestPredictions.length));
-  $('#topPicks').innerHTML=top.length?top.map(p=>predictionCard(p)).join(''):'<div class="empty">No ranked picks are available.</div>';
-
-  const selected=latestPredictions.filter(p=>selectedKeys.has(keyOf(p)));
-  $('#comboCount').textContent=selected.length+' selected';
-  $('#combo').innerHTML=selected.length?selected.map(p=>predictionCard(p,true)).join(''):'<div class="empty">Choose the matches you personally want to follow.</div>';
-
-  const groups={};
-  for(const p of latestPredictions){
-    (groups[p.league]??=[]).push(p);
-  }
-  const leagues=Object.keys(groups).sort();
-  $('#predictions').innerHTML=leagues.length?leagues.map(league=>
-    '<div class="leagueGroup"><h3 class="leagueName">'+esc(league.toUpperCase())+'</h3><div class="grid">'+groups[league].map(p=>predictionCard(p)).join('')+'</div></div>'
-  ).join(''):'<div class="empty">No '+esc(cfg.title)+' candidate triggered for the next matchday.</div>';
-  bindPickButtons();
-}
-function cardResult(p){
-  const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);
-  const ts=p.time_status||'UNCONFIRMED';
-  return '<div class="card"><div class="row"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><span class="timeTag '+esc(ts.replaceAll(' ','-'))+'">'+esc(ts)+'</span><div class="meta" style="margin-top:7px">Estimated EAT '+esc(p.estimated_target_time_eat||'—')+' · '+esc(p.time_window||'—')+(p.time_historical_rate==null?'':(' · time history '+pct(p.time_historical_rate)))+'</div></div>';
-}
-function renderHistory(h){
-  h=h||{};
-  const o=h.selected_overall||{wins:0,losses:0,pending:0,graded:0,win_rate:null};
-  $('#stats').innerHTML=
-    '<div class="stat"><b>'+Number(o.wins||0)+'</b><span class="meta">My wins</span></div>'+
-    '<div class="stat"><b>'+Number(o.losses||0)+'</b><span class="meta">My losses</span></div>'+
-    '<div class="stat"><b>'+pct(o.win_rate)+'</b><span class="meta">My combo win rate</span></div>'+
-    '<div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">My pending</span></div>';
-
-  const current=h.last_batch;
-  if(current&&String(current.season)===String(currentSeason)&&String(current.matchday)===String(currentMatchday)){
-    selectedKeys=new Set((current.predictions||[]).filter(p=>p.selected).map(keyOf));
-    if(latestPredictions.length) renderCurrent();
-  }
-
-  const sb=h.last_completed_selected_batch||h.last_selected_batch;
-  $('#selectedResults').innerHTML=sb&&(sb.predictions||[]).length
-    ?'<div class="grid">'+sb.predictions.map(cardResult).join('')+'</div>'
-    :'<div class="empty">No selected result for this market yet.</div>';
-
-  const b=h.last_completed_batch||h.last_batch;
-  const others=b?(b.predictions||[]).filter(p=>!p.selected):[];
-  $('#last').innerHTML=others.length
-    ?'<div class="grid">'+others.map(cardResult).join('')+'</div>'
-    :'<div class="empty">No other saved result for this market yet.</div>';
-
-  const batches=h.selected_batches||[];
-  $('#history').innerHTML=batches.length?batches.map(b=>{
-    const r=b.graded?(b.wins+'/'+b.graded+' won'):(b.candidate_count?'Pending':'No candidates');
-    return '<tr><td>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</td><td>'+esc(r)+'</td><td>'+pct(b.win_rate)+'</td><td>'+Number(b.pending||0)+'</td></tr>';
-  }).join(''):'<tr><td colspan="4" class="meta">No selected-match history yet.</td></tr>';
-}
-
-async function loadHistory(){
-  try{renderHistory(await json('/api/history/'+page))}
-  catch(e){$('#last').innerHTML='<div class="error">'+esc(e.message)+'</div>'}
-}
-
-async function run(){
-  const b=$('#go'),m=$('#msg');
-  b.disabled=true;m.textContent='Checking '+cfg.title+'…';
-  try{
-    const x=await json('/api/predict/'+page,{method:'POST'});
-    const perf=x.performance||{};
-    m.innerHTML='<span class="ok">Complete in '+Number(perf.seconds||0).toFixed(2)+'s</span>';
-    $('#overview').style.display='grid';
-    $('#overview').innerHTML=
-      '<div class="stat"><b>'+esc(x.season)+'</b><span class="meta">Season</span></div>'+
-      '<div class="stat"><b>'+esc(x.latest_completed_matchday)+'</b><span class="meta">Latest completed MD</span></div>'+
-      '<div class="stat"><b>'+esc(x.next_matchday)+'</b><span class="meta">Next MD</span></div>'+
-      '<div class="stat"><b>'+x.predictions.length+'</b><span class="meta">'+esc(cfg.title)+' picks</span></div>';
-    currentSeason=x.season;
-    currentMatchday=x.next_matchday;
-    latestPredictions=x.predictions||[];
-    renderTrackers(x.trackers||[]);
-    selectedKeys=new Set(((x.personal&&x.personal.last_batch&&x.personal.last_batch.predictions)||[]).filter(p=>p.selected).map(keyOf));
-    $('#count').textContent=latestPredictions.length+' pick'+(latestPredictions.length===1?'':'s');
-    renderCurrent();
-    renderHistory(x.personal);
-  }catch(e){m.innerHTML='<span class="error">'+esc(e.message)+'</span>'}
-  finally{b.disabled=false}
-}
-
-async function refresh(){
-  const b=$('#refresh');b.disabled=true;b.textContent='Refreshing…';
-  try{
-    const h=await json('/api/history/'+page+'/refresh',{method:'POST'});
-    renderHistory(h);
-    b.textContent=h.refresh&&h.refresh.graded_now?'Results updated':'Results checked';
-  }catch(e){b.textContent='Refresh failed'}
-  finally{setTimeout(()=>{b.textContent='Refresh results';b.disabled=false},1400)}
-}
-
-$('#go').onclick=run;
-$('#refresh').onclick=refresh;
-checkBackendVersion();
-loadHistory();
+function bindPickButtons(){document.querySelectorAll('[data-pick]').forEach(btn=>btn.onclick=async()=>{const p=latestPredictions.find(x=>keyOf(x)===btn.dataset.pick);if(!p||currentSeason==null||currentMatchday==null)return;const selected=!selectedKeys.has(keyOf(p));btn.disabled=true;try{await json('/api/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:String(currentSeason),matchday:String(currentMatchday),league:p.league,target_home:p.target_home,target_away:p.target_away,expected:p.expected,selected})});if(selected)selectedKeys.add(keyOf(p));else selectedKeys.delete(keyOf(p));renderCurrent();await loadHistory()}catch(e){alert(e.message)}finally{btn.disabled=false}})}
+function renderCurrent(){latestPredictions.sort(rankSort);latestPredictions.forEach((p,i)=>p.market_rank=i+1);const top=latestPredictions.slice(0,Math.min(5,latestPredictions.length));$('#topPicks').innerHTML=top.length?top.map(p=>predictionCard(p)).join(''):'<div class="empty">No ranked picks are available.</div>';const selected=latestPredictions.filter(p=>selectedKeys.has(keyOf(p)));$('#comboCount').textContent=selected.length+' selected';$('#combo').innerHTML=selected.length?selected.map(p=>predictionCard(p,true)).join(''):'<div class="empty">Choose the matches you personally want to follow.</div>';const groups={};for(const p of latestPredictions)(groups[p.league]??=[]).push(p);const leagues=Object.keys(groups).sort();$('#predictions').innerHTML=leagues.length?leagues.map(league=>'<div class="leagueGroup"><h3 class="leagueName">'+esc(league.toUpperCase())+'</h3><div class="grid">'+groups[league].map(p=>predictionCard(p)).join('')+'</div></div>').join(''):'<div class="empty">No '+esc(cfg.title)+' candidate triggered for the next matchday.</div>';bindPickButtons()}
+function cardResult(p){const score=p.outcome==='PENDING'?'Awaiting result':(p.ft_home+' - '+p.ft_away);return '<div class="card"><div class="row"><div><h3>'+esc(p.league)+'</h3><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div>'+timeComparison(p)+'</div>'}
+function renderHistory(h){h=h||{};const o=h.selected_overall||{wins:0,losses:0,pending:0,graded:0,win_rate:null};$('#stats').innerHTML='<div class="stat"><b>'+Number(o.wins||0)+'</b><span class="meta">My wins</span></div><div class="stat"><b>'+Number(o.losses||0)+'</b><span class="meta">My losses</span></div><div class="stat"><b>'+pct(o.win_rate)+'</b><span class="meta">My combo win rate</span></div><div class="stat"><b>'+Number(o.pending||0)+'</b><span class="meta">My pending</span></div>';const current=h.last_batch;if(current&&String(current.season)===String(currentSeason)&&String(current.matchday)===String(currentMatchday)){selectedKeys=new Set((current.predictions||[]).filter(p=>p.selected).map(keyOf));if(latestPredictions.length)renderCurrent()}const sb=h.last_completed_selected_batch||h.last_selected_batch;$('#selectedResults').innerHTML=sb&&(sb.predictions||[]).length?'<div class="grid">'+sb.predictions.map(cardResult).join('')+'</div>':'<div class="empty">No selected result for this market yet.</div>';const b=h.last_completed_batch||h.last_batch;const others=b?(b.predictions||[]).filter(p=>!p.selected):[];$('#last').innerHTML=others.length?'<div class="grid">'+others.map(cardResult).join('')+'</div>':'<div class="empty">No other saved result for this market yet.</div>';const batches=h.selected_batches||[];$('#history').innerHTML=batches.length?batches.map(b=>{const r=b.graded?(b.wins+'/'+b.graded+' won'):(b.candidate_count?'Pending':'No candidates');return '<tr><td>Season '+esc(b.season)+' · MD'+esc(b.matchday)+'</td><td>'+esc(r)+'</td><td>'+pct(b.win_rate)+'</td><td>'+Number(b.pending||0)+'</td></tr>'}).join(''):'<tr><td colspan="4" class="meta">No selected-match history yet.</td></tr>'}
+async function loadHistory(){try{renderHistory(await json('/api/history/'+page))}catch(e){$('#last').innerHTML='<div class="error">'+esc(e.message)+'</div>'}}
+async function run(){const b=$('#go'),m=$('#msg');b.disabled=true;m.textContent='Checking '+cfg.title+'…';try{const x=await json('/api/predict/'+page,{method:'POST'});const perf=x.performance||{};m.innerHTML='<span class="ok">Complete in '+Number(perf.seconds||0).toFixed(2)+'s</span>';$('#overview').style.display='grid';$('#overview').innerHTML='<div class="stat"><b>'+esc(x.season)+'</b><span class="meta">Season</span></div><div class="stat"><b>'+esc(x.latest_completed_matchday)+'</b><span class="meta">Latest completed MD</span></div><div class="stat"><b>'+esc(x.next_matchday)+'</b><span class="meta">Next MD</span></div><div class="stat"><b>'+x.predictions.length+'</b><span class="meta">'+esc(cfg.title)+' picks</span></div>';currentSeason=x.season;currentMatchday=x.next_matchday;latestPredictions=x.predictions||[];selectedKeys=new Set(((x.personal&&x.personal.last_batch&&x.personal.last_batch.predictions)||[]).filter(p=>p.selected).map(keyOf));$('#count').textContent=latestPredictions.length+' pick'+(latestPredictions.length===1?'':'s');renderCurrent();renderHistory(x.personal)}catch(e){m.innerHTML='<span class="error">'+esc(e.message)+'</span>'}finally{b.disabled=false}}
+async function refresh(){const b=$('#refresh');b.disabled=true;b.textContent='Refreshing…';try{const h=await json('/api/history/'+page+'/refresh',{method:'POST'});renderHistory(h);b.textContent=h.refresh&&h.refresh.graded_now?'Results updated':'Results checked'}catch(e){b.textContent='Refresh failed'}finally{setTimeout(()=>{b.textContent='Refresh results';b.disabled=false},1400)}}
+$('#go').onclick=run;$('#refresh').onclick=refresh;$('#logoutLink').onclick=async e=>{e.preventDefault();await fetch('/api/auth/logout',{method:'POST'});location.href='/login'};
+async function checkBackendVersion(){try{const s=await json('/api/status');if(s.version!=='0.4.1'){const w=$('#backendWarn');w.style.display='block';w.textContent='Frontend v0.4.1 is loaded, but the running backend is v'+String(s.version||'?')+'. Close the old server window and run run.bat again.'}}catch(e){}}
+checkBackendVersion();loadHistory();
 </script>
 </body></html>
