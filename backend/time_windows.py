@@ -17,96 +17,28 @@ TIMEZONE_NAME = "EAT"
 UTC_OFFSET = "+03:00"
 
 TIME_STATUS_PRIORITY = {
-    "NO ALIGNMENT": -1,
-    "UNCONFIRMED": 0,
+    "NO ALIGNMENT": 0,
+    "UNCONFIRMED": -1,
     "NORMAL": 1,
     "MODERATE-STRONG": 2,
     "STRONG": 3,
     "VERY STRONG": 4,
 }
 
-# Historical reconstructed EAT windows. Keys are exact
-# (league, market, rule_id) tuples so time evidence never leaks across rules.
 TIME_WINDOW_HISTORY: dict[tuple[str, str, str], dict[str, Any]] = {
-    # Dutch HT draw -> decisive FT -> follow winner.
-    ("Dutch", "Over 2.5 FT", "P7.htdrawdecisive.winner"): {
-        "default_status": "NORMAL",
-        "windows": {
-            0: {"status": "STRONG", "wins": 37, "tests": 46},
-        },
-    },
-
-    # Pattern 2 Over 2.5
-    ("Dutch", "Over 2.5 FT", "P2-O25-01"): {
-        "default_status": "NORMAL",
-        "windows": {
-            1: {"status": "STRONG", "wins": 28, "tests": 36},
-        },
-    },
-    ("French", "Over 2.5 FT", "P2-O25-02"): {
-        "default_status": "NORMAL",
-        "windows": {
-            7: {"status": "STRONG", "wins": 41, "tests": 56},
-        },
-    },
-    ("French", "Over 2.5 FT", "P2-O25-03"): {
-        "default_status": "NORMAL",
-        "windows": {
-            1: {"status": "STRONG", "wins": 29, "tests": 41},
-        },
-    },
-    ("Spanish", "Over 2.5 FT", "P2-O25-04"): {
-        "default_status": "NORMAL",
-        "windows": {
-            20: {"status": "STRONG", "wins": 26, "tests": 35},
-        },
-    },
-    ("Italian", "Over 2.5 FT", "P2-O25-05"): {
-        "default_status": "UNCONFIRMED",
-        "windows": {},
-    },
-
-    # Pattern 2 BTTS
-    ("Dutch", "BTTS YES", "P2-BTTS-01"): {
-        "default_status": "NORMAL",
-        "windows": {
-            0: {"status": "MODERATE-STRONG", "wins": 18, "tests": 25},
-        },
-    },
-    ("French", "BTTS YES", "P2-BTTS-02"): {
-        "default_status": "NORMAL",
-        "windows": {
-            21: {"status": "STRONG", "wins": 31, "tests": 44},
-        },
-    },
-    ("Spanish", "BTTS YES", "P2-BTTS-03"): {
-        "default_status": "NORMAL",
-        "windows": {
-            22: {"status": "VERY STRONG", "wins": 61, "tests": 74},
-        },
-    },
-
-    # Other qualified rules with reconstructed time research.
-    ("Spanish", "BTTS YES", "P3.sh3.loser"): {
-        "default_status": "NORMAL",
-        "windows": {
-            22: {"status": "STRONG", "wins": 35, "tests": 47},
-        },
-    },
-    ("Italian", "BTTS YES", "P6.ge6.winner"): {
-        "default_status": "UNCONFIRMED",
-        "windows": {},
-    },
-    ("German", "Over 2.5 FT", "P6.ge6.winner"): {
-        "default_status": "NORMAL",
-        "windows": {
-            0: {"status": "MODERATE-STRONG", "wins": 16, "tests": 22},
-        },
-    },
-    ("Spanish", "Over 2.5 FT", "P7.ht00over.loser"): {
-        "default_status": "UNCONFIRMED",
-        "windows": {},
-    },
+    ("Dutch", "Over 2.5 FT", "P7.htdrawdecisive.winner"): {"default_status": "NORMAL", "windows": {0: {"status": "STRONG", "wins": 37, "tests": 46}}},
+    ("Dutch", "Over 2.5 FT", "P2-O25-01"): {"default_status": "NORMAL", "windows": {1: {"status": "STRONG", "wins": 28, "tests": 36}}},
+    ("French", "Over 2.5 FT", "P2-O25-02"): {"default_status": "NORMAL", "windows": {7: {"status": "STRONG", "wins": 41, "tests": 56}}},
+    ("French", "Over 2.5 FT", "P2-O25-03"): {"default_status": "NORMAL", "windows": {1: {"status": "STRONG", "wins": 29, "tests": 41}}},
+    ("Spanish", "Over 2.5 FT", "P2-O25-04"): {"default_status": "NORMAL", "windows": {20: {"status": "STRONG", "wins": 26, "tests": 35}}},
+    ("Italian", "Over 2.5 FT", "P2-O25-05"): {"default_status": "UNCONFIRMED", "windows": {}},
+    ("Dutch", "BTTS YES", "P2-BTTS-01"): {"default_status": "NORMAL", "windows": {0: {"status": "MODERATE-STRONG", "wins": 18, "tests": 25}}},
+    ("French", "BTTS YES", "P2-BTTS-02"): {"default_status": "NORMAL", "windows": {21: {"status": "STRONG", "wins": 31, "tests": 44}}},
+    ("Spanish", "BTTS YES", "P2-BTTS-03"): {"default_status": "NORMAL", "windows": {22: {"status": "VERY STRONG", "wins": 61, "tests": 74}}},
+    ("Spanish", "BTTS YES", "P3.sh3.loser"): {"default_status": "NORMAL", "windows": {22: {"status": "STRONG", "wins": 35, "tests": 47}}},
+    ("Italian", "BTTS YES", "P6.ge6.winner"): {"default_status": "UNCONFIRMED", "windows": {}},
+    ("German", "Over 2.5 FT", "P6.ge6.winner"): {"default_status": "NORMAL", "windows": {0: {"status": "MODERATE-STRONG", "wins": 16, "tests": 22}}},
+    ("Spanish", "Over 2.5 FT", "P7.ht00over.loser"): {"default_status": "UNCONFIRMED", "windows": {}},
 }
 
 
@@ -115,10 +47,7 @@ def estimate_target_datetime_eat(season: int | str, matchday: int | str) -> date
     matchday_i = int(matchday)
     if not 1 <= matchday_i <= MATCHDAYS_PER_SEASON:
         raise ValueError(f"matchday must be 1..{MATCHDAYS_PER_SEASON}")
-    delta_minutes = (
-        SEASON_MINUTES * (season_i - ANCHOR_SEASON)
-        + MATCHDAY_MINUTES * (matchday_i - ANCHOR_MATCHDAY)
-    )
+    delta_minutes = SEASON_MINUTES * (season_i - ANCHOR_SEASON) + MATCHDAY_MINUTES * (matchday_i - ANCHOR_MATCHDAY)
     return ANCHOR_DATETIME_EAT + timedelta(minutes=delta_minutes)
 
 
@@ -158,27 +87,16 @@ def _historical_window_rows(config: dict[str, Any] | None) -> list[dict[str, Any
     return rows
 
 
-def annotate_support_time(
-    support: dict[str, Any],
-    season: int | str,
-    matchday: int | str,
-) -> dict[str, Any]:
+def annotate_support_time(support: dict[str, Any], season: int | str, matchday: int | str) -> dict[str, Any]:
     out = deepcopy(support)
     base = estimated_time_context(season, matchday)
     out.update(base)
 
     rule_id = str(out.get("rule_id") or out.get("strategy_id") or "")
-    key = (
-        str(out.get("league") or ""),
-        str(out.get("target_market") or ""),
-        rule_id,
-    )
+    key = (str(out.get("league") or ""), str(out.get("target_market") or ""), rule_id)
     config = TIME_WINDOW_HISTORY.get(key)
     historical_windows = _historical_window_rows(config)
-    matching = next(
-        (row for row in historical_windows if row["time_hour"] == base["time_hour"]),
-        None,
-    )
+    matching = next((row for row in historical_windows if row["time_hour"] == base["time_hour"]), None)
 
     status = "UNCONFIRMED"
     wins = tests = None
@@ -195,20 +113,12 @@ def annotate_support_time(
             rate = matching["rate"]
             alignment = "MATCH"
             matching_window = matching["time_window"]
-            alignment_note = (
-                f"Estimated {base['estimated_target_time_eat']} EAT falls inside "
-                f"the historical {matching_window} EAT window."
-            )
+            alignment_note = f"Estimated {base['estimated_target_time_eat']} EAT falls inside the historical {matching_window} EAT window."
         else:
             status = "NO ALIGNMENT"
             alignment = "NO MATCH"
-            historical_labels = ", ".join(
-                f"{row['time_window']} EAT" for row in historical_windows
-            )
-            alignment_note = (
-                f"Estimated {base['estimated_target_time_eat']} EAT does not match "
-                f"the historical successful window(s): {historical_labels}."
-            )
+            historical_labels = ", ".join(f"{row['time_window']} EAT" for row in historical_windows)
+            alignment_note = f"Estimated {base['estimated_target_time_eat']} EAT does not match the historical successful window(s): {historical_labels}."
 
     out.update({
         "time_status": status,
@@ -223,17 +133,9 @@ def annotate_support_time(
     return out
 
 
-def apply_time_confirmation(
-    prediction: dict[str, Any],
-    season: int | str,
-    matchday: int | str,
-) -> dict[str, Any]:
-    """Add time confirmation only after a valid strategy prediction exists."""
+def apply_time_confirmation(prediction: dict[str, Any], season: int | str, matchday: int | str) -> dict[str, Any]:
     item = deepcopy(prediction)
-    supports = [
-        annotate_support_time(s, season, matchday)
-        for s in (item.get("supports") or [])
-    ]
+    supports = [annotate_support_time(s, season, matchday) for s in (item.get("supports") or [])]
     item["supports"] = supports
 
     base = estimated_time_context(season, matchday)
@@ -253,8 +155,6 @@ def apply_time_confirmation(
         })
         return item
 
-    # Never average percentages. Pick the strongest support record only for the
-    # combined display while preserving every individual support internally.
     strongest = max(
         supports,
         key=lambda s: (
