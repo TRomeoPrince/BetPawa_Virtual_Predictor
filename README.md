@@ -71,11 +71,11 @@ The original seven frozen Over 2.5 strategies are unchanged.
 
 The original seven frozen Over 2.5 strategies remain intact.
 
-This release implements the 41 qualified multi-market rules from the latest
-validation shortlist:
+This release implements the 37 qualified multi-market rules from the latest
+validation shortlist. Under 4.5 FT was removed because it is not an available
+BetPawa market:
 
 - 3 Over 1.5 FT strategies
-- 4 Under 4.5 FT strategies
 - 4 Under 3.5 FT strategies
 - 16 Over 2.5 FT strategies
 - 14 BTTS YES strategies
