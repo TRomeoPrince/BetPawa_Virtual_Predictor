@@ -17,6 +17,7 @@ TIMEZONE_NAME = "EAT"
 UTC_OFFSET = "+03:00"
 
 TIME_STATUS_PRIORITY = {
+    "NO ALIGNMENT": -1,
     "UNCONFIRMED": 0,
     "NORMAL": 1,
     "MODERATE-STRONG": 2,
@@ -139,6 +140,24 @@ def estimated_time_context(season: int | str, matchday: int | str) -> dict[str, 
     }
 
 
+def _historical_window_rows(config: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not config:
+        return []
+    rows: list[dict[str, Any]] = []
+    for hour, window in sorted((config.get("windows") or {}).items()):
+        wins = int(window.get("wins") or 0)
+        tests = int(window.get("tests") or 0)
+        rows.append({
+            "time_window": hour_window(int(hour)),
+            "time_hour": int(hour),
+            "time_status": str(window.get("status") or "NORMAL"),
+            "wins": wins,
+            "tests": tests,
+            "rate": (wins / tests) if tests else None,
+        })
+    return rows
+
+
 def annotate_support_time(
     support: dict[str, Any],
     season: int | str,
@@ -155,24 +174,51 @@ def annotate_support_time(
         rule_id,
     )
     config = TIME_WINDOW_HISTORY.get(key)
+    historical_windows = _historical_window_rows(config)
+    matching = next(
+        (row for row in historical_windows if row["time_hour"] == base["time_hour"]),
+        None,
+    )
 
     status = "UNCONFIRMED"
     wins = tests = None
     rate = None
-    if config:
-        status = str(config.get("default_status") or "NORMAL")
-        window = (config.get("windows") or {}).get(base["time_hour"])
-        if window:
-            status = str(window["status"])
-            wins = int(window["wins"])
-            tests = int(window["tests"])
-            rate = wins / tests if tests else None
+    alignment = "UNCONFIRMED"
+    alignment_note = "No historical time window is available for this strategy."
+    matching_window = None
+
+    if config and historical_windows:
+        if matching:
+            status = matching["time_status"]
+            wins = matching["wins"]
+            tests = matching["tests"]
+            rate = matching["rate"]
+            alignment = "MATCH"
+            matching_window = matching["time_window"]
+            alignment_note = (
+                f"Estimated {base['estimated_target_time_eat']} EAT falls inside "
+                f"the historical {matching_window} EAT window."
+            )
+        else:
+            status = "NO ALIGNMENT"
+            alignment = "NO MATCH"
+            historical_labels = ", ".join(
+                f"{row['time_window']} EAT" for row in historical_windows
+            )
+            alignment_note = (
+                f"Estimated {base['estimated_target_time_eat']} EAT does not match "
+                f"the historical successful window(s): {historical_labels}."
+            )
 
     out.update({
         "time_status": status,
+        "time_alignment": alignment,
+        "time_alignment_window": matching_window,
+        "time_alignment_note": alignment_note,
         "time_historical_wins": wins,
         "time_historical_tests": tests,
         "time_historical_rate": rate,
+        "time_historical_windows": historical_windows,
     })
     return out
 
@@ -196,9 +242,13 @@ def apply_time_confirmation(
     if not supports:
         item.update({
             "time_status": "UNCONFIRMED",
+            "time_alignment": "UNCONFIRMED",
+            "time_alignment_window": None,
+            "time_alignment_note": "No strategy support is available for time confirmation.",
             "time_historical_wins": None,
             "time_historical_tests": None,
             "time_historical_rate": None,
+            "time_historical_windows": [],
             "time_supports": [],
         })
         return item
@@ -208,23 +258,30 @@ def apply_time_confirmation(
     strongest = max(
         supports,
         key=lambda s: (
-            TIME_STATUS_PRIORITY.get(str(s.get("time_status")), 0),
+            TIME_STATUS_PRIORITY.get(str(s.get("time_status")), -1),
+            1 if s.get("time_alignment") == "MATCH" else 0,
             s.get("time_historical_rate") if s.get("time_historical_rate") is not None else -1.0,
         ),
     )
 
     item["time_status"] = strongest.get("time_status") or "UNCONFIRMED"
+    item["time_alignment"] = strongest.get("time_alignment") or "UNCONFIRMED"
+    item["time_alignment_window"] = strongest.get("time_alignment_window")
+    item["time_alignment_note"] = strongest.get("time_alignment_note")
     item["time_historical_wins"] = strongest.get("time_historical_wins")
     item["time_historical_tests"] = strongest.get("time_historical_tests")
     item["time_historical_rate"] = strongest.get("time_historical_rate")
+    item["time_historical_windows"] = strongest.get("time_historical_windows") or []
     item["time_supports"] = [
         {
-            "strategy_family": s.get("strategy_family") or "Pattern 1",
             "time_status": s.get("time_status") or "UNCONFIRMED",
+            "time_alignment": s.get("time_alignment") or "UNCONFIRMED",
+            "time_alignment_window": s.get("time_alignment_window"),
+            "time_alignment_note": s.get("time_alignment_note"),
             "time_historical_wins": s.get("time_historical_wins"),
             "time_historical_tests": s.get("time_historical_tests"),
             "time_historical_rate": s.get("time_historical_rate"),
-            "time_window": s.get("time_window"),
+            "time_historical_windows": s.get("time_historical_windows") or [],
         }
         for s in supports
     ]
@@ -232,4 +289,4 @@ def apply_time_confirmation(
 
 
 def time_priority(value: str | None) -> int:
-    return TIME_STATUS_PRIORITY.get(str(value or "UNCONFIRMED"), 0)
+    return TIME_STATUS_PRIORITY.get(str(value or "UNCONFIRMED"), -1)
