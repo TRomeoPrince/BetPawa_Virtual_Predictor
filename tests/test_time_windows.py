@@ -66,13 +66,56 @@ class TimeWindowTests(unittest.TestCase):
         self.assertEqual(info["timezone"], "EAT")
         self.assertEqual(info["utc_offset"], UTC_OFFSET)
 
-    def test_exact_rule_time_stats_do_not_leak_to_another_rule(self):
-        very = annotate_support_time(
+    def test_matching_time_is_explicitly_reported(self):
+        found = None
+        for season in range(139222, 139240):
+            for md in range(1, 35):
+                if estimate_target_datetime_eat(season, md).hour == 22:
+                    found = (season, md)
+                    break
+            if found:
+                break
+        self.assertIsNotNone(found)
+        out = annotate_support_time(
             support("Pattern 2", "P2-BTTS-03", "Spanish", "BTTS YES"),
-            139222, 1,
+            *found,
         )
-        # 139222 MD1 = 12:25, so use a season/matchday that reconstructs to 22h.
-        # Search deterministically within one cycle for the first 22h matchday.
+        self.assertEqual(out["time_alignment"], "MATCH")
+        self.assertEqual(out["time_alignment_window"], "22:00-22:59")
+        self.assertAlmostEqual(out["time_historical_rate"], 61 / 74)
+        self.assertIn("falls inside", out["time_alignment_note"])
+        self.assertEqual(out["time_historical_windows"][0]["time_window"], "22:00-22:59")
+
+    def test_non_matching_time_is_explicitly_reported(self):
+        found = None
+        for season in range(139222, 139240):
+            for md in range(1, 35):
+                if estimate_target_datetime_eat(season, md).hour == 20:
+                    found = (season, md)
+                    break
+            if found:
+                break
+        self.assertIsNotNone(found)
+        out = annotate_support_time(
+            support("Pattern 2", "P2-O25-04", "Spanish", "Over 2.5 FT"),
+            *found,
+        )
+        self.assertEqual(out["time_alignment"], "MATCH")
+        self.assertEqual(out["time_alignment_window"], "20:00-20:59")
+        self.assertAlmostEqual(out["time_historical_rate"], 26 / 35)
+
+        no_match = annotate_support_time(
+            support("Pattern 2", "P2-O25-04", "Spanish", "Over 2.5 FT"),
+            139240,
+            1,
+        )
+        self.assertEqual(no_match["estimated_target_time_eat"], "15:25")
+        self.assertEqual(no_match["time_alignment"], "NO MATCH")
+        self.assertEqual(no_match["time_status"], "NO ALIGNMENT")
+        self.assertIsNone(no_match["time_historical_rate"])
+        self.assertIn("does not match", no_match["time_alignment_note"])
+
+    def test_exact_rule_time_stats_do_not_leak_to_another_rule(self):
         found = None
         for season in range(139222, 139240):
             for md in range(1, 35):
@@ -91,12 +134,13 @@ class TimeWindowTests(unittest.TestCase):
             *found,
         )
         self.assertEqual(very["time_status"], "VERY STRONG")
+        self.assertEqual(very["time_alignment"], "MATCH")
         self.assertAlmostEqual(very["time_historical_rate"], 61 / 74)
-        self.assertEqual(other["time_status"], "NORMAL")
+        self.assertEqual(other["time_status"], "NO ALIGNMENT")
+        self.assertEqual(other["time_alignment"], "NO MATCH")
         self.assertIsNone(other["time_historical_rate"])
 
     def test_no_percentage_averaging(self):
-        # Find a reconstructed 20:xx target for Spanish P2 O2.5.
         found = None
         for season in range(139222, 139240):
             for md in range(1, 35):
@@ -118,6 +162,7 @@ class TimeWindowTests(unittest.TestCase):
         }
         out = apply_time_confirmation(item, *found)
         self.assertEqual(out["time_status"], "STRONG")
+        self.assertEqual(out["time_alignment"], "MATCH")
         self.assertAlmostEqual(out["time_historical_rate"], 26 / 35)
         self.assertEqual(len(out["time_supports"]), 2)
 
@@ -134,6 +179,7 @@ class TimeWindowTests(unittest.TestCase):
         a = apply_time_confirmation({**base, "ft_home": 0, "ft_away": 0}, 139240, 1)
         b = apply_time_confirmation({**base, "ft_home": 7, "ft_away": 6}, 139240, 1)
         self.assertEqual(a["time_status"], b["time_status"])
+        self.assertEqual(a["time_alignment"], b["time_alignment"])
         self.assertEqual(a["time_window"], b["time_window"])
         self.assertEqual(a["time_historical_rate"], b["time_historical_rate"])
 
@@ -145,10 +191,8 @@ class TimeWindowTests(unittest.TestCase):
             ]
         }
         out = apply_time_confirmation(item, 139240, 1)
-        self.assertEqual(
-            [x["strategy_family"] for x in out["time_supports"]],
-            ["Pattern 1", "Pattern 2"],
-        )
+        self.assertEqual(len(out["time_supports"]), 2)
+        self.assertEqual(out["time_alignment"], "NO MATCH")
 
     def test_database_persists_and_grades_time_supports(self):
         old_db = dbmod.DB
@@ -170,7 +214,6 @@ class TimeWindowTests(unittest.TestCase):
                         )
                     ],
                 }
-                # Find a 22:xx reconstructed target for the configured window.
                 found = None
                 for season in range(139222, 139240):
                     for md in range(1, 35):
