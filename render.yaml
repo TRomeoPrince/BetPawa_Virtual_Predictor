@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: betpawa-predictor
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    healthCheckPath: /api/status
+    envVars:
+      - key: PREDICTOR_DB_PATH
+        value: /var/data/predictor.db
+      - key: CHROME_BIN
+        value: /usr/bin/chromium
+      - key: CHROMEDRIVER_PATH
+        value: /usr/bin/chromedriver
+      - key: PREDICTOR_HEADLESS_ONLY
+        value: "1"
+      - key: PREDICTOR_ADMIN_PASSWORD
+        sync: false
+    disk:
+      name: predictor-data
+      mountPath: /var/data
+      sizeGB: 1
