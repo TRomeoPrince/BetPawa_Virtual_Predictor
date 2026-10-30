@@ -27,6 +27,7 @@ from .access import (
     delete_session,
     ensure_bootstrap_admin,
     grant_subscription,
+    list_account_subscription_requests,
     list_clients,
     list_subscription_requests,
     public_account,
@@ -289,11 +290,9 @@ def _frontend_response(path: Path):
 
 
 @app.get("/")
-def home(request: Request):
-    account = _session_account(request)
-    if not account:
-        return RedirectResponse("/login", status_code=302)
-    return RedirectResponse("/admin" if account.get("role") == "admin" else "/client", status_code=302)
+def home():
+    """Public marketing page; private dashboards remain behind authentication."""
+    return _frontend_response(FRONTEND)
 
 
 @app.get("/login")
@@ -386,6 +385,15 @@ def api_change_password(payload: PasswordChange, request: Request):
 @app.get("/api/plans")
 def api_plans():
     return {"plans": public_plans()}
+
+
+@app.get("/api/client/subscription-requests")
+def api_client_subscription_requests(request: Request):
+    account = _require_account(request)
+    return {
+        "requests": list_account_subscription_requests(int(account["id"]))
+        if account.get("role") != "admin" else []
+    }
 
 
 @app.post("/api/client/subscription-request")
