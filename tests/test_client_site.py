@@ -91,6 +91,21 @@ class ClientSiteTests(unittest.TestCase):
         self.assertEqual(over.json()["selected_overall"]["pending"], 1)
         self.assertEqual(under.json()["selected_overall"]["pending"], 0)
 
+        db.grade_user_predictions(user_key, [{
+            "season": "2026", "matchday": 3,
+            "leagues": {
+                "ENGLISH": [{"home": "A", "away": "B", "ft_home": 2, "ft_away": 1}],
+                "SPANISH": [{"home": "C", "away": "D", "ft_home": 2, "ft_away": 2}],
+            },
+        }])
+        graded_over = self.client.get("/api/history/overs").json()
+        graded_under = self.client.get("/api/history/unders").json()
+        self.assertEqual(graded_over["selected_overall"]["wins"], 1)
+        self.assertEqual(graded_over["selected_overall"]["win_rate"], 1.0)
+        self.assertEqual(graded_over["selected_results"][0]["outcome"], "WON")
+        self.assertEqual(graded_under["overall"]["losses"], 1)
+        self.assertEqual(graded_under["selected_overall"]["graded"], 0)
+
     def test_predictions_store_private_rules_but_never_expose_them(self):
         _, password = access.create_client("memberfour", "Member Four", "weekly")
         self.login("memberfour", password)
@@ -129,6 +144,10 @@ class ClientSiteTests(unittest.TestCase):
         self.assertEqual(history.status_code, 200, history.text)
         self.assertNotIn("SECRET", history.text)
         self.assertNotIn("by_rule_internal", history.text)
+        all_history = self.client.get("/api/predictions")
+        self.assertEqual(all_history.status_code, 200)
+        self.assertNotIn("SECRET", all_history.text)
+        self.assertNotIn("by_rule_internal", all_history.text)
         con = db.connect()
         rows = con.execute(
             "SELECT rule_id FROM prediction_supports WHERE rule_id='SECRET_RULE_2026'"
