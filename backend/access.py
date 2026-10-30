@@ -433,6 +433,22 @@ def request_subscription(account_id: int, plan_code: str) -> dict[str, Any]:
     return dict(req)
 
 
+def list_account_subscription_requests(account_id: int) -> list[dict[str, Any]]:
+    """Return only the signed-in account's recent requests."""
+    con = connect()
+    rows = con.execute(
+        """
+        SELECT id, plan_code, status, requested_at, reviewed_at
+        FROM subscription_requests
+        WHERE account_id=?
+        ORDER BY id DESC LIMIT 5
+        """,
+        (account_id,),
+    ).fetchall()
+    con.close()
+    return [dict(row) for row in rows]
+
+
 def list_subscription_requests() -> list[dict[str, Any]]:
     con = connect()
     rows = con.execute(
