@@ -125,9 +125,7 @@ def _user_id(request: Request, response: Response) -> str:
 def _public_support(support: dict) -> dict:
     allowed = {
         "historical_win_rate", "wins", "tests", "baseline", "edge_pp",
-        "positive_seasons", "source_matchday", "target_matchday",
-        "selected_teams", "target_fixture", "live_alignment", "recent_wins",
-        "recent_tests", "time_status", "time_alignment", "time_alignment_window",
+        "positive_seasons", "time_status", "time_alignment", "time_alignment_window",
         "time_alignment_note", "time_historical_wins", "time_historical_tests",
         "time_historical_rate", "time_historical_windows",
     }
@@ -141,6 +139,7 @@ def _public_prediction(item: dict) -> dict:
     for key in (
         "strategy_families", "strategy_family_label", "strategy_family",
         "rule_id", "strategy_id", "strategy_name", "trigger_explanation",
+        "selected_team", "selected_teams", "target_position", "source_fixtures",
     ):
         out.pop(key, None)
     out["time_supports"] = [
@@ -159,13 +158,47 @@ def _public_prediction(item: dict) -> dict:
     return out
 
 
+def _public_history(history: dict) -> dict:
+    """Never expose internal strategy IDs or source triggers in client history."""
+    out = dict(history)
+    for key in ("by_rule_internal", "by_rule_time_internal", "by_family_market"):
+        out.pop(key, None)
+
+    def clean_batch(batch):
+        if not isinstance(batch, dict):
+            return batch
+        return {
+            **batch,
+            "predictions": [
+                _public_prediction(p) for p in (batch.get("predictions") or [])
+            ],
+        }
+
+    for key in (
+        "last_batch", "last_completed_batch", "last_selected_batch",
+        "last_completed_selected_batch",
+    ):
+        out[key] = clean_batch(out.get(key))
+    out["recent_batches"] = [
+        clean_batch(b) for b in (out.get("recent_batches") or [])
+    ]
+    out["selected_results"] = [
+        _public_prediction(p) for p in (out.get("selected_results") or [])
+    ]
+    return out
+
+
 def _public_result(result: dict) -> dict:
     out = dict(result)
     out["predictions"] = [_public_prediction(p) for p in (result.get("predictions") or [])]
     out["trackers"] = []
-    out.pop("by_rule_internal", None)
-    out.pop("by_rule_time_internal", None)
-    out.pop("by_family_market", None)
+    for key in (
+        "by_rule_internal", "by_rule_time_internal", "by_family_market",
+        "leagues", "multi_market_strategy_count", "pattern2_strategy_count",
+    ):
+        out.pop(key, None)
+    if isinstance(out.get("personal"), dict):
+        out["personal"] = _public_history(out["personal"])
     return out
 
 
@@ -508,16 +541,19 @@ def predict_category(category: str, request: Request, response: Response):
         result = build_prediction(context)
         category_result = {
             **result,
+            "next_target": context.get("next_target") or {},
             "predictions": [
                 p for p in result.get("predictions", [])
                 if _market_category(p.get("expected")) == category
             ],
             "trackers": [],
         }
+        # Persist the full private support metadata server-side, then sanitize
+        # every prediction and history object before returning it to clients.
+        save_user_prediction_batch(user_id, category_result)
+        history = get_user_history(user_id, category=category)
         public_result = _public_result(category_result)
-        save_user_prediction_batch(user_id, public_result)
-        history = get_user_history(user_id)
-        public_result["personal"] = history
+        public_result["personal"] = _public_history(history)
         public_result["performance"] = {
             "seconds": round(time.perf_counter() - started, 3),
             "round_cache_hits": context.get("round_cache_hits", 0),
@@ -556,7 +592,7 @@ def history_category(category: str, request: Request, response: Response):
         raise HTTPException(404, "Unknown market page.")
     account = _require_active_access(request)
     user_id = account["user_key"]
-    return get_user_history(user_id, category=category)
+    return _public_history(get_user_history(user_id, category=category))
 
 
 @app.post("/api/history/{category}/refresh")
@@ -569,7 +605,7 @@ def refresh_history(category: str, request: Request, response: Response):
     try:
         context = feed.prediction_context()
         graded = grade_user_predictions(user_id, context["completed_rounds_for_grading"])
-        history = get_user_history(user_id, category=category)
+        history = _public_history(get_user_history(user_id, category=category))
         history["refresh"] = {
             "graded_now": graded,
             "seconds": round(time.perf_counter() - started, 3),
@@ -586,7 +622,7 @@ def refresh_history(category: str, request: Request, response: Response):
 def predictions(request: Request, response: Response):
     account = _require_active_access(request)
     user_id = account["user_key"]
-    return get_user_history(user_id)
+    return _public_history(get_user_history(user_id))
 
 
 @app.get("/api/diagnose")
