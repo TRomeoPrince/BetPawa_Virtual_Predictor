@@ -1,30 +1,108 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f9f1">
 <title>Client Dashboard · BetPawa Predictor</title>
 <style>
-:root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--accent:#b8ef4c;--green:#63e29a;--amber:#ffd166;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1100px;margin:auto;padding:28px 20px}.top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}.brand{font-size:34px;font-weight:950}.muted{color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#172536;color:var(--txt);border-radius:11px;padding:10px 13px;font-weight:850;cursor:pointer}.btn.primary{background:var(--accent);color:#101708;border-color:var(--accent)}.panel{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px}.status{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.pill{border-radius:999px;padding:7px 10px;font-weight:900}.active{background:#102619;color:var(--green)}.inactive{background:#2a1417;color:var(--red)}.preview{margin-top:12px;padding:10px 12px;border:1px dashed var(--amber);border-radius:10px;color:var(--amber)}.markets,.plans{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}.market,.plan{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px}.market a{color:var(--txt);text-decoration:none}.market h3,.plan h3{margin:0 0 6px}.open{color:var(--accent);font-weight:900;margin-top:14px;display:inline-block}.plan button{width:100%;margin-top:12px}.sectionTitle{font-size:20px;font-weight:900}.notice{margin-top:12px;color:var(--amber)}.password{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:12px}.password input{padding:11px;border-radius:10px;border:1px solid var(--line);background:#0b141e;color:var(--txt)}@media(max-width:900px){.markets,.plans{grid-template-columns:1fr 1fr}.password{grid-template-columns:1fr}}@media(max-width:520px){.markets,.plans{grid-template-columns:1fr}}
+:root{--bg:#f6f9f1;--panel:#fff;--soft:#edf5e9;--line:#dce7da;--ink:#173c2b;--muted:#5e7568;--green:#17694c;--red:#a83c45;--amber:#895b0d;--lime:#e2f69a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}button,input{font:inherit}a{color:inherit}.wrap{max-width:1140px;margin:0 auto;padding:0 22px}.topbar{background:#fff;border-bottom:1px solid var(--line)}.topinner{min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:950}.mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--green);color:#fff;letter-spacing:-.07em}.actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:11px 15px;font-weight:850;cursor:pointer}.btn:hover{border-color:#9cc8aa}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn:disabled{opacity:.55;cursor:not-allowed}.main{padding-top:37px;padding-bottom:60px}.eyebrow{color:var(--green);font-size:12px;font-weight:950;letter-spacing:.13em;text-transform:uppercase}.title{font-size:clamp(30px,4.6vw,45px);letter-spacing:-.05em;margin:10px 0 5px}.muted{color:var(--muted)}.preview{margin:20px 0;padding:13px 16px;background:#fff9e7;border:1px solid #ead9ac;color:#80590c;border-radius:13px;font-weight:700}.statusCard{background:linear-gradient(120deg,#17694c,#164733);border-radius:23px;color:#fff;padding:28px;display:flex;justify-content:space-between;align-items:center;gap:25px;flex-wrap:wrap;margin-top:27px}.statusCard .muted{color:#d2e7d9}.statusCard h2{margin:9px 0;font-size:26px;letter-spacing:-.03em}.statusCard p{margin:0;line-height:1.65}.pill{display:inline-flex;border-radius:999px;padding:8px 12px;font-weight:950;font-size:12px;letter-spacing:.04em}.pill.active{background:#e0f5d9;color:#18583a}.pill.inactive{background:#ffe7e7;color:#8f2935}.pill.pending{background:#fff0c4;color:#77530d}.section{margin-top:33px}.sectionHead{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:15px}.sectionHead h2{font-size:24px;letter-spacing:-.035em;margin:0}.sectionHead p{margin:6px 0 0;font-size:14px;color:var(--muted);line-height:1.6}.markets{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.market{display:flex;flex-direction:column;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:22px;min-height:190px;transition:transform .15s,border-color .15s}.market:hover{transform:translateY(-2px);border-color:#9ac5a7}.market .symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--green);font-size:23px}.market h3{font-size:22px;margin:16px 0 5px}.market p{font-size:13px;line-height:1.5;color:var(--muted);margin:0}.market .open{color:var(--green);font-size:13px;font-weight:900;margin-top:auto;padding-top:17px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:23px}.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}.plan{border:1px solid var(--line);background:#fcfefa;border-radius:15px;padding:17px}.plan h3{font-size:18px;margin:0 0 5px}.plan .muted{font-size:13px}.plan .btn{width:100%;margin-top:14px}.notice{margin-top:12px;color:var(--amber);font-size:13px;font-weight:750;line-height:1.6;min-height:20px}.requestList{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}.request{background:var(--soft);padding:10px 12px;border-radius:10px;font-size:13px}.request strong{color:var(--green)}.securityForm{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:15px}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:7px}.field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink)}.field input:focus{outline:2px solid #a5d2b1}.feedback{margin-top:13px;font-size:14px;font-weight:800;min-height:19px}.feedback.error{color:var(--red)}.feedback.success{color:var(--green)}footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:12px;line-height:1.6}
+@media(max-width:950px){.markets{grid-template-columns:repeat(2,1fr)}.plans{grid-template-columns:repeat(2,1fr)}.securityForm{grid-template-columns:1fr 1fr}.securityForm .btn{grid-column:1/-1}}@media(max-width:570px){.wrap{padding:0 16px}.main{padding-top:26px}.markets,.plans,.securityForm{grid-template-columns:1fr}.securityForm .btn{grid-column:auto}.market{min-height:165px}.statusCard{padding:22px}.panel{padding:18px}.actions .btn{padding:9px 11px;font-size:13px}}
 </style>
 </head>
 <body>
-<main class="wrap">
-<div class="top"><div><div class="brand">Your Predictor</div><div id="welcome" class="muted"></div></div><div class="actions"><button class="btn" onclick="logout()">Sign out</button></div></div>
-<div id="preview" class="preview" style="display:none">Admin preview mode — this is the same client view your customers will see.</div>
-<section class="panel"><div class="status"><div><div class="sectionTitle">Subscription</div><div id="subText" class="muted"></div></div><div id="subPill" class="pill inactive">INACTIVE</div></div><div id="renewal" class="notice"></div></section>
-<section class="panel"><div class="sectionTitle">Prediction Markets</div><div class="markets"><div class="market"><a href="/client/overs"><h3>OVERS</h3><div class="muted">Goal-over predictions and ranked picks.</div><span class="open">Open Overs →</span></a></div><div class="market"><a href="/client/unders"><h3>UNDERS</h3><div class="muted">Qualified goal-under predictions.</div><span class="open">Open Unders →</span></a></div><div class="market"><a href="/client/btts"><h3>BTTS</h3><div class="muted">Both Teams To Score signals.</div><span class="open">Open BTTS →</span></div><div class="market"><a href="/client/wins"><h3>WINS</h3><div class="muted">Qualified home/away win signals.</div><span class="open">Open Wins →</span></a></div></div></section>
-<section class="panel"><div class="sectionTitle">Subscription Plans</div><div class="muted">Request a plan. The current MVP uses admin approval; payment automation can be connected later.</div><div id="plans" class="plans"></div></section>
-<section class="panel"><div class="sectionTitle">Security</div><div id="passNotice" class="notice"></div><div class="password"><input id="currentPassword" type="password" placeholder="Current password"><input id="newPassword" type="password" placeholder="New password (8+ chars)"><button class="btn primary" onclick="changePassword()">Change password</button></div></section>
+<header class="topbar"><div class="wrap topinner"><a class="logo" href="/"><span class="mark" aria-hidden="true">BP</span>BetPawa Predictor</a><div class="actions"><a id="adminLink" href="/admin" class="btn" hidden>Admin console</a><button class="btn" id="logout" type="button">Sign out</button></div></div></header>
+<main class="wrap main">
+<div class="eyebrow">Client workspace</div><h1 class="title">Your prediction dashboard</h1><div id="welcome" class="muted">Loading your account…</div>
+<div id="preview" class="preview" hidden>Admin preview — you are viewing the same workspace clients use. Your admin account has full access.</div>
+<section class="statusCard" aria-label="Subscription status"><div><div class="eyebrow" style="color:#c6eacb">Your access</div><h2 id="planTitle">Checking subscription…</h2><p id="subText" class="muted"></p></div><span id="subPill" class="pill inactive">CHECKING</span></section>
+<section class="section"><div class="sectionHead"><div><h2>Explore prediction markets</h2><p>Open a market to see available matchday fixtures, qualifying picks and your tracked results.</p></div></div><div class="markets">
+<a class="market" href="/client/overs"><span class="symbol" aria-hidden="true">↗</span><h3>Overs</h3><p>Goal-over predictions and ranked picks.</p><span class="open">Explore Overs →</span></a>
+<a class="market" href="/client/unders"><span class="symbol" aria-hidden="true">↘</span><h3>Unders</h3><p>Qualified goal-under predictions.</p><span class="open">Explore Unders →</span></a>
+<a class="market" href="/client/btts"><span class="symbol" aria-hidden="true">⇄</span><h3>BTTS</h3><p>Both Teams To Score patterns.</p><span class="open">Explore BTTS →</span></a>
+<a class="market" href="/client/wins"><span class="symbol" aria-hidden="true">✓</span><h3>Wins</h3><p>Home and away win patterns, when qualified.</p><span class="open">Explore Wins →</span></a>
+</div></section>
+<section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
+<section class="section panel"><div class="sectionHead"><div><h2>Account security</h2><p>Change your temporary password before using your account regularly.</p></div></div><div id="passNotice" class="notice"></div><form id="passwordForm" class="securityForm"><div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div class="field"><label for="newPassword">New password (8+ characters)</label><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></div><button class="btn primary" type="submit">Update password</button></form><div id="passwordMessage" class="feedback" role="status" aria-live="polite"></div></section>
 </main>
+<footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults only.</div></footer>
 <script>
-const qs=new URLSearchParams(location.search);const previewMode=qs.get('preview')==='1';let me=null;
-const fmt=d=>d?new Date(d).toLocaleString():'—';
-async function api(url,opt){const r=await fetch(url,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||'Request failed');return d}
-async function load(){try{const d=await api('/api/auth/me');me=d.account;if(me.role==='admin'&&!previewMode){document.getElementById('preview').style.display='block';}if(me.role!=='admin'&&!me.subscription?.is_active&&location.pathname!='/client'){location.href='/client';return}welcome.textContent='Welcome, '+me.display_name+(me.role==='admin'?' · Administrator preview':'');const s=me.subscription||{};subPill.textContent=me.role==='admin'?'ADMIN':(s.is_active?'ACTIVE':'INACTIVE');subPill.className='pill '+(me.role==='admin'||s.is_active?'active':'inactive');subText.textContent=me.role==='admin'?'Full client-view preview access':' '+s.plan_label+' · expires '+fmt(s.expires_at);renewal.textContent=me.role==='admin'?'Admin preview can open every market.':' '+(s.is_active?'Access is active.':'Your prediction pages are locked until a subscription is activated.');passNotice.textContent=me.must_change_password?'Change the temporary password before sharing this account.':'';const plans=await api('/api/plans');document.querySelector('#plans').innerHTML=plans.plans.map(p=>'<div class="plan"><h3>'+p.label+'</h3><div class="muted">'+p.days+' day'+(p.days===1?'':'s')+' access</div><button class="btn primary" onclick="requestPlan(\''+p.code+'\')">Request '+p.label+'</button></div>').join('');}catch(e){location.href='/login'}}
-async function requestPlan(code){if(me?.role==='admin'){alert('Admin accounts do not need subscriptions.');return}try{await api('/api/client/subscription-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_code:code})});alert('Subscription request sent to admin.')}catch(e){alert(e.message)}}
-async function changePassword(){try{await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:currentPassword.value,new_password:newPassword.value})});alert('Password changed.');currentPassword.value='';newPassword.value='';load()}catch(e){alert(e.message)}}
-async function logout(){await fetch('/api/auth/logout',{method:'POST'});location.href='/login'}
+const $=id=>document.getElementById(id);let account=null,requests=[];
+const formatDate=value=>value?new Date(value).toLocaleString():'Not set';
+async function api(url,options){
+  const response=await fetch(url,{credentials:'same-origin',...options});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===401){location.assign('/login');throw new Error('Please sign in.')}
+  if(!response.ok)throw new Error(data.detail||'Request failed. Please try again.');
+  return data;
+}
+function showFeedback(id,message,error=false){const el=$(id);el.textContent=message;el.className='feedback '+(error?'error':'success')}
+function showAccount(){
+  const sub=account.subscription||{},admin=account.role==='admin';
+  $('welcome').textContent='Welcome, '+(account.display_name||account.username)+'. Your markets and saved picks are ready when your access is active.';
+  $('preview').hidden=!admin;$('adminLink').hidden=!admin;
+  $('planTitle').textContent=admin?'Administrator preview':(sub.plan_label||'No active plan');
+  $('subPill').textContent=admin?'ADMIN':(sub.is_active?'ACTIVE':'INACTIVE');
+  $('subPill').className='pill '+(admin||sub.is_active?'active':'inactive');
+  $('subText').textContent=admin?'You can preview every client market.':(sub.is_active?'Access expires '+formatDate(sub.expires_at):'Your markets unlock after a subscription is approved and activated.');
+  $('passNotice').textContent=account.must_change_password?'Your account is using a temporary password. Please change it now.':'';
+}
+function renderRequests(){
+  const box=$('requestHistory');box.replaceChildren();
+  if(account.role==='admin')return;
+  if(!requests.length){box.textContent='No subscription requests yet.';return}
+  requests.forEach(item=>{
+    const node=document.createElement('div');node.className='request';
+    const label=document.createElement('strong');label.textContent=item.plan_code.replaceAll('_',' ')+' · '+item.status.toUpperCase();
+    node.append(label,document.createTextNode(' · '+formatDate(item.requested_at)));box.append(node);
+  });
+}
+function renderPlans(plans){
+  const box=$('plans');box.replaceChildren();
+  const pending=requests.some(item=>item.status==='pending');
+  plans.forEach(plan=>{
+    const card=document.createElement('article');card.className='plan';
+    const title=document.createElement('h3');title.textContent=plan.label;
+    const duration=document.createElement('div');duration.className='muted';duration.textContent=plan.days+' day'+(plan.days===1?'':'s')+' access';
+    const button=document.createElement('button');button.className='btn primary';button.type='button';
+    button.textContent=account.role==='admin'?'Admin preview':(pending?'Request pending':'Request access');
+    button.disabled=account.role==='admin'||pending;
+    button.addEventListener('click',()=>requestPlan(plan.code));
+    card.append(title,duration,button);box.append(card);
+  });
+}
+async function refreshRequests(){
+  const response=await api('/api/client/subscription-requests');requests=response.requests||[];
+  renderRequests();
+}
+async function load(){
+  try{
+    account=(await api('/api/auth/me')).account;
+    showAccount();
+    const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
+    renderPlans(plans.plans||[]);
+  }catch(error){if(!account)showFeedback('requestMessage',error.message,true);else showFeedback('requestMessage','Unable to load all account details: '+error.message,true)}
+}
+async function requestPlan(code){
+  try{
+    showFeedback('requestMessage','Sending request…');
+    await api('/api/client/subscription-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_code:code})});
+    showFeedback('requestMessage','Request sent. The administrator will review it.');
+    await load();
+  }catch(error){showFeedback('requestMessage',error.message,true)}
+}
+$('passwordForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  try{
+    await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:$('currentPassword').value,new_password:$('newPassword').value})});
+    $('currentPassword').value='';$('newPassword').value='';
+    showFeedback('passwordMessage','Password updated successfully.');
+    account.must_change_password=false;showAccount();
+  }catch(error){showFeedback('passwordMessage',error.message,true)}
+});
+$('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
 load();
 </script>
-</body></html>
+</body>
+</html>
