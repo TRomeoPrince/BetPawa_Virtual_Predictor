@@ -1,10 +1,36 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign in · BetPawa Predictor</title><style>
-:root{--bg:#071019;--panel:#101a25;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--accent:#b8ef4c;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top,#132437 0,#071019 45%);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;display:grid;place-items:center;padding:20px}.card{width:min(440px,100%);background:rgba(16,26,37,.96);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 24px 70px #0007}.brand{font-weight:950;font-size:28px}.sub{color:var(--muted);line-height:1.5;margin:8px 0 24px}.field{margin-top:14px}.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}.field input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:#0b141e;color:var(--txt);font-size:15px}.button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:12px;background:var(--accent);color:#101708;font-weight:950;font-size:15px;cursor:pointer}.error{color:var(--red);font-weight:800;margin-top:12px}.note{color:var(--muted);font-size:12px;margin-top:18px;line-height:1.5}
-</style></head><body><main class="card"><div class="brand">BetPawa Predictor</div><div class="sub">Sign in to your prediction dashboard.</div>
-<form id="form"><div class="field"><label>Username</label><input id="username" autocomplete="username" required></div><div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" required></div><button class="button" type="submit">Sign in</button><div id="error" class="error"></div></form>
-<div class="note">Predictions are based on historical patterns and are not guarantees.</div>
-<script>const form=document.querySelector('#form'),err=document.querySelector('#error');form.onsubmit=async e=>{e.preventDefault();err.textContent='';const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:username.value,password:password.value})});const d=await r.json().catch(()=>({}));if(!r.ok){err.textContent=d.detail||'Sign in failed.';return}location.href=d.account.role==='admin'?'/admin':'/client';};</script>
-</main></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f9f1">
+<title>Sign in · BetPawa Predictor</title>
+<style>
+:root{--bg:#f6f9f1;--ink:#173c2b;--muted:#607569;--green:#17694c;--line:#d9e7d9;--red:#b43a3a}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 80% 10%,#e3f4ce,transparent 40%),var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.shell{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}.aside{background:linear-gradient(150deg,#1b704f,#163f30);color:#fff;padding:56px clamp(26px,5vw,82px);display:flex;flex-direction:column;justify-content:space-between}.logo{display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;font-weight:900;font-size:19px}.mark{display:grid;place-items:center;background:#e0f28e;color:#20462e;width:42px;height:42px;border-radius:12px;letter-spacing:-.08em}.aside h1{font-size:clamp(37px,4.2vw,60px);letter-spacing:-.06em;line-height:1.08;margin:0 0 20px}.aside p{font-size:17px;color:#d1e7d9;line-height:1.7;max-width:440px}.aside small{color:#c1dac9;line-height:1.7}.right{display:grid;place-items:center;padding:35px 20px}.card{width:min(430px,100%)}.back{display:inline-block;margin-bottom:28px;text-decoration:none;color:var(--green);font-weight:800;font-size:14px}.card h2{font-size:35px;letter-spacing:-.045em;margin:0 0 8px}.sub{color:var(--muted);line-height:1.6;margin:0 0 29px}.field{margin:17px 0}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:9px}.field input{width:100%;padding:15px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:16px;outline:none}.field input:focus{border-color:var(--green);box-shadow:0 0 0 3px #17694c1c}.passwordWrap{display:flex;position:relative}.passwordWrap input{padding-right:77px}.show{position:absolute;right:9px;top:9px;bottom:9px;border:0;background:#edf5e9;color:var(--green);font-weight:800;border-radius:8px;padding:0 12px;cursor:pointer}.button{width:100%;margin-top:11px;padding:15px;border:0;border-radius:12px;background:var(--green);color:#fff;font-weight:900;font-size:16px;cursor:pointer}.button:disabled{opacity:.7;cursor:wait}.error{min-height:24px;color:var(--red);font-weight:750;font-size:13px;margin-top:13px}.note{border-top:1px solid var(--line);padding-top:19px;color:var(--muted);font-size:13px;line-height:1.7;margin-top:20px}
+@media(max-width:800px){.shell{grid-template-columns:1fr}.aside{padding:23px 20px}.aside h1,.aside p,.aside small{display:none}.right{min-height:calc(100vh - 90px);align-items:start;padding-top:60px}.card h2{font-size:32px}}@media(max-width:480px){.right{padding-top:35px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="aside"><a href="/" class="logo"><span class="mark" aria-hidden="true">BP</span>BetPawa Predictor</a><div><h1>Your predictions.<br>Your progress.</h1><p>Keep your market research, saved picks and results together in one secure client dashboard.</p></div><small>Independent analysis tool · Not affiliated with betPawa · Historical patterns do not guarantee outcomes.</small></aside>
+<main class="right"><div class="card"><a class="back" href="/">← Back to homepage</a><h2>Welcome back</h2><p class="sub">Sign in with the username and password provided for your account.</p>
+<form id="loginForm"><div class="field"><label for="username">Username</label><input id="username" name="username" autocomplete="username" maxlength="100" required autofocus></div><div class="field"><label for="password">Password</label><div class="passwordWrap"><input id="password" name="password" type="password" autocomplete="current-password" required><button id="showPassword" class="show" type="button" aria-label="Show password">Show</button></div></div><button id="submit" class="button" type="submit">Sign in to dashboard</button><div id="error" class="error" role="alert" aria-live="polite"></div></form>
+<p class="note">New here? Accounts are currently issued by the administrator. Ask for an invitation before signing in. Never share your password.</p></div></main>
+</div>
+<script>
+const form=document.getElementById('loginForm'),username=document.getElementById('username'),password=document.getElementById('password'),error=document.getElementById('error'),submit=document.getElementById('submit'),showPassword=document.getElementById('showPassword');
+showPassword.addEventListener('click',()=>{const visible=password.type==='text';password.type=visible?'password':'text';showPassword.textContent=visible?'Show':'Hide';showPassword.setAttribute('aria-label',visible?'Show password':'Hide password')});
+form.addEventListener('submit',async event=>{
+  event.preventDefault();error.textContent='';submit.disabled=true;submit.textContent='Signing in…';
+  try{
+    const response=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({username:username.value.trim(),password:password.value})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.detail||'Unable to sign in. Check your details.');
+    location.assign(data.account?.role==='admin'?'/admin':'/client');
+  }catch(e){error.textContent=e.message||'Connection problem. Please try again.'}
+  finally{submit.disabled=false;submit.textContent='Sign in to dashboard'}
+});
+</script>
+</body>
+</html>
