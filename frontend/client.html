@@ -25,9 +25,9 @@
 <a class="market" href="/client/wins"><span class="symbol" aria-hidden="true">✓</span><h3>Wins</h3><p>Home and away win patterns, when qualified.</p><span class="open">Explore Wins →</span></a>
 </div></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
-<section class="section panel"><div class="sectionHead"><div><h2>Account security</h2><p>Change your temporary password before using your account regularly.</p></div></div><div id="passNotice" class="notice"></div><form id="passwordForm" class="securityForm"><div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div class="field"><label for="newPassword">New password (8+ characters)</label><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></div><button class="btn primary" type="submit">Update password</button></form><div id="passwordMessage" class="feedback" role="status" aria-live="polite"></div></section>
+<section class="section panel"><div class="sectionHead"><div><h2>Account security</h2><p>Change your temporary password before using your account regularly.</p></div></div><div id="passNotice" class="notice"></div><form id="passwordForm" class="securityForm"><div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div class="field"><label for="newPassword">New password (12+ characters)</label><input id="newPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div><button class="btn primary" type="submit">Update password</button></form><div id="passwordMessage" class="feedback" role="status" aria-live="polite"></div></section>
 </main>
-<footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults only.</div></footer>
+<footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults aged 25+ only.</div></footer>
 <script>
 const $=id=>document.getElementById(id);let account=null,requests=[];
 const formatDate=value=>value?new Date(value).toLocaleString():'Not set';
@@ -102,6 +102,7 @@ async function refreshRequests(){
 async function load(){
   try{
     account=(await api('/api/auth/me')).account;
+    if(account.must_change_password){location.assign('/password-setup');return}
     showAccount();
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
@@ -121,8 +122,8 @@ $('passwordForm').addEventListener('submit',async event=>{
   try{
     await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:$('currentPassword').value,new_password:$('newPassword').value})});
     $('currentPassword').value='';$('newPassword').value='';
-    showFeedback('passwordMessage','Password updated successfully.');
-    account.must_change_password=false;showAccount();
+    showFeedback('passwordMessage','Password updated. Please sign in again.');
+    location.assign('/login?password=updated');
   }catch(error){showFeedback('passwordMessage',error.message,true)}
 });
 $('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
