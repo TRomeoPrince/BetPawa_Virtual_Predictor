@@ -165,12 +165,14 @@ async function load(reset=true){
     let data;
     if(state.view==='journal'){
       data=await api('/api/client/bet-journal?'+params);
+      if(sequence!==state.loadSeq)return;
       const summary=data.summary||{};
       $('journalCount').textContent=fmt(summary.total);$('journalPending').textContent=fmt(summary.pending);
       const net=Number(summary.net_ugx||0);$('journalNet').textContent=(net<0?'−':'')+fmt(Math.abs(net));
     }else{
       params.set('scope',state.view);
       data=await api('/api/client/picks?'+params);
+      if(sequence!==state.loadSeq)return;
       showStats(data.summary||{});
       state.latest=data.latest_matchday;
       $('latestLabel').textContent=state.latest?'Latest saved combo: season '+state.latest.season+', matchday '+state.latest.matchday+'. Older matchdays are in Selection history.':'Your selected predictions across all four markets.';
