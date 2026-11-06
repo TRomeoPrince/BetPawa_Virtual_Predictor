@@ -78,6 +78,16 @@ def get_picks(user_id, category="all", scope="latest", outcome="all", limit=50, 
             ).fetchone()[0]
             by_category[cat] = int(count)
 
+        latest_by_category = {cat: 0 for cat in CATEGORIES}
+        if latest:
+            for cat in CATEGORIES:
+                latest_by_category[cat] = int(con.execute(
+                    "SELECT COUNT(*) FROM user_predictions WHERE user_id=? "
+                    "AND selected=1 AND season=? AND matchday=? AND (" +
+                    db._category_sql(cat) + ")",
+                    (user_id, latest["season"], latest["matchday"]),
+                ).fetchone()[0])
+
         conditions = ["p.user_id=?", "p.selected=1", "(" + category_sql + ")"]
         args = [user_id]
         if latest and scope != "all":
@@ -121,6 +131,7 @@ def get_picks(user_id, category="all", scope="latest", outcome="all", limit=50, 
                 "wins": wins, "losses": losses,
                 "win_rate": wins / (wins + losses) if wins + losses else None,
                 "by_category": by_category,
+                "latest_by_category": latest_by_category,
             },
             "items": items, "total": int(count), "limit": limit, "offset": offset,
         }
