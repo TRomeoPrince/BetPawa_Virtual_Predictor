@@ -107,8 +107,16 @@ class PicksHubTests(unittest.TestCase):
             "target_home": "Home0", "target_away": "Away0",
             "expected": "Over 2.5 FT", "selected": False,
         })
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self.client.get("/api/client/picks").json()["summary"]["total"], 8)
+        self.seed("2026", 9, ["Under 3.5 FT"])
+        response = self.client.post("/api/selection", json={
+            "season": "2026", "matchday": "9", "league": "ENGLISH",
+            "target_home": "Home0", "target_away": "Away0",
+            "expected": "Under 3.5 FT", "selected": False,
+        })
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.client.get("/api/client/picks").json()["summary"]["total"], 7)
+        self.assertEqual(self.client.get("/api/client/picks?scope=all").json()["summary"]["total"], 8)
 
     def test_user_isolation(self):
         self.seed("2026", 2, ["Over 2.5 FT"])
