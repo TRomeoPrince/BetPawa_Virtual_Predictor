@@ -54,7 +54,7 @@ async function loadPicksPreview(){
   try{
     const data=await api('/api/client/picks?scope=latest&limit=3');
     box.replaceChildren();recent.replaceChildren();
-    const counts=data.summary?.by_category||{};
+    const counts=data.summary?.latest_by_category||{};
     for(const [key,label] of [['overs','Overs'],['unders','Unders'],['btts','BTTS'],['wins','Wins']]){
       const a=document.createElement('a');a.className='pickMini';a.href='/client/picks?category='+key;
       const count=document.createElement('b');count.textContent=Number(counts[key]||0).toLocaleString();
