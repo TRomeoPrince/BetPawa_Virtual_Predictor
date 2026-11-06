@@ -55,6 +55,8 @@ main{padding-top:32px;padding-bottom:70px}.hero{background:linear-gradient(115de
 const $=id=>document.getElementById(id);
 const categories={overs:'Overs',unders:'Unders',btts:'BTTS',wins:'Wins'};
 const state={view:'latest',category:'all',outcome:'all',items:[],total:0,loading:false,loadSeq:0,editId:null,latest:null};
+const requestedCategory=new URLSearchParams(location.search).get('category');
+if(['overs','unders','btts','wins'].includes(requestedCategory))state.category=requestedCategory;
 const fmt=n=>Number(n||0).toLocaleString('en-UG');
 const dateText=s=>s?String(s).slice(0,10):'—';
 const status=(msg,error=false)=>{const el=$('status');el.textContent=msg;el.className='status'+(error?' error':msg?' ok':'')};
