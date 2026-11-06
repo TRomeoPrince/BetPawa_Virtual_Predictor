@@ -478,6 +478,18 @@ def api_client_picks(
         raise HTTPException(400, str(exc))
 
 
+@app.post("/api/client/picks/refresh")
+def api_client_picks_refresh(request: Request):
+    account = _require_active_access(request)
+    try:
+        context = feed.prediction_context()
+        graded = grade_user_predictions(account["user_key"], context["completed_rounds_for_grading"])
+        return {"graded_now": graded}
+    except Exception as exc:
+        print("Picks refresh error:", repr(exc))
+        raise HTTPException(502, "Results refresh temporarily unavailable.")
+
+
 @app.get("/api/client/bet-journal")
 def api_client_bet_journal(
     request: Request, category: str = "all", outcome: str = "all",
