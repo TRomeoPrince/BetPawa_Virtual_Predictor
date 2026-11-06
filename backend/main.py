@@ -28,6 +28,7 @@ from .access import (
     delete_session,
     ensure_bootstrap_admin,
     grant_subscription,
+    get_account,
     list_account_subscription_requests,
     list_clients,
     list_subscription_requests,
@@ -36,6 +37,7 @@ from .access import (
     request_subscription,
     review_subscription_request,
     revoke_subscription,
+    reset_client_password,
 )
 from .db import (
     get_user_history,
@@ -51,6 +53,7 @@ LOGIN_PAGE = ROOT / "frontend" / "login.html"
 CLIENT_PAGE = ROOT / "frontend" / "client.html"
 PICKS_PAGE = ROOT / "frontend" / "picks.html"
 ADMIN_PAGE = ROOT / "frontend" / "admin.html"
+PASSWORD_SETUP_PAGE = ROOT / "frontend" / "password-setup.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
@@ -84,10 +87,12 @@ def _session_account(request: Request):
     return account_from_session(request.cookies.get(SESSION_COOKIE))
 
 
-def _require_account(request: Request):
+def _require_account(request: Request, allow_password_setup: bool = False):
     account = _session_account(request)
     if not account:
         raise HTTPException(401, "Please sign in.")
+    if account.get("must_change_password") and not allow_password_setup:
+        raise HTTPException(403, "Password setup required. Open /password-setup.")
     return account
 
 
@@ -292,6 +297,7 @@ class LoginRequest(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+    age_confirmed: bool = False
 
 
 class ClientCreate(BaseModel):
@@ -346,8 +352,23 @@ def home():
 def login_page(request: Request):
     account = _session_account(request)
     if account:
-        return RedirectResponse("/admin" if account.get("role") == "admin" else "/client", status_code=302)
+        destination = ("/password-setup" if account.get("must_change_password")
+                       else "/admin" if account.get("role") == "admin" else "/client")
+        return RedirectResponse(destination, status_code=302)
     return _frontend_response(LOGIN_PAGE)
+
+
+@app.get("/password-setup")
+def password_setup_page(request: Request):
+    account = _session_account(request)
+    if not account:
+        return RedirectResponse("/login", status_code=302)
+    if not account.get("must_change_password"):
+        return RedirectResponse(
+            "/admin" if account.get("role") == "admin" else "/client",
+            status_code=302,
+        )
+    return _frontend_response(PASSWORD_SETUP_PAGE)
 
 
 @app.get("/client")
@@ -355,6 +376,8 @@ def client_dashboard(request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
     return _frontend_response(CLIENT_PAGE)
 
 
@@ -363,6 +386,8 @@ def admin_dashboard(request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
     if account.get("role") != "admin":
         return RedirectResponse("/client", status_code=302)
     return _frontend_response(ADMIN_PAGE)
@@ -373,6 +398,8 @@ def client_picks_page(request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
     return _frontend_response(PICKS_PAGE)
 
 
@@ -383,6 +410,8 @@ def client_market_page(category: str, request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
     if account.get("role") != "admin" and not account.get("subscription", {}).get("is_active"):
         return RedirectResponse("/client", status_code=302)
     return _frontend_response(MARKET_PAGE)
@@ -423,18 +452,21 @@ def api_logout(request: Request, response: Response):
 
 @app.get("/api/auth/me")
 def api_me(request: Request):
-    account = _require_account(request)
+    account = _require_account(request, allow_password_setup=True)
     return {"account": public_account(account)}
 
 
 @app.post("/api/auth/change-password")
 def api_change_password(payload: PasswordChange, request: Request):
-    account = _require_account(request)
+    account = _require_account(request, allow_password_setup=True)
+    if (account.get("must_change_password") and account.get("role") == "client"
+            and not payload.age_confirmed):
+        raise HTTPException(400, "You must confirm you are at least 25 years old.")
     try:
         change_password(int(account["id"]), payload.current_password, payload.new_password)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    return {"ok": True}
+    return {"ok": True, "requires_login": True}
 
 
 @app.get("/api/plans")
@@ -538,8 +570,9 @@ def api_admin_clients(request: Request):
 
 
 @app.post("/api/admin/clients")
-def api_admin_create_client(payload: ClientCreate, request: Request):
+def api_admin_create_client(payload: ClientCreate, request: Request, response: Response):
     admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
     try:
         account, temporary_password = create_client(
             payload.username,
@@ -553,6 +586,21 @@ def api_admin_create_client(payload: ClientCreate, request: Request):
         "ok": True,
         "account": public_account(account),
         "temporary_password": temporary_password,
+    }
+
+
+@app.post("/api/admin/clients/{account_id}/reset-password")
+def api_admin_reset_client_password(account_id: int, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        temp_password = reset_client_password(account_id, int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {
+        "ok": True,
+        "account": public_account(get_account(account_id)),
+        "temporary_password": temp_password,
     }
 
 
