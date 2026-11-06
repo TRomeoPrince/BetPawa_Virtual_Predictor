@@ -268,17 +268,59 @@ def delete_session(raw_token: str | None):
 
 
 def change_password(account_id: int, current_password: str, new_password: str):
+    """Complete first-login setup or rotate a password; invalidate old sessions."""
+    if not 12 <= len(new_password) <= 128:
+        raise ValueError("New password must be 12 to 128 characters long.")
     con = connect()
-    row = con.execute("SELECT password_hash FROM accounts WHERE id=?", (account_id,)).fetchone()
-    if not row or not verify_password(current_password, row["password_hash"]):
+    try:
+        row = con.execute(
+            "SELECT password_hash FROM accounts WHERE id=? AND status='active'",
+            (account_id,),
+        ).fetchone()
+        if not row or not verify_password(current_password, row["password_hash"]):
+            raise ValueError("Current password is incorrect.")
+        if hmac.compare_digest(current_password, new_password):
+            raise ValueError("Choose a different password from your temporary one.")
+        con.execute(
+            "UPDATE accounts SET password_hash=?, must_change_password=0 WHERE id=?",
+            (hash_password(new_password), account_id),
+        )
+        con.execute("DELETE FROM sessions WHERE account_id=?", (account_id,))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (account_id, account_id, "CHANGE_PASSWORD", None, _iso(_now())),
+        )
+        con.commit()
+    finally:
         con.close()
-        raise ValueError("Current password is incorrect.")
-    con.execute(
-        "UPDATE accounts SET password_hash=?, must_change_password=0 WHERE id=?",
-        (hash_password(new_password), account_id),
-    )
-    con.commit()
-    con.close()
+
+
+def reset_client_password(account_id: int, admin_id: int) -> str:
+    """Admin issues a new one-time temporary password, never stored in plaintext."""
+    temp_password = secrets.token_urlsafe(18)
+    con = connect()
+    try:
+        row = con.execute(
+            "SELECT id FROM accounts WHERE id=? AND role='client'",
+            (account_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Client not found.")
+        con.execute(
+            "UPDATE accounts SET password_hash=?, must_change_password=1 WHERE id=?",
+            (hash_password(temp_password), account_id),
+        )
+        con.execute("DELETE FROM sessions WHERE account_id=?", (account_id,))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (admin_id, account_id, "RESET_CLIENT_PASSWORD", None, _iso(_now())),
+        )
+        con.commit()
+    finally:
+        con.close()
+    return temp_password
 
 
 def create_client(
@@ -291,7 +333,7 @@ def create_client(
     display_name = display_name.strip() or username
     if len(username) < 3:
         raise ValueError("Username must be at least 3 characters.")
-    temp_password = secrets.token_urlsafe(9)
+    temp_password = secrets.token_urlsafe(18)
     now = _iso(_now())
     con = connect()
     try:
