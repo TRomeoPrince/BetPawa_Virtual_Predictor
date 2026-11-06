@@ -54,7 +54,7 @@ main{padding-top:32px;padding-bottom:70px}.hero{background:linear-gradient(115de
 <script>
 const $=id=>document.getElementById(id);
 const categories={overs:'Overs',unders:'Unders',btts:'BTTS',wins:'Wins'};
-const state={view:'latest',category:'all',outcome:'all',items:[],total:0,loading:false,editId:null,latest:null};
+const state={view:'latest',category:'all',outcome:'all',items:[],total:0,loading:false,loadSeq:0,editId:null,latest:null};
 const fmt=n=>Number(n||0).toLocaleString('en-UG');
 const dateText=s=>s?String(s).slice(0,10):'—';
 const status=(msg,error=false)=>{const el=$('status');el.textContent=msg;el.className='status'+(error?' error':msg?' ok':'')};
@@ -155,7 +155,7 @@ function render(){
   $('more').disabled=state.loading;
 }
 async function load(reset=true){
-  if(state.loading)return;
+  const sequence=++state.loadSeq;
   state.loading=true;const offset=reset?0:state.items.length;
   if(reset){state.items=[];state.total=0;render()}
   status('Loading '+(state.view==='journal'?'bet records':'selected predictions')+'…');
@@ -175,11 +175,12 @@ async function load(reset=true){
       state.latest=data.latest_matchday;
       $('latestLabel').textContent=state.latest?'Latest saved combo: season '+state.latest.season+', matchday '+state.latest.matchday+'. Older matchdays are in Selection history.':'Your selected predictions across all four markets.';
     }
+    if(sequence!==state.loadSeq)return;
     state.items=reset?data.items||[]:[...state.items,...(data.items||[])];
     state.total=data.total||0;
     status('Showing '+state.items.length+' of '+state.total+' record'+(state.total===1?'':'s')+'.');
-  }catch(error){status(error.message,true)}
-  finally{state.loading=false;render()}
+  }catch(error){if(sequence===state.loadSeq)status(error.message,true)}
+  finally{if(sequence===state.loadSeq){state.loading=false;render()}}
 }
 async function switchView(view){
   state.view=view;state.category='all';state.outcome='all';
@@ -201,7 +202,7 @@ function openForm(item=null,isEdit=false){
   $('journalForm').reset();
   $('formTitle').textContent=isEdit?'Edit bet record':'Log a past bet';
   $('saveBet').textContent=isEdit?'Save changes':'Save record';
-  const now=new Date();const today=now.toLocaleDateString('en-CA');
+  const now=new Date();const today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
   $('betDate').max=today;$('betDate').value=today;
   if(item){
     $('betFixture').value=isEdit?item.fixture:item.target_home+' vs '+item.target_away;
