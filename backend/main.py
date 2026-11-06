@@ -663,7 +663,7 @@ def predict_category(category: str, request: Request, response: Response):
 def update_selection(payload: SelectionUpdate, request: Request, response: Response):
     account = _require_active_access(request)
     user_id = account["user_key"]
-    set_prediction_selected(
+    updated = set_prediction_selected(
         user_id,
         payload.season,
         payload.matchday,
@@ -673,6 +673,11 @@ def update_selection(payload: SelectionUpdate, request: Request, response: Respo
         payload.expected,
         payload.selected,
     )
+    if not updated:
+        raise HTTPException(
+            409, "This pick cannot be changed. Only pending selections "
+                 "in your latest checked matchday are editable."
+        )
     return {"ok": True}
 
 
