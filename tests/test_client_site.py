@@ -38,6 +38,18 @@ class ClientSiteTests(unittest.TestCase):
             "username": username, "password": password,
         })
         self.assertEqual(response.status_code, 200, response.text)
+        if response.json()["account"]["must_change_password"]:
+            new_password = "UpdatedTestPassword2026!" + username
+            changed = self.client.post("/api/auth/change-password", json={
+                "current_password": password,
+                "new_password": new_password,
+                "age_confirmed": True,
+            })
+            self.assertEqual(changed.status_code, 200, changed.text)
+            response = self.client.post("/api/auth/login", json={
+                "username": username, "password": new_password,
+            })
+            self.assertEqual(response.status_code, 200, response.text)
 
     def test_public_landing_and_protected_markets(self):
         response = self.client.get("/")
@@ -68,9 +80,9 @@ class ClientSiteTests(unittest.TestCase):
         self.assertFalse(access.get_account(first["id"])["subscription"]["is_active"])
 
     def test_history_is_market_scoped_and_combo_stats_are_selected_only(self):
-        _, password = access.create_client("memberthree", "Member Three", "weekly")
+        member, password = access.create_client("memberthree", "Member Three", "weekly")
         self.login("memberthree", password)
-        user_key = access.authenticate("memberthree", password)["user_key"]
+        user_key = member["user_key"]
         batch = {
             "season": "2026", "next_matchday": "3", "next_round_id": "round-3",
             "predictions": [
