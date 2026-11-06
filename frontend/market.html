@@ -35,13 +35,13 @@ body{background:var(--bg);color:var(--txt)}
 </head>
 <body>
 <main class="wrap">
-<nav class="nav"><a href="/client">Dashboard</a><a href="/client/overs" data-page="overs">Overs</a><a href="/client/unders" data-page="unders">Unders</a><a href="/client/btts" data-page="btts">BTTS</a><a href="/client/wins" data-page="wins">Wins</a><a href="#" id="logoutLink">Sign out</a></nav>
+<nav class="nav"><a href="/client">Dashboard</a><a href="/client/picks">My Picks Hub</a><a href="/client/overs" data-page="overs">Overs</a><a href="/client/unders" data-page="unders">Unders</a><a href="/client/btts" data-page="btts">BTTS</a><a href="/client/wins" data-page="wins">Wins</a><a href="#" id="logoutLink">Sign out</a></nav>
 <div class="top"><div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div><div class="badge">v0.4.1</div></div>
 <div id="backendWarn" class="backendWarn"></div>
 <section class="hero"><button id="go" class="button">Check predictions</button><span id="msg" class="meta" style="margin-left:9px">Load the next matchday and this market's predictions.</span><div id="overview" class="overview" style="display:none"></div></section>
 <section class="section"><div class="sectionHead"><h2>Next Matchday — Matches Being Played</h2><span id="fixtureMeta" class="meta">Run the market check to load fixtures.</span></div><div id="fixtures" class="fixtureList"><div class="empty">The actual next-round fixtures will appear here after you check predictions.</div></div></section>
 <section class="section"><div class="sectionHead"><h2>Top Ranked Picks</h2><span class="meta">Time alignment → win rate → past wins</span></div><div id="topPicks" class="grid"><div class="empty">Check predictions to rank the strongest picks.</div></div></section>
-<section class="section"><div class="sectionHead"><h2>My Combo</h2><span id="comboCount" class="meta">0 selected</span></div><div id="combo" class="grid"><div class="empty">Choose the matches you personally want to follow.</div></div></section>
+<section class="section"><div class="sectionHead"><h2>My Combo · </h2><a href="/client/picks" class="meta">View all markets &amp; history →</a><span id="comboCount" class="meta">0 selected</span></div><div id="combo" class="grid"><div class="empty">Choose the matches you personally want to follow.</div></div></section>
 <section class="section"><div class="sectionHead"><h2 id="currentTitle">Predictions by League</h2><span id="count" class="meta"></span></div><div id="predictions"><div class="empty">Press the button above to check this market.</div></div></section>
 <section class="section"><div class="sectionHead"><h2>My Combo Results</h2><button id="refresh" class="button secondary">Refresh results</button></div><div id="selectedResults"><div class="empty">No selected result for this market yet.</div></div></section>
 <section class="section"><h2>Other Prediction Results</h2><div id="last"><div class="empty">No other saved result for this market yet.</div></div></section>
