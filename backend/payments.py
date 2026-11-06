@@ -132,6 +132,20 @@ def list_orders(account_id):
         con.close()
 
 
+def list_all_orders():
+    con = connect()
+    try:
+        rows = con.execute(
+            """SELECT o.*, a.username, a.display_name
+               FROM payment_orders o JOIN accounts a ON a.id=o.account_id
+               ORDER BY o.created_at DESC LIMIT 100"""
+        ).fetchall()
+        return [{**_public_order(row), "username": row["username"],
+                 "display_name": row["display_name"]} for row in rows]
+    finally:
+        con.close()
+
+
 def get_order(reference, account_id=None):
     con = connect()
     try:
