@@ -272,17 +272,31 @@ def set_prediction_selected(
     expected: str,
     selected: bool,
 ) -> bool:
-    """Persist one browser user's choice without changing the prediction itself."""
+    """Only modify a pending pick in the latest checked matchday.
+
+    Prevent backfilling winners after results are known or rewriting graded
+    historical selection records. Returns False when a pick is not editable.
+    """
     con = connect()
     cur = con.execute("""
       UPDATE user_predictions
       SET selected=?
       WHERE user_id=? AND season=? AND matchday=? AND league=?
         AND target_home=? AND target_away=? AND expected=?
+        AND outcome='PENDING'
+        AND EXISTS (
+          SELECT 1 FROM user_prediction_batches b
+          WHERE b.user_id=user_predictions.user_id
+            AND b.season=user_predictions.season
+            AND b.matchday=user_predictions.matchday
+            AND b.id=(
+              SELECT MAX(id) FROM user_prediction_batches WHERE user_id=?
+            )
+        )
     """, (
         1 if selected else 0,
         str(user_id), str(season), str(matchday), str(league),
-        str(target_home), str(target_away), str(expected),
+        str(target_home), str(target_away), str(expected), str(user_id),
     ))
     con.commit()
     changed = cur.rowcount > 0
