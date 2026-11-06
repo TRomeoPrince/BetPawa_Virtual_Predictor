@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from . import db
 
@@ -48,7 +49,7 @@ def get_picks(user_id, category="all", scope="latest", outcome="all", limit=50, 
     if outcome != "all" and outcome not in OUTCOMES:
         raise ValueError("Unknown outcome.")
     limit = max(1, min(int(limit), 100))
-    offset = max(0, int(offset))
+    offset = max(0, min(int(offset), 1_000_000))
 
     con = db.connect()
     try:
@@ -160,7 +161,7 @@ def _validate_bet(item):
         parsed = date.fromisoformat(date_value)
     except (ValueError, TypeError):
         raise ValueError("Enter a valid bet date (YYYY-MM-DD).")
-    if parsed > datetime.now(timezone.utc).date():
+    if parsed > datetime.now(ZoneInfo('Africa/Kampala')).date():
         raise ValueError("Historical bet date cannot be in the future.")
 
     fixture = str(item.get("fixture") or "").strip()
@@ -195,6 +196,7 @@ def _validate_bet(item):
 
 def _public_bet(row):
     bet = dict(row)
+    bet.pop("user_id", None)
     stake = bet["stake_ugx"]
     if bet["outcome"] == "WON":
         net = round(stake * (bet["decimal_odds"] - 1))
