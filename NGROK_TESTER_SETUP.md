@@ -43,10 +43,10 @@ It starts at `http://127.0.0.1:8010`. Keep the window open. Existing admin accou
 
 1. Open `http://127.0.0.1:8010/admin` on the host PC, or use your HTTPS ngrok address plus `/admin`.
 2. Open **Clients & Invitations** (the default admin tab).
-3. Enter the client's username and display name.
-4. Choose an optional test plan (e.g., Weekly). An account with **No plan** can log in but cannot open subscription-gated markets.
+3. If using localhost for administration, paste your **public ngrok HTTPS URL** into the optional Public tester URL field. This ensures copied invitations contain a working remote link.
+4. Enter the client's username and display name, then choose an optional test plan (e.g., Weekly). An account with **No plan** can log in but cannot open subscription-gated markets.
 5. Click **Generate temporary password**.
-6. The one-time password appears in a prominent panel. Click **Copy full invitation** and send it privately to the client. The invitation uses the current website origin, so create invitations while using the ngrok address if you want the link in the message to be public.
+6. The one-time password appears in a prominent panel. Click **Copy full invitation** and send it privately to the client. The invitation uses your entered public ngrok HTTPS URL, or the current website address if that field is empty.
 7. The client opens the HTTPS login link, signs in with their username and temporary password, confirms the 25+ policy and creates a new password (12–128 characters).
 8. The client is signed out and signs back in with their personal password. Their subscription controls access.
 
