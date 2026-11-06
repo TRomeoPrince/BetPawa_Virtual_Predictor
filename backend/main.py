@@ -36,6 +36,8 @@ from .access import (
     review_subscription_request,
     revoke_subscription,
 )
+from . import payments
+from .payments import PaymentError, ProviderError
 from .db import (
     get_user_history,
     grade_user_predictions,
@@ -311,6 +313,13 @@ class RequestReview(BaseModel):
     approve: bool
 
 
+class CheckoutRequest(BaseModel):
+    plan_code: str
+    method: str
+    email: str
+    age_confirmed: bool = False
+
+
 def _frontend_response(path: Path):
     return FileResponse(
         path,
@@ -417,7 +426,86 @@ def api_change_password(payload: PasswordChange, request: Request):
 
 @app.get("/api/plans")
 def api_plans():
-    return {"plans": public_plans()}
+    return {"plans": payments.public_plans()}
+
+
+@app.get("/api/payment-methods")
+def api_payment_methods():
+    return {"methods": payments.public_methods()}
+
+
+@app.get("/api/client/payments")
+def api_client_payments(request: Request):
+    account = _require_account(request)
+    return {"orders": payments.list_orders(int(account["id"]))}
+
+
+@app.post("/api/client/payments/checkout")
+def api_payment_checkout(payload: CheckoutRequest, request: Request):
+    account = _require_account(request)
+    if account["role"] != "client":
+        raise HTTPException(403, "Only client accounts can purchase subscriptions.")
+    try:
+        return payments.start_checkout(
+            int(account["id"]), payload.plan_code, payload.method,
+            payload.email, payload.age_confirmed,
+        )
+    except PaymentError as exc:
+        raise HTTPException(400, str(exc))
+    except ProviderError:
+        raise HTTPException(503, "Payment provider unavailable. Please retry later.")
+
+
+@app.post("/api/client/payments/{reference}/verify")
+def api_payment_verify(reference: str, request: Request):
+    account = _require_account(request)
+    order = payments.get_order(reference, int(account["id"]))
+    if not order:
+        raise HTTPException(404, "Payment order not found.")
+    try:
+        verified = payments.verify_and_activate(reference)
+    except ProviderError:
+        raise HTTPException(503, "Payment verification temporarily unavailable.")
+    return {"paid": verified, "order": payments.get_order(reference, int(account["id"]))["status"]}
+
+
+@app.post("/api/payments/flutterwave/webhook")
+async def api_flutterwave_webhook(request: Request):
+    # Flutterwave v3 secret-hash header; verify payment again server-to-server.
+    import hmac
+    import os
+
+    secret = os.environ.get("FLW_WEBHOOK_HASH", "")
+    supplied = request.headers.get("verif-hash", "")
+    if not secret or not supplied or not hmac.compare_digest(secret, supplied):
+        raise HTTPException(401, "Invalid webhook signature.")
+    try:
+        event = await request.json()
+    except ValueError:
+        raise HTTPException(400, "Invalid JSON.")
+    if not isinstance(event, dict):
+        raise HTTPException(400, "Invalid webhook event.")
+    data = event.get("data") or {}
+    reference = data.get("tx_ref") if isinstance(data, dict) else None
+    if event.get("event") == "charge.completed" and isinstance(reference, str) and len(reference) <= 100:
+        try:
+            payments.verify_and_activate(reference)
+        except PaymentError:
+            pass
+        except ProviderError:
+            raise HTTPException(503, "Verification unavailable; retry webhook.")
+    return {"ok": True}
+
+
+@app.get("/api/payments/flutterwave/return")
+def api_flutterwave_return(tx_ref: str = ""):
+    # A redirect is never proof of payment. Only the provider API can activate.
+    if tx_ref and len(tx_ref) <= 100:
+        try:
+            payments.verify_and_activate(tx_ref)
+        except (PaymentError, ProviderError):
+            pass
+    return RedirectResponse("/client", status_code=303)
 
 
 @app.get("/api/client/subscription-requests")
