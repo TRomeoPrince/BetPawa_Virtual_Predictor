@@ -296,6 +296,7 @@ class LoginRequest(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+    age_confirmed: bool = False
 
 
 class ClientCreate(BaseModel):
@@ -457,6 +458,9 @@ def api_me(request: Request):
 @app.post("/api/auth/change-password")
 def api_change_password(payload: PasswordChange, request: Request):
     account = _require_account(request, allow_password_setup=True)
+    if (account.get("must_change_password") and account.get("role") == "client"
+            and not payload.age_confirmed):
+        raise HTTPException(400, "You must confirm you are at least 25 years old.")
     try:
         change_password(int(account["id"]), payload.current_password, payload.new_password)
     except ValueError as exc:
