@@ -72,6 +72,9 @@ class PicksHubTests(unittest.TestCase):
         self.assertEqual(latest["summary"]["by_category"], {
             "overs": 2, "unders": 1, "btts": 2, "wins": 1,
         })
+        self.assertEqual(latest["summary"]["latest_by_category"], {
+            "overs": 1, "unders": 0, "btts": 1, "wins": 0,
+        })
         self.assertEqual({p["category"] for p in latest["items"]}, {"overs", "btts"})
         self.assertNotIn("PRIVATE", str(latest))
         self.assertNotIn("SECRET", str(latest))
