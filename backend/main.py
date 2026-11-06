@@ -570,8 +570,9 @@ def api_admin_clients(request: Request):
 
 
 @app.post("/api/admin/clients")
-def api_admin_create_client(payload: ClientCreate, request: Request):
+def api_admin_create_client(payload: ClientCreate, request: Request, response: Response):
     admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
     try:
         account, temporary_password = create_client(
             payload.username,
@@ -589,8 +590,9 @@ def api_admin_create_client(payload: ClientCreate, request: Request):
 
 
 @app.post("/api/admin/clients/{account_id}/reset-password")
-def api_admin_reset_client_password(account_id: int, request: Request):
+def api_admin_reset_client_password(account_id: int, request: Request, response: Response):
     admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
     try:
         temp_password = reset_client_password(account_id, int(admin["id"]))
     except ValueError as exc:
