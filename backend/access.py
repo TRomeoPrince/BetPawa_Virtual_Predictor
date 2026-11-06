@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -331,12 +332,20 @@ def create_client(
 ) -> tuple[dict[str, Any], str]:
     username = username.strip()
     display_name = display_name.strip() or username
-    if len(username) < 3:
-        raise ValueError("Username must be at least 3 characters.")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", username):
+        raise ValueError("Username must be 3–40 characters: letters, numbers, dots, underscores or hyphens.")
+    if len(display_name) > 100:
+        raise ValueError("Display name must be 100 characters or less.")
+    if plan_code and plan_code not in PLAN_DEFINITIONS:
+        raise ValueError("Unknown subscription plan.")
     temp_password = secrets.token_urlsafe(18)
     now = _iso(_now())
     con = connect()
     try:
+        if con.execute(
+            "SELECT 1 FROM accounts WHERE lower(username)=lower(?) LIMIT 1", (username,),
+        ).fetchone():
+            raise ValueError("That username already exists.")
         cur = con.execute(
             """
             INSERT INTO accounts
