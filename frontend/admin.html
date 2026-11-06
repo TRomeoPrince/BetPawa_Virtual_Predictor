@@ -19,6 +19,8 @@
 <section id="clients" class="tab panel">
 <h2>Invite a client or tester</h2>
 <div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a secure temporary password. Copy the invitation and send it privately. On first login, the client must create their own password. Use <strong>Reset password</strong> if they forget it. Public signup remains disabled.</div>
+<div class="form"><input id="publicTesterUrl" type="url" placeholder="Public ngrok HTTPS URL (optional)" aria-label="Public tester URL" style="min-width:min(100%,380px)"></div>
+<p class="hint">If you are administering from localhost, paste your ngrok HTTPS forwarding URL above so copied invitations contain the correct remote login link. Otherwise, the current website address is used.</p>
 <div class="form">
 <input id="newUser" placeholder="Username (e.g., tester01)" autocomplete="off" aria-label="Username">
 <input id="newName" placeholder="Display name" autocomplete="off" aria-label="Display name">
@@ -149,7 +151,13 @@ async function copyText(value){
 }
 async function copyInvitation(){
  if(!issued)return;
- const message='BetPawa Predictor — private tester access\nLogin: '+location.origin+'/login\nUsername: '+issued.username+'\nTemporary password: '+issued.password+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
+ const entered=$('publicTesterUrl').value.trim();
+ let loginOrigin=location.origin;
+ if(entered){
+  try{const parsed=new URL(entered);if(parsed.protocol!=='https:')throw new Error();loginOrigin=parsed.origin}
+  catch(error){$('copyStatus').textContent='Enter a valid ngrok HTTPS URL before copying the invitation.';return}
+ }
+ const message='BetPawa Predictor — private tester access\nLogin: '+loginOrigin+'/login\nUsername: '+issued.username+'\nTemporary password: '+issued.password+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
  try{await copyText(message);$('copyStatus').textContent='Invitation copied. Send it privately to this client.'}
  catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent=error.message}
 }
