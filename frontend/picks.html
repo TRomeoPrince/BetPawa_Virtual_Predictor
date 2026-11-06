@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f9f1">
+<meta name="description" content="Private hub for saved virtual-football selections, outcomes and your own manually recorded bet history.">
+<title>My Picks Hub · BetPawa Predictor</title>
+<style>
+:root{--bg:#f6f9f1;--ink:#183c2b;--muted:#627a6c;--green:#17694c;--green2:#245a43;--soft:#eaf4e7;--line:#dce7d9;--white:#fff;--red:#ad3e4b;--amber:#96600b;--shadow:0 12px 34px rgba(28,68,40,.06)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Arial,sans-serif}button,input,select,textarea{font:inherit}a{color:inherit}.wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+header{background:#fff;border-bottom:1px solid var(--line)}.top{min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.brand{font-size:17px;font-weight:900;text-decoration:none;display:flex;align-items:center;gap:10px;letter-spacing:-.035em}.mark{width:38px;height:38px;border-radius:12px;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:900}.nav{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.nav a,.nav button{border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--green2);padding:10px 13px;text-decoration:none;font-weight:800;font-size:13px;cursor:pointer}.nav a.active{background:var(--soft);border-color:#9fc4a6}
+main{padding-top:32px;padding-bottom:70px}.hero{background:linear-gradient(115deg,#195b41,#133f30);border-radius:24px;padding:30px 34px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;overflow:hidden}.eyebrow{color:#d2f4ca;font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:900}.hero h1{font-size:clamp(32px,5vw,48px);letter-spacing:-.055em;margin:9px 0}.hero p{color:#d9eadf;line-height:1.6;margin:0;max-width:610px}.hero .actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#fff;color:var(--green);padding:11px 15px;border-radius:11px;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.btn.heroBtn{background:#e0f3a7;color:#1b4a30;border-color:#e0f3a7}.btn.secondary{background:var(--soft);color:var(--green)}.btn.danger{color:var(--red);border-color:#efcfd3}.btn:disabled{opacity:.55;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin:20px 0}.stat{background:var(--white);border:1px solid var(--line);border-radius:17px;padding:19px;box-shadow:var(--shadow)}.stat b{display:block;font-size:27px;letter-spacing:-.045em}.stat span{font-size:12px;color:var(--muted);font-weight:750}.section{background:var(--white);border:1px solid var(--line);border-radius:20px;padding:24px;margin-top:20px;box-shadow:var(--shadow)}.sectionHead{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.sectionHead h2{font-size:23px;letter-spacing:-.04em;margin:0 0 6px}.muted{color:var(--muted);line-height:1.55;font-size:14px}.sectionHead p{margin:0}.tabs,.chips{display:flex;gap:8px;flex-wrap:wrap}.tabs{margin:24px 0 17px;border-bottom:1px solid var(--line);padding-bottom:14px}.tab,.chip{background:#f5f9f3;color:#426c52;border:1px solid var(--line);padding:11px 15px;border-radius:11px;font-weight:850;cursor:pointer;font-size:13px}.tab[aria-selected="true"],.chip[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green)}.filters{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}.filters select{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 13px;color:var(--ink);font-weight:750}
+.group{margin:20px 0 24px}.groupTitle{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 0 11px;font-size:14px;font-weight:900}.groupTitle span{font-size:12px;color:var(--muted);font-weight:700}.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.pick{background:#fbfdf9;border:1px solid var(--line);border-radius:16px;padding:18px}.pickTop{display:flex;justify-content:space-between;align-items:center;gap:10px}.tag{background:#e7f3e6;color:var(--green);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:950;letter-spacing:.03em}.outcome{border-radius:999px;padding:6px 10px;font-size:11px;font-weight:950}.outcome.PENDING{background:#fff0d2;color:#80520b}.outcome.WON{background:#def2e2;color:#176a40}.outcome.LOST{background:#ffe3e5;color:#a33843}.outcome.VOID{background:#e9edef;color:#5e6c73}.fixture{font-size:19px;letter-spacing:-.025em;font-weight:900;margin:14px 0 5px}.selection{font-size:15px;color:var(--green);font-weight:900;margin:0 0 10px}.meta{font-size:12px;color:var(--muted);line-height:1.7}.pickActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.pickActions .btn{padding:8px 11px;font-size:12px}
+.empty{border:1px dashed #bcd2bc;background:#f9fcf7;border-radius:16px;padding:35px 20px;text-align:center;color:var(--muted);line-height:1.7}.empty b{display:block;color:var(--ink);font-size:18px;margin-bottom:4px}.status{font-size:13px;font-weight:750;color:var(--muted);min-height:20px;margin:12px 0}.status.error{color:var(--red)}.status.ok{color:var(--green)}.pager{display:flex;justify-content:center;margin-top:22px}
+.journalIntro{display:flex;justify-content:space-between;gap:15px;align-items:center;flex-wrap:wrap;margin-bottom:15px}.journalStats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:15px}.miniStat{background:var(--soft);padding:14px;border-radius:13px}.miniStat b{display:block;font-size:22px}.miniStat span{color:var(--muted);font-size:12px;font-weight:750}
+.journalForm{background:#f8fcf7;border:1px solid var(--line);padding:20px;border-radius:17px;margin:16px 0 22px}.journalForm h3{margin:0 0 13px}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.field label{display:block;font-size:12px;font-weight:850;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;padding:12px;background:#fff;color:var(--ink);border:1px solid #cbdccf;border-radius:10px}.field.wide{grid-column:span 2}.field.full{grid-column:1/-1}.field textarea{min-height:70px;resize:vertical}.formActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}.fine{font-size:12px;color:var(--muted);line-height:1.65;margin-top:20px}.hidden{display:none!important}
+:focus-visible{outline:3px solid #9bcda5;outline-offset:3px}
+@media(max-width:880px){.stats{grid-template-columns:repeat(3,1fr)}.cards{grid-template-columns:1fr}.fields{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:570px){.wrap{padding:0 15px}.top{padding:13px 0}.hero{padding:24px}.section{padding:17px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:14px}.stat b{font-size:24px}.fields{grid-template-columns:1fr}.field.wide{grid-column:auto}.journalStats{grid-template-columns:1fr 1fr}.tab,.chip{padding:10px 12px}}
+</style>
+</head>
+<body>
+<header><div class="wrap top"><a class="brand" href="/client"><span class="mark">BP</span>BetPawa Predictor</a><nav class="nav" aria-label="Client navigation"><a href="/client">Dashboard</a><a class="active" href="/client/picks" aria-current="page">My Picks Hub</a><a href="/client/overs">Overs</a><a href="/client/unders">Unders</a><a href="/client/btts">BTTS</a><a href="/client/wins">Wins</a><button type="button" id="logout">Sign out</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><div><div class="eyebrow">Your private selection workspace</div><h1>My Picks Hub</h1><p>Every market. Every matchday. Every result. Keep your selected predictions together and separately record bets you actually placed.</p></div><div class="actions"><a href="/client/overs" class="btn heroBtn">Explore markets</a><button type="button" class="btn heroBtn" id="heroLog">+ Log a past bet</button></div></section>
+<div class="stats" aria-label="Saved selection statistics"><div class="stat"><b id="statTotal">—</b><span>Selected picks</span></div><div class="stat"><b id="statPending">—</b><span>Awaiting results</span></div><div class="stat"><b id="statWins">—</b><span>Won</span></div><div class="stat"><b id="statLosses">—</b><span>Lost</span></div><div class="stat"><b id="statRate">—</b><span>Graded hit rate</span></div></div>
+<section class="section" aria-label="Centralized selections">
+<div class="sectionHead"><div><h2>Selection center</h2><p class="muted" id="latestLabel">Your saved selections across all four markets.</p></div><button id="refresh" class="btn secondary" type="button">Refresh outcomes</button></div>
+<div class="tabs" role="tablist" aria-label="Picks sections"><button type="button" role="tab" class="tab" data-view="latest" aria-selected="true">Latest combo</button><button type="button" role="tab" class="tab" data-view="history" aria-selected="false">Selection history</button><button type="button" role="tab" class="tab" data-view="journal" aria-selected="false">Bet journal</button></div>
+<div class="filters"><div class="chips" aria-label="Filter by market"><button type="button" class="chip" data-category="all" aria-pressed="true">All markets</button><button type="button" class="chip" data-category="overs" aria-pressed="false">Overs</button><button type="button" class="chip" data-category="unders" aria-pressed="false">Unders</button><button type="button" class="chip" data-category="btts" aria-pressed="false">BTTS</button><button type="button" class="chip" data-category="wins" aria-pressed="false">Wins</button></div><select id="outcome" aria-label="Filter by result"><option value="all">All results</option><option value="PENDING">Pending</option><option value="WON">Won</option><option value="LOST">Lost</option></select></div>
+<div id="journalIntro" class="hidden">
+  <div class="journalIntro"><div class="muted">These are <b>your own manually recorded bets</b>, not bets placed or verified by the predictor.</div><button type="button" class="btn primary" id="newBet">+ Add bet record</button></div>
+  <div class="journalStats"><div class="miniStat"><b id="journalCount">—</b><span>Recorded bets</span></div><div class="miniStat"><b id="journalPending">—</b><span>Pending bets</span></div><div class="miniStat"><b id="journalNet">—</b><span>Reported net P/L (UGX)</span></div></div>
+  <form id="journalForm" class="journalForm hidden"><h3 id="formTitle">Log a past bet</h3><div class="fields">
+    <div class="field"><label for="betDate">Bet date</label><input id="betDate" name="bet_date" type="date" required></div>
+    <div class="field"><label for="betLeague">League (optional)</label><input id="betLeague" name="league" maxlength="100" placeholder="e.g., English"></div>
+    <div class="field"><label for="betCategory">Market category</label><select id="betCategory" name="category" required><option value="overs">Overs</option><option value="unders">Unders</option><option value="btts">BTTS</option><option value="wins">Wins</option></select></div>
+    <div class="field wide"><label for="betFixture">Fixture</label><input id="betFixture" name="fixture" maxlength="180" placeholder="Home team vs Away team" required></div>
+    <div class="field"><label for="betSelection">Your bet selection</label><input id="betSelection" name="selection" maxlength="180" placeholder="e.g., Over 2.5 FT" required></div>
+    <div class="field"><label for="betStake">Stake (UGX)</label><input id="betStake" name="stake_ugx" type="number" min="1" max="100000000" step="1" required></div>
+    <div class="field"><label for="betOdds">Decimal odds</label><input id="betOdds" name="decimal_odds" type="number" min="1.01" max="1000" step="0.01" required></div>
+    <div class="field"><label for="betOutcome">Result</label><select id="betOutcome" name="outcome"><option value="PENDING">Pending</option><option value="WON">Won</option><option value="LOST">Lost</option><option value="VOID">Void / refunded</option></select></div>
+    <div class="field full"><label for="betNotes">Notes (optional)</label><textarea id="betNotes" name="notes" maxlength="1000" placeholder="Anything useful about this bet…"></textarea></div>
+  </div><div class="formActions"><button type="submit" class="btn primary" id="saveBet">Save record</button><button type="button" class="btn" id="cancelBet">Cancel</button></div><p class="fine">This is a private, self-reported journal. Estimated P/L is calculated from your stake, decimal odds and recorded result; no bookmaker transaction is verified.</p></form>
+</div>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+<div id="results"></div>
+<div class="pager"><button type="button" id="more" class="btn hidden">Load more</button></div>
+<p class="fine">A saved prediction is not a confirmed wager. Results appear only after grading. Historical performance does not guarantee future outcomes. Independent of betPawa. For adults aged 25+ only.</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const categories={overs:'Overs',unders:'Unders',btts:'BTTS',wins:'Wins'};
+const state={view:'latest',category:'all',outcome:'all',items:[],total:0,loading:false,editId:null,latest:null};
+const fmt=n=>Number(n||0).toLocaleString('en-UG');
+const dateText=s=>s?String(s).slice(0,10):'—';
+const status=(msg,error=false)=>{const el=$('status');el.textContent=msg;el.className='status'+(error?' error':msg?' ok':'')};
+async function api(url,options){
+  const response=await fetch(url,{credentials:'same-origin',...options});
+  const data=await response.json().catch(()=>({}));
+  if(response.status===401){location.assign('/login');throw new Error('Please sign in.')}
+  if(!response.ok)throw new Error(data.detail||'Request failed. Please retry.');
+  return data;
+}
+function node(tag,cls,text){
+  const el=document.createElement(tag);if(cls)el.className=cls;
+  if(text!==undefined)el.textContent=text;return el;
+}
+function showStats(s){
+  $('statTotal').textContent=fmt(s.total);$('statPending').textContent=fmt(s.pending);
+  $('statWins').textContent=fmt(s.wins);$('statLosses').textContent=fmt(s.losses);
+  $('statRate').textContent=s.win_rate==null?'—':(Number(s.win_rate)*100).toFixed(1)+'%';
+}
+function updateControls(){
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===state.view)));
+  document.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.category===state.category)));
+  $('journalIntro').classList.toggle('hidden',state.view!=='journal');
+  $('refresh').classList.toggle('hidden',state.view==='journal');
+  const opts=$('outcome');
+  const voidOpt=opts.querySelector('[value="VOID"]');
+  if(state.view==='journal'&&!voidOpt)opts.append(node('option','', 'Void / refunded'));
+  const opt=opts.querySelector('[value="VOID"]');if(opt)opt.value='VOID';
+  if(state.view!=='journal'&&opt)opt.remove();
+  opts.value=state.outcome;
+}
+function renderPick(item){
+  const card=node('article','pick');
+  const top=node('div','pickTop');
+  top.append(node('span','tag',categories[item.category]||'Other'));
+  top.append(node('span','outcome '+item.outcome,item.outcome));
+  card.append(top,node('div','fixture',item.target_home+' vs '+item.target_away),
+    node('div','selection',item.expected));
+  const detail=node('div','meta');
+  detail.textContent=item.league+' · Season '+item.season+' / Matchday '+item.matchday;
+  card.append(detail);
+  if(item.outcome==='PENDING'){
+    card.append(node('div','meta','Result pending'+(item.estimated_target_time_eat?' · Est. '+item.estimated_target_time_eat+' EAT':'')));
+  }else{
+    card.append(node('div','meta','Full-time score: '+item.ft_home+'–'+item.ft_away+' · Graded '+dateText(item.graded_at)));
+  }
+  const actions=node('div','pickActions');
+  const record=node('button','btn secondary','Log as bet');record.type='button';
+  record.addEventListener('click',()=>openForm(item));actions.append(record);
+  if(state.view==='latest'&&item.outcome==='PENDING'){
+    const remove=node('button','btn','Remove selection');remove.type='button';
+    remove.addEventListener('click',()=>removeSelection(item));actions.append(remove);
+  }
+  card.append(actions);return card;
+}
+function renderBet(item){
+  const card=node('article','pick');
+  const top=node('div','pickTop');
+  top.append(node('span','tag',categories[item.category]||'Other'));
+  top.append(node('span','outcome '+item.outcome,item.outcome));
+  card.append(top,node('div','fixture',item.fixture),node('div','selection',item.selection));
+  card.append(node('div','meta',dateText(item.bet_date)+' · '+(item.league||'League not specified')));
+  card.append(node('div','meta','Stake UGX '+fmt(item.stake_ugx)+' · Odds '+Number(item.decimal_odds).toFixed(2)));
+  if(item.net_ugx!=null)card.append(node('div','meta','Estimated net P/L: '+(item.net_ugx>=0?'+':'−')+'UGX '+fmt(Math.abs(item.net_ugx))));
+  if(item.notes)card.append(node('div','meta','Note: '+item.notes));
+  const actions=node('div','pickActions');
+  const edit=node('button','btn secondary','Edit record');edit.type='button';
+  edit.addEventListener('click',()=>openForm(item,true));
+  const del=node('button','btn danger','Delete');del.type='button';
+  del.addEventListener('click',()=>deleteBet(item));
+  actions.append(edit,del);card.append(actions);return card;
+}
+function render(){
+  const box=$('results');box.replaceChildren();
+  if(!state.items.length){
+    const empty=node('div','empty');
+    empty.append(node('b','',state.view==='journal'?'No recorded bets yet':state.view==='history'?'No past selections yet':'No selections in this view'));
+    empty.append(node('span','',state.view==='journal'?'Use “Add bet record” to log a bet you placed elsewhere.':'Open a market, check predictions and add qualifying picks to your combo.'));
+    box.append(empty);
+  }else{
+    const groups=new Map();
+    for(const item of state.items){
+      const key=state.view==='journal'?item.bet_date:item.season+' / Matchday '+item.matchday;
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push(item);
+    }
+    for(const [key,items] of groups){
+      const group=node('section','group');
+      const title=node('div','groupTitle');
+      title.append(node('strong','',state.view==='journal'?key:'Season '+key));
+      title.append(node('span','',items.length+' record'+(items.length===1?'':'s')));
+      group.append(title);
+      const cards=node('div','cards');items.forEach(item=>cards.append(state.view==='journal'?renderBet(item):renderPick(item)));
+      group.append(cards);box.append(group);
+    }
+  }
+  $('more').classList.toggle('hidden',state.items.length>=state.total);
+  $('more').disabled=state.loading;
+}
+async function load(reset=true){
+  if(state.loading)return;
+  state.loading=true;const offset=reset?0:state.items.length;
+  if(reset){state.items=[];state.total=0;render()}
+  status('Loading '+(state.view==='journal'?'bet records':'selected predictions')+'…');
+  $('more').disabled=true;
+  try{
+    const params=new URLSearchParams({category:state.category,outcome:state.outcome,limit:'50',offset:String(offset)});
+    let data;
+    if(state.view==='journal'){
+      data=await api('/api/client/bet-journal?'+params);
+      const summary=data.summary||{};
+      $('journalCount').textContent=fmt(summary.total);$('journalPending').textContent=fmt(summary.pending);
+      const net=Number(summary.net_ugx||0);$('journalNet').textContent=(net<0?'−':'')+fmt(Math.abs(net));
+    }else{
+      params.set('scope',state.view);
+      data=await api('/api/client/picks?'+params);
+      showStats(data.summary||{});
+      state.latest=data.latest_matchday;
+      $('latestLabel').textContent=state.latest?'Latest saved combo: season '+state.latest.season+', matchday '+state.latest.matchday+'. Older matchdays are in Selection history.':'Your selected predictions across all four markets.';
+    }
+    state.items=reset?data.items||[]:[...state.items,...(data.items||[])];
+    state.total=data.total||0;
+    status('Showing '+state.items.length+' of '+state.total+' record'+(state.total===1?'':'s')+'.');
+  }catch(error){status(error.message,true)}
+  finally{state.loading=false;render()}
+}
+async function switchView(view){
+  state.view=view;state.category='all';state.outcome='all';
+  updateControls();await load();
+}
+async function removeSelection(item){
+  if(!confirm('Remove this pending pick from your latest combo?'))return;
+  try{
+    await api('/api/selection',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({season:String(item.season),matchday:String(item.matchday),
+        league:item.league,target_home:item.target_home,target_away:item.target_away,
+        expected:item.expected,selected:false})});
+    await load();status('Selection removed.');
+  }catch(error){status(error.message,true)}
+}
+function openForm(item=null,isEdit=false){
+  state.view='journal';state.category='all';state.outcome='all';updateControls();
+  state.editId=isEdit?item.id:null;
+  $('journalForm').reset();
+  $('formTitle').textContent=isEdit?'Edit bet record':'Log a past bet';
+  $('saveBet').textContent=isEdit?'Save changes':'Save record';
+  const now=new Date();const today=now.toLocaleDateString('en-CA');
+  $('betDate').max=today;$('betDate').value=today;
+  if(item){
+    $('betFixture').value=isEdit?item.fixture:item.target_home+' vs '+item.target_away;
+    $('betSelection').value=isEdit?item.selection:item.expected;
+    $('betLeague').value=item.league||'';
+    $('betCategory').value=item.category||'overs';
+    if(isEdit){
+      $('betDate').value=item.bet_date;
+      $('betStake').value=item.stake_ugx;$('betOdds').value=item.decimal_odds;
+      $('betOutcome').value=item.outcome;$('betNotes').value=item.notes||'';
+    }
+  }
+  $('journalForm').classList.remove('hidden');
+  load();$('journalForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function saveBet(event){
+  event.preventDefault();
+  const form=$('journalForm');
+  if(!form.reportValidity())return;
+  const data=Object.fromEntries(new FormData(form).entries());
+  data.stake_ugx=Number(data.stake_ugx);data.decimal_odds=Number(data.decimal_odds);
+  $('saveBet').disabled=true;
+  try{
+    await api('/api/client/bet-journal'+(state.editId?'/'+state.editId:''),{
+      method:state.editId?'PUT':'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(data),
+    });
+    state.editId=null;form.classList.add('hidden');
+    await load();status('Bet record saved. This is a self-reported entry.');
+  }catch(error){status(error.message,true)}
+  finally{$('saveBet').disabled=false}
+}
+async function deleteBet(item){
+  if(!confirm('Delete this bet record permanently?'))return;
+  try{
+    await api('/api/client/bet-journal/'+item.id,{method:'DELETE'});
+    await load();status('Bet record deleted.');
+  }catch(error){status(error.message,true)}
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
+document.querySelectorAll('[data-category]').forEach(b=>b.addEventListener('click',()=>{state.category=b.dataset.category;updateControls();load()}));
+$('outcome').addEventListener('change',()=>{state.outcome=$('outcome').value;load()});
+$('more').addEventListener('click',()=>load(false));
+$('newBet').addEventListener('click',()=>openForm());
+$('heroLog').addEventListener('click',()=>openForm());
+$('cancelBet').addEventListener('click',()=>{state.editId=null;$('journalForm').classList.add('hidden')});
+$('journalForm').addEventListener('submit',saveBet);
+$('refresh').addEventListener('click',async()=>{
+  $('refresh').disabled=true;status('Checking completed matchdays…');
+  try{
+    const data=await api('/api/client/picks/refresh',{method:'POST'});
+    await load();status('Results refreshed. '+Number(data.graded_now||0)+' new outcome(s) graded.');
+  }catch(error){status(error.message,true)}
+  finally{$('refresh').disabled=false}
+});
+$('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
+updateControls();load();
+</script>
+</body>
+</html>
