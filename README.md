@@ -331,3 +331,17 @@ it from Admin > Security after signing in.
 
 Automated tests cover account authentication, sessions, password changes, access
 durations and request approval.
+
+
+## Supervised tester onboarding (ngrok)
+
+Admin-managed invitations are available under **Admin Console → Clients & Invitations**.
+The admin issues a one-time random temporary password and can copy a private invitation.
+On first login, clients must confirm the 25+ policy and create their own password before
+accessing the dashboard or private APIs. Password resets are admin-only and invalidate
+all old sessions without changing subscription expiry.
+
+For a temporary public HTTPS tester link on Windows, run `run.bat` and then
+`start-ngrok.bat`. See [NGROK_TESTER_SETUP.md](NGROK_TESTER_SETUP.md) for ngrok
+account configuration, public URL setup, and safe tester invitations.
+This is supervised testing, not permanent hosting or a live payment deployment.
