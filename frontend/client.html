@@ -7,8 +7,8 @@
 <title>Client Dashboard · BetPawa Predictor</title>
 <style>
 :root{--bg:#f6f9f1;--panel:#fff;--soft:#edf5e9;--line:#dce7da;--ink:#173c2b;--muted:#5e7568;--green:#17694c;--red:#a83c45;--amber:#895b0d;--lime:#e2f69a}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}button,input{font:inherit}a{color:inherit}.wrap{max-width:1140px;margin:0 auto;padding:0 22px}.topbar{background:#fff;border-bottom:1px solid var(--line)}.topinner{min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:950}.mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--green);color:#fff;letter-spacing:-.07em}.actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:11px 15px;font-weight:850;cursor:pointer}.btn:hover{border-color:#9cc8aa}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn:disabled{opacity:.55;cursor:not-allowed}.main{padding-top:37px;padding-bottom:60px}.eyebrow{color:var(--green);font-size:12px;font-weight:950;letter-spacing:.13em;text-transform:uppercase}.title{font-size:clamp(30px,4.6vw,45px);letter-spacing:-.05em;margin:10px 0 5px}.muted{color:var(--muted)}.preview{margin:20px 0;padding:13px 16px;background:#fff9e7;border:1px solid #ead9ac;color:#80590c;border-radius:13px;font-weight:700}.statusCard{background:linear-gradient(120deg,#17694c,#164733);border-radius:23px;color:#fff;padding:28px;display:flex;justify-content:space-between;align-items:center;gap:25px;flex-wrap:wrap;margin-top:27px}.statusCard .muted{color:#d2e7d9}.statusCard h2{margin:9px 0;font-size:26px;letter-spacing:-.03em}.statusCard p{margin:0;line-height:1.65}.pill{display:inline-flex;border-radius:999px;padding:8px 12px;font-weight:950;font-size:12px;letter-spacing:.04em}.pill.active{background:#e0f5d9;color:#18583a}.pill.inactive{background:#ffe7e7;color:#8f2935}.pill.pending{background:#fff0c4;color:#77530d}.section{margin-top:33px}.sectionHead{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:15px}.sectionHead h2{font-size:24px;letter-spacing:-.035em;margin:0}.sectionHead p{margin:6px 0 0;font-size:14px;color:var(--muted);line-height:1.6}.markets{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.market{display:flex;flex-direction:column;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:22px;min-height:190px;transition:transform .15s,border-color .15s}.market:hover{transform:translateY(-2px);border-color:#9ac5a7}.market .symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--green);font-size:23px}.market h3{font-size:22px;margin:16px 0 5px}.market p{font-size:13px;line-height:1.5;color:var(--muted);margin:0}.market .open{color:var(--green);font-size:13px;font-weight:900;margin-top:auto;padding-top:17px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:23px}.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}.plan{border:1px solid var(--line);background:#fcfefa;border-radius:15px;padding:17px}.plan h3{font-size:18px;margin:0 0 5px}.plan .muted{font-size:13px}.plan .btn{width:100%;margin-top:14px}.notice{margin-top:12px;color:var(--amber);font-size:13px;font-weight:750;line-height:1.6;min-height:20px}.requestList{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}.request{background:var(--soft);padding:10px 12px;border-radius:10px;font-size:13px}.request strong{color:var(--green)}.securityForm{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:15px}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:7px}.field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink)}.field input:focus{outline:2px solid #a5d2b1}.feedback{margin-top:13px;font-size:14px;font-weight:800;min-height:19px}.feedback.error{color:var(--red)}.feedback.success{color:var(--green)}footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:12px;line-height:1.6}
-@media(max-width:950px){.markets{grid-template-columns:repeat(2,1fr)}.plans{grid-template-columns:repeat(2,1fr)}.securityForm{grid-template-columns:1fr 1fr}.securityForm .btn{grid-column:1/-1}}@media(max-width:570px){.wrap{padding:0 16px}.main{padding-top:26px}.markets,.plans,.securityForm{grid-template-columns:1fr}.securityForm .btn{grid-column:auto}.market{min-height:165px}.statusCard{padding:22px}.panel{padding:18px}.actions .btn{padding:9px 11px;font-size:13px}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}button,input{font:inherit}a{color:inherit}.wrap{max-width:1140px;margin:0 auto;padding:0 22px}.topbar{background:#fff;border-bottom:1px solid var(--line)}.topinner{min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:950}.mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--green);color:#fff;letter-spacing:-.07em}.actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:11px 15px;font-weight:850;cursor:pointer}.btn:hover{border-color:#9cc8aa}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn:disabled{opacity:.55;cursor:not-allowed}.main{padding-top:37px;padding-bottom:60px}.eyebrow{color:var(--green);font-size:12px;font-weight:950;letter-spacing:.13em;text-transform:uppercase}.title{font-size:clamp(30px,4.6vw,45px);letter-spacing:-.05em;margin:10px 0 5px}.muted{color:var(--muted)}.preview{margin:20px 0;padding:13px 16px;background:#fff9e7;border:1px solid #ead9ac;color:#80590c;border-radius:13px;font-weight:700}.statusCard{background:linear-gradient(120deg,#17694c,#164733);border-radius:23px;color:#fff;padding:28px;display:flex;justify-content:space-between;align-items:center;gap:25px;flex-wrap:wrap;margin-top:27px}.statusCard .muted{color:#d2e7d9}.statusCard h2{margin:9px 0;font-size:26px;letter-spacing:-.03em}.statusCard p{margin:0;line-height:1.65}.pill{display:inline-flex;border-radius:999px;padding:8px 12px;font-weight:950;font-size:12px;letter-spacing:.04em}.pill.active{background:#e0f5d9;color:#18583a}.pill.inactive{background:#ffe7e7;color:#8f2935}.pill.pending{background:#fff0c4;color:#77530d}.section{margin-top:33px}.sectionHead{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:15px}.sectionHead h2{font-size:24px;letter-spacing:-.035em;margin:0}.sectionHead p{margin:6px 0 0;font-size:14px;color:var(--muted);line-height:1.6}.markets{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.market{display:flex;flex-direction:column;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:22px;min-height:190px;transition:transform .15s,border-color .15s}.market:hover{transform:translateY(-2px);border-color:#9ac5a7}.market .symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--green);font-size:23px}.market h3{font-size:22px;margin:16px 0 5px}.market p{font-size:13px;line-height:1.5;color:var(--muted);margin:0}.market .open{color:var(--green);font-size:13px;font-weight:900;margin-top:auto;padding-top:17px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:23px}.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}.plan{border:1px solid var(--line);background:#fcfefa;border-radius:15px;padding:17px}.plan h3{font-size:18px;margin:0 0 5px}.plan .muted{font-size:13px}.plan .btn{width:100%;margin-top:14px}.payFields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0}.payFields label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}.payFields input,.payFields select{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:12px}.payAge{display:flex;align-items:start;gap:10px;margin:12px 0;font-size:13px;line-height:1.6}.payAge input{margin-top:5px}.payHistory{display:flex;flex-direction:column;gap:9px;margin-top:13px}.payItem{padding:12px;border:1px solid var(--line);border-radius:12px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.payItem button{padding:8px 10px}.notice{margin-top:12px;color:var(--amber);font-size:13px;font-weight:750;line-height:1.6;min-height:20px}.requestList{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}.request{background:var(--soft);padding:10px 12px;border-radius:10px;font-size:13px}.request strong{color:var(--green)}.securityForm{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:15px}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:7px}.field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink)}.field input:focus{outline:2px solid #a5d2b1}.feedback{margin-top:13px;font-size:14px;font-weight:800;min-height:19px}.feedback.error{color:var(--red)}.feedback.success{color:var(--green)}footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:12px;line-height:1.6}
+@media(max-width:950px){.markets{grid-template-columns:repeat(2,1fr)}.plans{grid-template-columns:repeat(2,1fr)}.securityForm{grid-template-columns:1fr 1fr}.securityForm .btn{grid-column:1/-1}}@media(max-width:570px){.wrap{padding:0 16px}.main{padding-top:26px}.markets,.plans,.securityForm,.payFields{grid-template-columns:1fr}.securityForm .btn{grid-column:auto}.market{min-height:165px}.statusCard{padding:22px}.panel{padding:18px}.actions .btn{padding:9px 11px;font-size:13px}}
 </style>
 </head>
 <body>
@@ -23,12 +23,19 @@
 <a class="market" href="/client/btts"><span class="symbol" aria-hidden="true">⇄</span><h3>BTTS</h3><p>Both Teams To Score patterns.</p><span class="open">Explore BTTS →</span></a>
 <a class="market" href="/client/wins"><span class="symbol" aria-hidden="true">✓</span><h3>Wins</h3><p>Home and away win patterns, when qualified.</p><span class="open">Explore Wins →</span></a>
 </div></section>
-<section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
+<section class="section panel"><div class="sectionHead"><div><h2>Subscription plans &amp; payments</h2><p>Choose a plan and pay through a verified provider when available. You can also request manual access from the administrator.</p></div></div>
+<div class="payFields"><div><label for="paymentMethod">Payment method</label><select id="paymentMethod" aria-label="Payment method"><option value="">Loading methods…</option></select></div><div><label for="paymentEmail">Receipt email (for payment only)</label><input id="paymentEmail" type="email" autocomplete="email" placeholder="you@example.com"></div></div>
+<label class="payAge"><input type="checkbox" id="ageConfirmed"><span>I confirm that I am at least 25 years old and understand that predictions do not guarantee results.</span></label>
+<div class="muted" style="font-size:12px">Login still uses your username and password. A receipt email is required by the payment provider, not for signing in. Unconfigured methods cannot activate subscriptions.</div>
+<div id="plans" class="plans"><div class="muted">Loading plans…</div></div>
+<div id="requestMessage" class="feedback" role="status" aria-live="polite"></div>
+<h3>Payment history</h3><div id="paymentHistory" class="payHistory muted">No payments yet.</div>
+<h3>Manual access requests</h3><div id="requestHistory" class="requestList"></div></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Account security</h2><p>Change your temporary password before using your account regularly.</p></div></div><div id="passNotice" class="notice"></div><form id="passwordForm" class="securityForm"><div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div class="field"><label for="newPassword">New password (8+ characters)</label><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required></div><button class="btn primary" type="submit">Update password</button></form><div id="passwordMessage" class="feedback" role="status" aria-live="polite"></div></section>
 </main>
-<footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults only.</div></footer>
+<footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults aged 25+ only.</div></footer>
 <script>
-const $=id=>document.getElementById(id);let account=null,requests=[];
+const $=id=>document.getElementById(id);let account=null,requests=[],methods=[];
 const formatDate=value=>value?new Date(value).toLocaleString():'Not set';
 async function api(url,options){
   const response=await fetch(url,{credentials:'same-origin',...options});
@@ -58,19 +65,79 @@ function renderRequests(){
     node.append(label,document.createTextNode(' · '+formatDate(item.requested_at)));box.append(node);
   });
 }
+function renderMethods(){
+  const box=$('paymentMethod');box.replaceChildren();
+  methods.forEach(method=>{
+    const option=document.createElement('option');option.value=method.code;
+    option.textContent=method.label+(method.available?'':' · coming soon');
+    option.disabled=!method.available;box.append(option);
+  });
+  const first=methods.find(method=>method.available);
+  if(first)box.value=first.code;
+}
 function renderPlans(plans){
   const box=$('plans');box.replaceChildren();
   const pending=requests.some(item=>item.status==='pending');
+  const paymentReady=methods.some(method=>method.available);
   plans.forEach(plan=>{
     const card=document.createElement('article');card.className='plan';
     const title=document.createElement('h3');title.textContent=plan.label;
     const duration=document.createElement('div');duration.className='muted';duration.textContent=plan.days+' day'+(plan.days===1?'':'s')+' access';
-    const button=document.createElement('button');button.className='btn primary';button.type='button';
-    button.textContent=account.role==='admin'?'Admin preview':(pending?'Request pending':'Request access');
-    button.disabled=account.role==='admin'||pending;
-    button.addEventListener('click',()=>requestPlan(plan.code));
-    card.append(title,duration,button);box.append(card);
+    const price=document.createElement('div');price.style.cssText='font-size:20px;font-weight:900;margin-top:8px';
+    price.textContent=plan.price_ugx?'UGX '+Number(plan.price_ugx).toLocaleString():'Price to be announced';
+    const pay=document.createElement('button');pay.className='btn primary';pay.type='button';
+    pay.textContent='Pay & activate';
+    pay.disabled=account.role==='admin'||!plan.price_ugx||!paymentReady;
+    pay.addEventListener('click',()=>startPayment(plan.code));
+    const request=document.createElement('button');request.className='btn';request.type='button';
+    request.textContent=account.role==='admin'?'Admin preview':(pending?'Request pending':'Request manual access');
+    request.disabled=account.role==='admin'||pending;
+    request.addEventListener('click',()=>requestPlan(plan.code));
+    card.append(title,duration,price,pay,request);box.append(card);
   });
+}
+function renderPayments(orders){
+  const box=$('paymentHistory');box.replaceChildren();
+  if(!orders.length){box.textContent='No payments yet.';return}
+  orders.forEach(order=>{
+    const item=document.createElement('div');item.className='payItem';
+    const detail=document.createElement('span');
+    detail.textContent=order.plan_code.replaceAll('_',' ')+' · UGX '+Number(order.amount_ugx).toLocaleString()+' · '+order.status.toUpperCase()+' · '+formatDate(order.created_at);
+    item.append(detail);
+    if(order.status==='checkout_ready'||order.status==='created'){
+      const check=document.createElement('button');check.className='btn';check.textContent='Check payment';
+      check.addEventListener('click',()=>verifyPayment(order.reference));item.append(check);
+    }
+    box.append(item);
+  });
+}
+async function refreshPayments(){
+  const result=await api('/api/client/payments');
+  renderPayments(result.orders||[]);
+}
+async function verifyPayment(reference){
+  try{
+    showFeedback('requestMessage','Checking with the payment provider…');
+    const result=await api('/api/client/payments/'+encodeURIComponent(reference)+'/verify',{method:'POST'});
+    showFeedback('requestMessage',result.paid?'Payment verified. Your subscription is active.':'Payment is not confirmed yet. Try again after completing checkout.',!result.paid);
+    await refreshPayments();
+    account=(await api('/api/auth/me')).account;showAccount();
+  }catch(error){showFeedback('requestMessage',error.message,true)}
+}
+async function startPayment(planCode){
+  const method=$('paymentMethod').value,email=$('paymentEmail').value.trim();
+  if(!method){showFeedback('requestMessage','No online payment provider is configured yet.',true);return}
+  if(!$('ageConfirmed').checked){showFeedback('requestMessage','Please confirm you are at least 25 years old.',true);return}
+  if(!email){showFeedback('requestMessage','Enter your receipt email to continue.',true);return}
+  try{
+    showFeedback('requestMessage','Creating a secure checkout…');
+    const result=await api('/api/client/payments/checkout',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({plan_code:planCode,method,email,age_confirmed:true})
+    });
+    if(!result.checkout_url){throw new Error('Checkout link unavailable.')}
+    location.assign(result.checkout_url);
+  }catch(error){showFeedback('requestMessage',error.message,true)}
 }
 async function refreshRequests(){
   const response=await api('/api/client/subscription-requests');requests=response.requests||[];
@@ -80,7 +147,9 @@ async function load(){
   try{
     account=(await api('/api/auth/me')).account;
     showAccount();
-    const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
+    const [plans,methodList]=await Promise.all([api('/api/plans'),api('/api/payment-methods')]);
+    methods=methodList.methods||[];renderMethods();
+    await Promise.all([refreshRequests(),refreshPayments()]);
     renderPlans(plans.plans||[]);
   }catch(error){if(!account)showFeedback('requestMessage',error.message,true);else showFeedback('requestMessage','Unable to load all account details: '+error.message,true)}
 }
