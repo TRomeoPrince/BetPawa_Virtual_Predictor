@@ -370,10 +370,10 @@ def create_client(
         con.commit()
     except sqlite3.IntegrityError:
         con.rollback()
-        con.close()
         raise ValueError("That username already exists.")
+    finally:
+        con.close()
 
-    con.close()
     if plan_code:
         grant_subscription(account_id, plan_code, actor_account_id=created_by)
     return get_account(account_id), temp_password
