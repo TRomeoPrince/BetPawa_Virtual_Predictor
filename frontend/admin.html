@@ -1,18 +1,223 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin · BetPawa Predictor</title>
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f5f9f1"><title>Admin Console · BetPawa Predictor</title>
 <style>
-:root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--accent:#b8ef4c;--green:#63e29a;--amber:#ffd166;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1250px;margin:auto;padding:24px 18px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.brand{font-size:32px;font-weight:950}.btn{border:1px solid var(--line);background:#172536;color:var(--txt);border-radius:10px;padding:9px 12px;font-weight:850;cursor:pointer}.btn.primary{background:var(--accent);color:#11180a;border-color:var(--accent)}.btn.danger{background:#2a1417;color:var(--red)}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tabs button.active{background:var(--accent);color:#11180a}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:14px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:14px}.stat b{font-size:24px;display:block}.muted{color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{color:var(--muted)}input,select{background:#0b141e;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px}.form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.pill{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900}.good{background:#102619;color:var(--green)}.bad{background:#2a1417;color:var(--red)}.pending{background:#2b250e;color:var(--amber)}.hidden{display:none}.strategy{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:13px;margin:8px 0}.strategy h4{margin:0 0 5px}.code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);font-size:12px}@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.grid{grid-template-columns:1fr}}
-</style></head><body><main class="wrap"><div class="top"><div><div class="brand">Admin Console</div><div class="muted">Private strategies, clients and subscriptions</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" onclick="logout()">Sign out</button></div></div>
-<div class="tabs"><button class="btn active" data-tab="overview">Overview</button><button class="btn" data-tab="clients">Clients</button><button class="btn" data-tab="requests">Requests</button><button class="btn" data-tab="strategies">Strategies</button><button class="btn" data-tab="security">Security</button></div>
-<section id="overview" class="tab panel"><div id="stats" class="grid"></div></section><section id="clients" class="tab panel hidden"><h3>Create client</h3><div class="form"><input id="newUser" placeholder="Username"><input id="newName" placeholder="Display name"><select id="newPlan"><option value="">No plan</option></select><button class="btn primary" onclick="createClient()">Create client</button></div><div id="tempPass" class="muted"></div><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Status</th><th>Grant/extend</th></tr></thead><tbody id="clientRows"></tbody></table></div></section>
-<section id="requests" class="tab panel hidden"><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
-<section id="strategies" class="tab panel hidden"><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID..." oninput="renderStrategies()"></div><div id="strategyList"></div></section>
-<section id="security" class="tab panel hidden"><h3>Admin password</h3><div class="form"><input id="currentPassword" type="password" placeholder="Current password"><input id="newPassword" type="password" placeholder="New password"><button class="btn primary" onclick="changePassword()">Change</button></div></section>
-</main><script>
-let state={clients:[],requests:[],strategies:[],plans:[],me:null};async function api(url,opt){const r=await fetch(url,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||'Request failed');return d}document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));document.querySelector('#'+b.dataset.tab).classList.remove('hidden')});const fmt=d=>d?new Date(d).toLocaleString():'—';
-async function load(){try{const me=await api('/api/auth/me');if(me.account.role!=='admin'){location.href='/client';return}state.me=me.account;const [c,r,s,p]=await Promise.all([api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans')]);state.clients=c.clients;state.requests=r.requests;state.strategies=s.strategies;state.plans=p.plans;newPlan.innerHTML='<option value="">No plan</option>'+state.plans.map(x=>'<option value="'+x.code+'">'+x.label+'</option>').join('');stats.innerHTML='<div class="stat"><b>'+c.clients.length+'</b><span class="muted">Clients</span></div><div class="stat"><b>'+c.clients.filter(x=>x.subscription.is_active).length+'</b><span class="muted">Active subscriptions</span></div><div class="stat"><b>'+r.requests.filter(x=>x.status==='pending').length+'</b><span class="muted">Pending requests</span></div><div class="stat"><b>'+s.strategies.length+'</b><span class="muted">Private strategies</span></div>';renderClients();renderRequests();renderStrategies()}catch(e){location.href='/login'}}
-function renderClients(){clientRows.innerHTML=state.clients.map(c=>'<tr><td><b>'+c.display_name+'</b><br><span class="muted">@'+c.username+'</span></td><td>'+c.subscription.plan_label+'</td><td>'+fmt(c.subscription.expires_at)+'</td><td><span class="pill '+(c.subscription.is_active?'good':'bad')+'">'+(c.subscription.is_active?'ACTIVE':'INACTIVE')+'</span></td><td><select id="plan-'+c.id+'">'+state.plans.map(p=>'<option value="'+p.code+'">'+p.label+'</option>').join('')+'<option value="custom">Custom</option></select> <input id="days-'+c.id+'" style="width:85px" type="number" min="1" placeholder="days"> <button class="btn primary" onclick="grant('+c.id+')">Grant</button> <button class="btn danger" onclick="revoke('+c.id+')">Revoke</button></td></tr>').join('')}
-function renderRequests(){requestRows.innerHTML=state.requests.map(r=>'<tr><td>'+r.display_name+'<br><span class="muted">@'+r.username+'</span></td><td>'+fmt(r.requested_at)+'</td><td>'+r.plan_code+'</td><td><span class="pill '+(r.status==='pending'?'pending':r.status==='approved'?'good':'bad')+'">'+r.status.toUpperCase()+'</span></td><td>'+(r.status==='pending'?'<button class="btn primary" onclick="review('+r.id+',true)">Approve</button> <button class="btn danger" onclick="review('+r.id+',false)">Reject</button>':'')+'</td></tr>').join('')}
-function renderStrategies(){const q=(strategySearch.value||'').toLowerCase();strategyList.innerHTML=state.strategies.filter(s=>JSON.stringify(s).toLowerCase().includes(q)).map(s=>'<div class="strategy"><h4>'+s.strategy_name+' <span class="pill good">'+s.strategy_family+'</span></h4><div class="code">'+s.rule_id+'</div><div>'+s.league+' · '+s.market+' · '+(s.win_rate*100).toFixed(2)+'% ('+s.wins+'/'+s.tests+')</div><div class="muted">Trigger: '+s.trigger+'</div><div class="muted">Baseline '+(s.baseline*100).toFixed(2)+'% · Edge '+s.edge_pp+'pp · Positive seasons '+(s.positive_seasons||'—')+'</div></div>').join('')}
-async function createClient(){try{const d=await api('/api/admin/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:newUser.value,display_name:newName.value,plan_code:newPlan.value||null})});tempPass.textContent='Temporary password for '+d.account.username+': '+d.temporary_password+' — copy it now.';await load()}catch(e){alert(e.message)}}async function grant(id){const plan=document.querySelector('#plan-'+id).value;const days=Number(document.querySelector('#days-'+id).value||0);try{await api('/api/admin/clients/'+id+'/subscription',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_code:plan,custom_days:plan==='custom'?days:null})});await load()}catch(e){alert(e.message)}}async function revoke(id){if(!confirm('Revoke this subscription?'))return;await api('/api/admin/clients/'+id+'/subscription/revoke',{method:'POST'});await load()}async function review(id,approve){await api('/api/admin/subscription-requests/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approve})});await load()}async function changePassword(){try{await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:currentPassword.value,new_password:newPassword.value})});alert('Password changed.');currentPassword.value='';newPassword.value=''}catch(e){alert(e.message)}}async function logout(){await fetch('/api/auth/logout',{method:'POST'});location.href='/login'}load();
+:root{--bg:#f5f9f1;--panel:#fff;--soft:#f0f7ed;--line:#d5e5d3;--ink:#173c2b;--muted:#63796d;--green:#17694c;--red:#a62e41}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1230px;margin:auto;padding:26px 20px 65px}.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px}.brand{font-size:30px;font-weight:950;letter-spacing:-.045em}.muted{color:var(--muted);line-height:1.6}.btn{display:inline-block;border:1px solid var(--line);background:#f2f8ef;color:var(--ink);border-radius:10px;padding:10px 13px;font-weight:850;cursor:pointer;font-size:13px;text-decoration:none}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.btn.danger{background:#fff0f0;color:var(--red)}.btn:disabled{opacity:.55;cursor:wait}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}.tabs button.active{background:var(--green);color:#fff}.panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:23px;margin-top:14px;box-shadow:0 10px 30px #163b2810}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px}.stat b{font-size:27px;display:block}.stat span{font-size:13px;color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{color:var(--muted)}input,select{background:#fff;color:var(--ink);border:1px solid #c9ddca;border-radius:9px;padding:11px;font:inherit;font-size:14px}.form{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0 20px}.form input{min-width:170px}.pill{display:inline-block;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900}.good{background:#e1f3e3;color:var(--green)}.bad{background:#ffe5e5;color:var(--red)}.pending{background:#fff0d2;color:#9c670c}.hidden{display:none!important}.strategy{background:var(--soft);border:1px solid var(--line);border-radius:13px;padding:15px;margin:9px 0}.strategy h4{margin:0 0 7px}.code{font-family:ui-monospace,Consolas,monospace;color:var(--green);font-size:12px}.guide{background:#e9f5e4;border:1px solid #c5dfc2;border-radius:14px;padding:16px 19px;line-height:1.7;margin:15px 0}.credentialBox{border:2px solid #a4cba2;background:#f5fcf1;border-radius:17px;padding:20px;margin:18px 0 25px}.credentialBox h3{margin:0 0 7px}.credentialBox label{display:block;font-size:12px;font-weight:850;margin:14px 0 5px}.credentialBox input{width:min(480px,100%);background:#fff;font-family:ui-monospace,Consolas,monospace;font-size:15px}.credentialActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.hint{font-size:12px;color:var(--muted);line-height:1.7}.actionsRow{display:flex;gap:6px;flex-wrap:wrap}.status{min-height:19px;color:var(--green);font-size:13px;font-weight:750;margin:12px 0}.status.error{color:var(--red)}:focus-visible{outline:3px solid #91d5aa;outline-offset:3px}@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:530px){.grid{grid-template-columns:1fr}.wrap{padding:18px 12px}.panel{padding:16px}.brand{font-size:25px}.form input,.form select,.form button{width:100%}}
+</style></head><body>
+<main class="wrap">
+<header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
+<nav class="tabs" aria-label="Admin sections">
+<button type="button" class="btn" data-tab="overview">Overview</button>
+<button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
+<button type="button" class="btn" data-tab="requests">Requests</button>
+<button type="button" class="btn" data-tab="strategies">Strategies</button>
+<button type="button" class="btn" data-tab="security">Security</button>
+</nav>
+<section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
+<section id="clients" class="tab panel">
+<h2>Invite a client or tester</h2>
+<div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a secure temporary password. Copy the invitation and send it privately. On first login, the client must create their own password. Use <strong>Reset password</strong> if they forget it. Public signup remains disabled.</div>
+<div class="form">
+<input id="newUser" placeholder="Username (e.g., tester01)" autocomplete="off" aria-label="Username">
+<input id="newName" placeholder="Display name" autocomplete="off" aria-label="Display name">
+<select id="newPlan" aria-label="Subscription plan"><option value="">No plan</option></select>
+<button class="btn primary" type="button" id="createClientButton">Generate temporary password</button>
+</div>
+<div id="tempPass" class="credentialBox hidden" role="status" aria-live="polite">
+<h3 id="credentialsHeading">Client invitation created</h3>
+<p class="hint">This password is displayed <strong>only once</strong>. Copy it now. If lost, issue a replacement from the client table.</p>
+<label for="issuedUsername">Username</label><input id="issuedUsername" readonly>
+<label for="issuedPassword">One-time temporary password</label><input id="issuedPassword" readonly>
+<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
+<p id="copyStatus" class="hint"></p>
+</div>
+<h3>Manage clients</h3>
+<div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Access</th><th>Password</th><th>Grant / revoke</th></tr></thead><tbody id="clientRows"></tbody></table></div>
+</section>
+<section id="requests" class="tab panel hidden"><h2>Subscription requests</h2><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
+<section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
+<section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let state={clients:[],requests:[],strategies:[],plans:[],me:null},issued=null;
+function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
+async function api(url,options){
+ const response=await fetch(url,{credentials:'same-origin',...options});
+ const data=await response.json().catch(()=>({}));
+ if(response.status===401){location.assign('/login');throw new Error('Please sign in.')}
+ if(response.status===403&&String(data.detail||'').includes('Password setup')){location.assign('/password-setup');throw new Error('Password setup required.')}
+ if(!response.ok)throw new Error(data.detail||'Request failed.');
+ return data;
+}
+function fmt(value){return value?new Date(value).toLocaleString():'—'}
+function td(text){const e=document.createElement('td');e.textContent=text;return e}
+function button(text,kind,callback){
+ const e=document.createElement('button');e.type='button';e.className='btn '+(kind||'');e.textContent=text;e.addEventListener('click',callback);return e;
+}
+function showTab(name){
+ document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+ document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('hidden',el.id!==name));
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function renderStats(){
+ const counts=[['Clients',state.clients.length],['Active subscriptions',state.clients.filter(x=>x.subscription.is_active).length],['Pending requests',state.requests.filter(x=>x.status==='pending').length],['Private strategies',state.strategies.length]];
+ $('stats').replaceChildren();
+ for(const [label,value] of counts){
+  const card=document.createElement('div');card.className='stat';
+  const b=document.createElement('b');b.textContent=value;
+  const span=document.createElement('span');span.textContent=label;card.append(b,span);$('stats').append(card);
+ }
+}
+function renderClients(){
+ $('clientRows').replaceChildren();
+ for(const c of state.clients){
+  const tr=document.createElement('tr');
+  const person=td('');const name=document.createElement('b');name.textContent=c.display_name;
+  const user=document.createElement('div');user.className='muted';user.textContent='@'+c.username;person.append(name,user);
+  tr.append(person,td(c.subscription.plan_label),td(fmt(c.subscription.expires_at)));
+  const access=td('');const pill=document.createElement('span');
+  pill.className='pill '+(c.subscription.is_active?'good':'bad');
+  pill.textContent=c.subscription.is_active?'ACTIVE':'INACTIVE';access.append(pill);tr.append(access);
+  const password=td('');const label=document.createElement('div');label.className='muted';
+  label.textContent=c.must_change_password?'First-login setup pending':'Personal password set';
+  password.append(label,button('Reset password','',()=>resetClient(c.id,c.username)));tr.append(password);
+  const actions=td('');actions.className='actionsRow';
+  const plan=document.createElement('select');plan.id='plan-'+c.id;
+  for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;plan.append(opt)}
+  const custom=document.createElement('option');custom.value='custom';custom.textContent='Custom days';plan.append(custom);
+  const days=document.createElement('input');days.id='days-'+c.id;days.style.width='86px';days.type='number';days.min='1';days.placeholder='days';
+  actions.append(plan,days,button('Grant','primary',()=>grant(c.id)),button('Revoke','danger',()=>revoke(c.id)));
+  tr.append(actions);$('clientRows').append(tr);
+ }
+}
+function renderRequests(){
+ $('requestRows').replaceChildren();
+ for(const r of state.requests){
+  const tr=document.createElement('tr');
+  tr.append(td(r.display_name+' (@'+r.username+')'),td(fmt(r.requested_at)),td(r.plan_code),td(r.status.toUpperCase()));
+  const actions=td('');
+  if(r.status==='pending')actions.append(button('Approve','primary',()=>review(r.id,true)),document.createTextNode(' '),button('Reject','danger',()=>review(r.id,false)));
+  tr.append(actions);$('requestRows').append(tr);
+ }
+}
+function renderStrategies(){
+ const q=$('strategySearch').value.toLowerCase();$('strategyList').replaceChildren();
+ for(const s of state.strategies.filter(x=>JSON.stringify(x).toLowerCase().includes(q))){
+  const card=document.createElement('div');card.className='strategy';
+  const heading=document.createElement('h4');heading.textContent=s.strategy_name+' · '+s.strategy_family;
+  const code=document.createElement('div');code.className='code';code.textContent=s.rule_id;
+  const summary=document.createElement('div');summary.textContent=s.league+' · '+s.market+' · '+(s.win_rate*100).toFixed(2)+'% ('+s.wins+'/'+s.tests+')';
+  const trigger=document.createElement('div');trigger.className='muted';trigger.textContent='Trigger: '+s.trigger;
+  const detail=document.createElement('div');detail.className='muted';detail.textContent='Baseline '+(s.baseline*100).toFixed(2)+'% · Edge '+s.edge_pp+'pp · Positive seasons '+(s.positive_seasons||'—');
+  card.append(heading,code,summary,trigger,detail);$('strategyList').append(card);
+ }
+}
+async function load(){
+ try{
+  const me=await api('/api/auth/me');
+  if(me.account.must_change_password){location.assign('/password-setup');return}
+  if(me.account.role!=='admin'){location.assign('/client');return}
+  state.me=me.account;
+  const [clients,requests,strategies,plans]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans')
+  ]);
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;
+  $('newPlan').replaceChildren();
+  const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
+  for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
+  renderStats();renderClients();renderRequests();renderStrategies();
+ }catch(error){feedback(error.message,true)}
+}
+function showCredentials(username,password,kind){
+ issued={username,password};$('issuedUsername').value=username;$('issuedPassword').value=password;
+ $('credentialsHeading').textContent=kind==='reset'?'Replacement temporary password':'Client invitation created';
+ $('copyStatus').textContent='Copy the invitation now; the password will not be shown again after closing this panel.';
+ $('tempPass').classList.remove('hidden');
+ $('tempPass').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeCredentials(){
+ issued=null;$('issuedUsername').value='';$('issuedPassword').value='';
+ $('tempPass').classList.add('hidden');$('copyStatus').textContent='';
+}
+async function copyText(value){
+ if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);return}
+ throw new Error('Automatic copy unavailable. Select the visible password and copy it manually.');
+}
+async function copyInvitation(){
+ if(!issued)return;
+ const message='BetPawa Predictor — private tester access\nLogin: '+location.origin+'/login\nUsername: '+issued.username+'\nTemporary password: '+issued.password+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
+ try{await copyText(message);$('copyStatus').textContent='Invitation copied. Send it privately to this client.'}
+ catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent=error.message}
+}
+async function copyPassword(){
+ if(!issued)return;
+ try{await copyText(issued.password);$('copyStatus').textContent='Temporary password copied.'}
+ catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent=error.message}
+}
+async function createClient(){
+ const username=$('newUser').value.trim(),display_name=$('newName').value.trim();
+ if(username.length<3){feedback('Username must be at least 3 characters.',true);$('newUser').focus();return}
+ $('createClientButton').disabled=true;
+ try{
+  const result=await api('/api/admin/clients',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null}),
+  });
+  showCredentials(result.account.username,result.temporary_password,'new');
+  $('newUser').value='';$('newName').value='';feedback('Client created. Copy their temporary credentials now.');
+  await load();
+ }catch(error){feedback(error.message,true)}
+ finally{$('createClientButton').disabled=false}
+}
+async function resetClient(id,username){
+ if(!confirm('Reset password for @'+username+'? Their current password and all existing sessions will stop working.'))return;
+ try{
+  const result=await api('/api/admin/clients/'+id+'/reset-password',{method:'POST'});
+  showCredentials(result.account.username,result.temporary_password,'reset');
+  feedback('Replacement password generated. Share it privately.');
+  await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function grant(id){
+ const plan=$('plan-'+id).value,days=Number($('days-'+id).value||0);
+ try{
+  await api('/api/admin/clients/'+id+'/subscription',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({plan_code:plan,custom_days:plan==='custom'?days:null}),
+  });
+  feedback('Subscription updated.');await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function revoke(id){
+ if(!confirm('Revoke this subscription?'))return;
+ try{await api('/api/admin/clients/'+id+'/subscription/revoke',{method:'POST'});feedback('Subscription revoked.');await load()}
+ catch(error){feedback(error.message,true)}
+}
+async function review(id,approve){
+ try{await api('/api/admin/subscription-requests/'+id+'/review',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approve}),
+ });feedback('Request reviewed.');await load()}
+ catch(error){feedback(error.message,true)}
+}
+$('createClientButton').addEventListener('click',createClient);
+$('copyInvitation').addEventListener('click',copyInvitation);
+$('copyPassword').addEventListener('click',copyPassword);
+$('closeCredentials').addEventListener('click',closeCredentials);
+$('strategySearch').addEventListener('input',renderStrategies);
+$('securityForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ try{
+  await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({current_password:$('currentPassword').value,new_password:$('newPassword').value}),
+  });
+  alert('Password changed. Sign in again with your new password.');
+  location.assign('/login');
+ }catch(error){feedback(error.message,true)}
+});
+$('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
+load();
 </script></body></html>
