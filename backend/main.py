@@ -28,6 +28,7 @@ from .access import (
     delete_session,
     ensure_bootstrap_admin,
     grant_subscription,
+    get_account,
     list_account_subscription_requests,
     list_clients,
     list_subscription_requests,
@@ -596,9 +597,7 @@ def api_admin_reset_client_password(account_id: int, request: Request):
         raise HTTPException(404, str(exc))
     return {
         "ok": True,
-        "account": public_account(next(
-            client for client in list_clients() if int(client["id"]) == account_id
-        )),
+        "account": public_account(get_account(account_id)),
         "temporary_password": temp_password,
     }
 
