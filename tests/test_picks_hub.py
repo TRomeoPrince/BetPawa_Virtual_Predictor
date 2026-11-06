@@ -20,8 +20,12 @@ class PicksHubTests(unittest.TestCase):
         self.main = main
         access.ensure_bootstrap_admin()
         self.client = TestClient(main.app, follow_redirects=False)
-        self.alice, self.alice_password = access.create_client("alice_picks", "Alice", "weekly")
-        self.bob, self.bob_password = access.create_client("bob_picks", "Bob", "weekly")
+        self.alice, alice_temporary = access.create_client("alice_picks", "Alice", "weekly")
+        self.bob, bob_temporary = access.create_client("bob_picks", "Bob", "weekly")
+        self.alice_password = "AliceNewPassword2026!"
+        self.bob_password = "BobNewPassword2026!"
+        access.change_password(self.alice["id"], alice_temporary, self.alice_password)
+        access.change_password(self.bob["id"], bob_temporary, self.bob_password)
         self.login("alice_picks", self.alice_password)
 
     def tearDown(self):
