@@ -14,7 +14,7 @@ class FrontendSyntaxTests(unittest.TestCase):
     def test_inline_scripts_parse(self):
         for page in sorted(FRONTEND.glob("*.html")):
             scripts = re.findall(
-                r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>",
+                r"<script(?:\s[^>]*)?>([\s\S]*?)</script>",
                 page.read_text(encoding="utf-8"), flags=re.IGNORECASE,
             )
             for index, script in enumerate(scripts):
