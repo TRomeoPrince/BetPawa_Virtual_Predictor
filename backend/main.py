@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 
+from . import picks
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY
@@ -48,6 +49,7 @@ FRONTEND = ROOT / "frontend" / "index.html"
 MARKET_PAGE = ROOT / "frontend" / "market.html"
 LOGIN_PAGE = ROOT / "frontend" / "login.html"
 CLIENT_PAGE = ROOT / "frontend" / "client.html"
+PICKS_PAGE = ROOT / "frontend" / "picks.html"
 ADMIN_PAGE = ROOT / "frontend" / "admin.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -311,6 +313,18 @@ class RequestReview(BaseModel):
     approve: bool
 
 
+class BetJournalBody(BaseModel):
+    bet_date: str
+    league: str = ""
+    fixture: str
+    category: str
+    selection: str
+    stake_ugx: int
+    decimal_odds: float
+    outcome: str = "PENDING"
+    notes: str = ""
+
+
 def _frontend_response(path: Path):
     return FileResponse(
         path,
@@ -352,6 +366,14 @@ def admin_dashboard(request: Request):
     if account.get("role") != "admin":
         return RedirectResponse("/client", status_code=302)
     return _frontend_response(ADMIN_PAGE)
+
+
+@app.get("/client/picks")
+def client_picks_page(request: Request):
+    account = _session_account(request)
+    if not account:
+        return RedirectResponse("/login", status_code=302)
+    return _frontend_response(PICKS_PAGE)
 
 
 @app.get("/client/{category}")
@@ -439,6 +461,62 @@ def api_subscription_request(payload: SubscriptionRequestBody, request: Request)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True, "request": req}
+
+
+@app.get("/api/client/picks")
+def api_client_picks(
+    request: Request, category: str = "all", scope: str = "latest",
+    outcome: str = "all", limit: int = 50, offset: int = 0,
+):
+    account = _require_account(request)
+    try:
+        return picks.get_picks(
+            account["user_key"], category=category, scope=scope,
+            outcome=outcome, limit=limit, offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/client/bet-journal")
+def api_client_bet_journal(
+    request: Request, category: str = "all", outcome: str = "all",
+    limit: int = 50, offset: int = 0,
+):
+    account = _require_account(request)
+    try:
+        return picks.get_journal(
+            account["user_key"], category=category, outcome=outcome,
+            limit=limit, offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/client/bet-journal")
+def api_client_create_bet(payload: BetJournalBody, request: Request):
+    account = _require_account(request)
+    try:
+        return {"bet": picks.create_bet(account["user_key"], payload.model_dump())}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.put("/api/client/bet-journal/{bet_id}")
+def api_client_update_bet(bet_id: int, payload: BetJournalBody, request: Request):
+    account = _require_account(request)
+    try:
+        return {"bet": picks.update_bet(account["user_key"], bet_id, payload.model_dump())}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.delete("/api/client/bet-journal/{bet_id}")
+def api_client_delete_bet(bet_id: int, request: Request):
+    account = _require_account(request)
+    if not picks.delete_bet(account["user_key"], bet_id):
+        raise HTTPException(404, "Bet record not found.")
+    return {"ok": True}
 
 
 @app.get("/api/admin/clients")
