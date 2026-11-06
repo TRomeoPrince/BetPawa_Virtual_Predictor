@@ -101,10 +101,14 @@ class SupervisedOnboardingTests(unittest.TestCase):
         self.assertNotIn("password_hash", str(payload))
         account_id = payload["account"]["id"]
         old_temp = payload["temporary_password"]
-        self.assertTrue(access.verify_password(
-            old_temp,
-            access.connect().execute("SELECT password_hash FROM accounts WHERE id=?", (account_id,)).fetchone()[0],
-        ))
+        con = access.connect()
+        try:
+            saved_hash = con.execute(
+                "SELECT password_hash FROM accounts WHERE id=?", (account_id,),
+            ).fetchone()[0]
+        finally:
+            con.close()
+        self.assertTrue(access.verify_password(old_temp, saved_hash))
         old_expiry = access.get_account(account_id)["subscription"]["expires_at"]
         reset = self.client.post("/api/admin/clients/"+str(account_id)+"/reset-password")
         self.assertEqual(reset.status_code, 200, reset.text)
