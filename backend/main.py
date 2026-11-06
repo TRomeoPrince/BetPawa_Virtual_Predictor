@@ -529,6 +529,12 @@ def api_subscription_request(payload: SubscriptionRequestBody, request: Request)
     return {"ok": True, "request": req}
 
 
+@app.get("/api/admin/payments")
+def api_admin_payments(request: Request):
+    _require_admin(request)
+    return {"orders": payments.list_all_orders()}
+
+
 @app.get("/api/admin/clients")
 def api_admin_clients(request: Request):
     _require_admin(request)
