@@ -1,0 +1,50 @@
+# Customer purchase requests — manual verification
+
+This implementation is intentionally **not a payment gateway**. A receipt or transfer hash is only an untrusted payment claim. A client account is created only when an administrator checks the actual received funds and explicitly approves.
+
+## Public customer flow
+
+- Open /purchase. Select a plan with a configured UGX price (the Daily plan defaults to UGX 5,000; other prices are intentionally not guessed).
+- Select MTN or the exact coin/network, then transfer payment. Wallet addresses and the MTN number come from the owner's supplied instructions.
+- Enter email, preferred username, transaction reference and upload PNG/JPG/WebP/PDF proof (2 MB limit).
+- The request remains pending until manual verification. No automatic proof acceptance or subscription grant happens.
+
+## Admin flow
+
+- Open /admin > Payment Requests. Download the proof; cross-check your actual MTN statement or blockchain explorer. Confirm correct amount, coin, chain, recipient, settlement/finality, and that it hasn't already been used.
+- Select Approve verified only after settlement is confirmed. The system creates one account and a one-use 24-hour activation link.
+- If SMTP is configured and working, the activation link is emailed. Otherwise the system reports **email not sent** and shows an admin-only copyable HTTPS link. The admin may click Retry activation email, which rotates the link.
+- Reject unconfirmed or mismatched payments. Approval is not idempotently repeatable: a reviewed request cannot be approved again.
+
+## Configure pricing
+
+Set server environment variables (positive whole UGX amounts). Without a value, a plan appears unpriced/disabled.
+
+PREDICTOR_PRICE_DAILY_UGX=5000
+PREDICTOR_PRICE_WEEKLY_UGX=
+PREDICTOR_PRICE_MONTHLY_UGX=
+PREDICTOR_PRICE_QUARTERLY_UGX=
+PREDICTOR_PRICE_HALF_YEAR_UGX=
+PREDICTOR_PRICE_ANNUAL_UGX=
+
+No conversion between UGX and crypto is currently automated. The displayed UGX plan price is not a fixed token amount. Ensure customers agree the crypto amount before transfer.
+
+## Configure email delivery (server-side only)
+
+PREDICTOR_PUBLIC_BASE_URL=https://YOUR-ACTUAL-HTTPS-DOMAIN
+PREDICTOR_SMTP_HOST=
+PREDICTOR_SMTP_PORT=587
+PREDICTOR_SMTP_FROM=
+PREDICTOR_SMTP_USER=
+PREDICTOR_SMTP_PASSWORD=
+
+Port 587 uses STARTTLS; port 465 uses implicit TLS. Do not commit credentials into Git. Sender authorization may be required by your SMTP provider. Without SMTP, approvals work but you must privately send the admin-generated link.
+
+## Safety before open public use
+
+- A temporary ngrok tunnel can change after restart; set PREDICTOR_PUBLIC_BASE_URL to the current HTTPS origin.
+- Add rate-limiting at the edge, abuse prevention, backups, monitoring, a customer-support/refund process and a legal/compliance review before handling real customer payments.
+- The 25+ checkbox is not identity verification.
+- Proof files and payment details contain personal information: database files, backups and admin account access must be protected; determine a retention/deletion policy.
+- Crypto network variations and wrapped assets must be verified with the receiving wallet/provider; do not assume a matching address means that all assets are supported.
+- No automated Stripe/Flutterwave, MTN or crypto transaction confirmation is claimed. No email is claimed sent unless SMTP returns success.
