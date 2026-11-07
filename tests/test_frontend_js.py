@@ -24,6 +24,7 @@ class FrontendSyntaxTests(unittest.TestCase):
                     check = subprocess.run(
                         ["node", "--check"], input=script, text=True,
                         capture_output=True, timeout=15, check=False,
+                        encoding="utf-8", errors="replace",
                     )
                     self.assertEqual(check.returncode, 0, check.stderr)
 

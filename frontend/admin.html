@@ -18,7 +18,7 @@
 <section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
 <section id="clients" class="tab panel">
 <h2>Invite a client or tester</h2>
-<div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a secure temporary password. Copy the invitation and send it privately. On first login, the client must create their own password. Use <strong>Reset password</strong> if they forget it. Public signup remains disabled.</div>
+<div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a one-use activation link (24 hours). After activation, issue a reusable personal sign-in link (90 days) if desired. Anyone possessing an active link can enter that client's account. Use <strong>Reset password</strong> if they forget it. Public signup remains disabled.</div>
 <div class="form"><input id="publicTesterUrl" type="url" placeholder="Public ngrok HTTPS URL (optional)" aria-label="Public tester URL" style="min-width:min(100%,380px)"></div>
 <p class="hint">If you are administering from localhost, paste your ngrok HTTPS forwarding URL above so copied invitations contain the correct remote login link. Otherwise, the current website address is used.</p>
 <div class="form">
@@ -31,8 +31,8 @@
 <h3 id="credentialsHeading">Client invitation created</h3>
 <p class="hint">This password is displayed <strong>only once</strong>. Copy it now. If lost, issue a replacement from the client table.</p>
 <label for="issuedUsername">Username</label><input id="issuedUsername" readonly>
-<label for="issuedPassword">One-time temporary password</label><input id="issuedPassword" readonly>
-<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
+<label for="issuedPassword">Fallback temporary password</label><input id="issuedPassword" readonly><label for="issuedLink">Private invitation or sign-in link</label><input id="issuedLink" readonly>
+<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyLink">Copy link</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
 <p id="copyStatus" class="hint"></p>
 </div>
 <h3>Manage clients</h3>
@@ -86,7 +86,9 @@ function renderClients(){
   pill.textContent=c.subscription.is_active?'ACTIVE':'INACTIVE';access.append(pill);tr.append(access);
   const password=td('');const label=document.createElement('div');label.className='muted';
   label.textContent=c.must_change_password?'First-login setup pending':'Personal password set';
-  password.append(label,button('Reset password','',()=>resetClient(c.id,c.username)));tr.append(password);
+  password.append(label,button('Reset password','',()=>resetClient(c.id,c.username)));
+   password.append(button(c.must_change_password?'New activation link':'Generate / rotate personal link','',()=>issueLink(c.id,c.username,c.must_change_password?'activation':'login')));
+   password.append(button('Revoke personal link','danger',()=>revokeLink(c.id,c.username)));tr.append(password);
   const actions=td('');actions.className='actionsRow';
   const plan=document.createElement('select');plan.id='plan-'+c.id;
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;plan.append(opt)}
@@ -134,15 +136,24 @@ async function load(){
   renderStats();renderClients();renderRequests();renderStrategies();
  }catch(error){feedback(error.message,true)}
 }
-function showCredentials(username,password,kind){
- issued={username,password};$('issuedUsername').value=username;$('issuedPassword').value=password;
- $('credentialsHeading').textContent=kind==='reset'?'Replacement temporary password':'Client invitation created';
- $('copyStatus').textContent='Copy the invitation now; the password will not be shown again after closing this panel.';
+function publicOrigin(){
+ const entered=$('publicTesterUrl').value.trim();
+ if(!entered)return location.origin;
+ const url=new URL(entered);
+ if(url.protocol!=='https:'||url.username||url.password)throw Error('Enter a valid HTTPS public tester URL.');
+ return url.origin;
+}
+function showCredentials(username,password,kind,token){
+ issued={username,password,kind,token};
+ $('issuedUsername').value=username;$('issuedPassword').value=password||'';
+ $('issuedLink').value=token?publicOrigin()+(kind==='login'?'/access#':'/activate#')+encodeURIComponent(token):'';
+ $('credentialsHeading').textContent=kind==='login'?'Personal sign-in link':kind==='reset'?'Replacement activation link':'Client invitation created';
+ $('copyStatus').textContent='Keep this private link secret. Copy it now; it will not be shown again.';
  $('tempPass').classList.remove('hidden');
  $('tempPass').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function closeCredentials(){
- issued=null;$('issuedUsername').value='';$('issuedPassword').value='';
+ issued=null;$('issuedUsername').value='';$('issuedPassword').value='';$('issuedLink').value='';
  $('tempPass').classList.add('hidden');$('copyStatus').textContent='';
 }
 async function copyText(value){
@@ -151,15 +162,28 @@ async function copyText(value){
 }
 async function copyInvitation(){
  if(!issued)return;
- const entered=$('publicTesterUrl').value.trim();
- let loginOrigin=location.origin;
- if(entered){
-  try{const parsed=new URL(entered);if(parsed.protocol!=='https:')throw new Error();loginOrigin=parsed.origin}
-  catch(error){$('copyStatus').textContent='Enter a valid ngrok HTTPS URL before copying the invitation.';return}
- }
- const message='BetPawa Predictor — private tester access\nLogin: '+loginOrigin+'/login\nUsername: '+issued.username+'\nTemporary password: '+issued.password+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
- try{await copyText(message);$('copyStatus').textContent='Invitation copied. Send it privately to this client.'}
- catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent=error.message}
+ const msg='BetPawa Predictor — private '+(issued.kind==='login'?'sign-in':'activation')+' link\n'+$('issuedLink').value+'\nDo not share this link. Anyone who obtains it can access the account. For adults aged 25+.';
+ try{await copyText(msg);$('copyStatus').textContent='Full invitation copied.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select the link and copy manually.'}
+}
+async function copyLink(){
+ if(!issued)return;
+ try{await copyText($('issuedLink').value);$('copyStatus').textContent='Link copied.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select the link and copy manually.'}
+}
+async function issueLink(id,username,kind){
+ try{
+  const res=await api('/api/admin/clients/'+id+'/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind})});
+  showCredentials(username,'',kind,res.token);
+  feedback('New private link generated. The previous link of this kind no longer works.');
+ }catch(error){feedback(error.message,true)}
+}
+async function revokeLink(id,username){
+ if(!confirm('Revoke personal sign-in link for @'+username+'?'))return;
+ try{
+  await api('/api/admin/clients/'+id+'/links/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'login'})});
+  feedback('Personal link revoked.');
+ }catch(error){feedback(error.message,true)}
 }
 async function copyPassword(){
  if(!issued)return;
@@ -175,7 +199,7 @@ async function createClient(){
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null}),
   });
-  showCredentials(result.account.username,result.temporary_password,'new');
+  showCredentials(result.account.username,result.temporary_password,'activation',result.activation_token);
   $('newUser').value='';$('newName').value='';feedback('Client created. Copy their temporary credentials now.');
   await load();
  }catch(error){feedback(error.message,true)}
@@ -185,7 +209,7 @@ async function resetClient(id,username){
  if(!confirm('Reset password for @'+username+'? Their current password and all existing sessions will stop working.'))return;
  try{
   const result=await api('/api/admin/clients/'+id+'/reset-password',{method:'POST'});
-  showCredentials(result.account.username,result.temporary_password,'reset');
+  showCredentials(result.account.username,result.temporary_password,'activation',result.activation_token);
   feedback('Replacement password generated. Share it privately.');
   await load();
  }catch(error){feedback(error.message,true)}
@@ -213,6 +237,7 @@ async function review(id,approve){
 }
 $('createClientButton').addEventListener('click',createClient);
 $('copyInvitation').addEventListener('click',copyInvitation);
+$('copyLink').addEventListener('click',copyLink);
 $('copyPassword').addEventListener('click',copyPassword);
 $('closeCredentials').addEventListener('click',closeCredentials);
 $('strategySearch').addEventListener('input',renderStrategies);
