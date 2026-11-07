@@ -29,9 +29,11 @@
 </div>
 <div id="tempPass" class="credentialBox hidden" role="status" aria-live="polite">
 <h3 id="credentialsHeading">Client invitation created</h3>
-<p class="hint">Share the private link only with the client. Anyone holding an active link can access the account.</p>
-<label for="issuedLink">Private activation or sign-in link</label><input id="issuedLink" readonly>
-<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy invitation link</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
+<p class="hint">You can send the full invitation with credentials, or copy the direct link separately. Keep both private.</p>
+<label for="issuedUsername">Username</label><input id="issuedUsername" readonly>
+<label for="issuedPassword">Temporary password (one-time display)</label><input id="issuedPassword" readonly>
+<label for="issuedLink">Direct activation or sign-in link</label><input id="issuedLink" readonly>
+<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyDirectLink">Copy direct link</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
 <p id="copyStatus" class="hint"></p>
 </div>
 <h3>Manage clients</h3>
@@ -145,8 +147,9 @@ function publicOrigin(){
  if(url.protocol!=='https:'||url.username||url.password)throw Error('Enter a valid HTTPS public tester URL.');
  return url.origin;
 }
-function showCredentials(username,kind,token){
- issued={username,kind,token};
+function showCredentials(username,kind,token,password=''){
+ issued={username,kind,token,password};
+ $('issuedUsername').value=username;$('issuedPassword').value=password;
  $('issuedLink').value=token?publicOrigin()+(kind==='login'?'/access#':'/activate#')+encodeURIComponent(token):'';
  $('credentialsHeading').textContent=kind==='login'?'Personal sign-in link':kind==='reset'?'Replacement activation link':'Client invitation created';
  $('copyStatus').textContent='Keep this private link secret. Copy it now; it will not be shown again.';
@@ -154,7 +157,7 @@ function showCredentials(username,kind,token){
  $('tempPass').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function closeCredentials(){
- issued=null;$('issuedLink').value='';
+ issued=null;$('issuedUsername').value='';$('issuedPassword').value='';$('issuedLink').value='';
  $('tempPass').classList.add('hidden');$('copyStatus').textContent='';
 }
 async function copyText(value){
@@ -163,8 +166,22 @@ async function copyText(value){
 }
 async function copyInvitation(){
  if(!issued)return;
- try{await copyText($('issuedLink').value);$('copyStatus').textContent='Link copied. Send it privately.'}
+ const origin=publicOrigin();
+ const message=issued.kind==='login'
+  ?'BetPawa Predictor — personal direct sign-in\nDirect login: '+$('issuedLink').value+'\nUsername: '+issued.username+'\nKeep your link private. Adults aged 25+ only.'
+  :'BetPawa Predictor — private tester access\nLogin: '+origin+'/login\nUsername: '+issued.username+'\nTemporary password: '+(issued.password||'(use direct activation link)')+'\nDirect activation link: '+$('issuedLink').value+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
+ try{await copyText(message);$('copyStatus').textContent='Full invitation copied.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Clipboard unavailable; copy the fields manually.'}
+}
+async function copyDirectLink(){
+ if(!issued)return;
+ try{await copyText($('issuedLink').value);$('copyStatus').textContent='Direct link copied. Send privately.'}
  catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select and copy the link manually.'}
+}
+async function copyPassword(){
+ if(!issued||!issued.password){$('copyStatus').textContent='No new temporary password was generated for this link.';return}
+ try{await copyText(issued.password);$('copyStatus').textContent='Temporary password copied.'}
+ catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent='Select and copy the temporary password manually.'}
 }
 async function issueLink(id,username,kind){
  try{
@@ -199,8 +216,8 @@ async function createClient(){
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null}),
   });
-  showCredentials(result.account.username,'activation',result.activation_token);
-  $('newUser').value='';$('newName').value='';feedback('Client created. Copy the activation link now.');
+  showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  $('newUser').value='';$('newName').value='';feedback('Client created. Copy the full invitation or the direct activation link.');
   await load();
  }catch(error){feedback(error.message,true)}
  finally{$('createClientButton').disabled=false}
@@ -209,8 +226,8 @@ async function resetClient(id,username){
  if(!confirm('Reset password for @'+username+'? Their current password and all existing sessions will stop working.'))return;
  try{
   const result=await api('/api/admin/clients/'+id+'/reset-password',{method:'POST'});
-  showCredentials(result.account.username,result.temporary_password,'activation',result.activation_token);
-  feedback('New activation link ready. Share it privately.');
+  showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  feedback('New credentials and activation link ready. Share privately.');
   await load();
  }catch(error){feedback(error.message,true)}
 }
@@ -237,6 +254,8 @@ async function review(id,approve){
 }
 $('createClientButton').addEventListener('click',createClient);
 $('copyInvitation').addEventListener('click',copyInvitation);
+$('copyDirectLink').addEventListener('click',copyDirectLink);
+$('copyPassword').addEventListener('click',copyPassword);
 $('closeCredentials').addEventListener('click',closeCredentials);
 $('strategySearch').addEventListener('input',renderStrategies);
 $('securityForm').addEventListener('submit',async event=>{
