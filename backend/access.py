@@ -21,7 +21,8 @@ PLAN_DEFINITIONS = {
     "monthly": {"label": "Monthly", "days": 30, "public": True},
     "quarterly": {"label": "3 Months", "days": 90, "public": True},
     "half_year": {"label": "6 Months", "days": 180, "public": True},
-    "annual": {"label": "Annual", "days": 365, "public": True},
+    "annual": {"label": "Yearly", "days": 365, "public": True},
+    "lifetime": {"label": "Lifetime", "days": None, "public": True},
 }
 
 
@@ -152,11 +153,12 @@ def _account_with_subscription(con, row) -> dict[str, Any] | None:
     }
 
     expires = _parse(subscription.get("expires_at"))
+    is_lifetime = subscription.get("plan_code") == "lifetime"
     active = (
         account.get("status") == "active"
         and subscription.get("status") == "active"
-        and expires is not None
-        and expires > _now()
+        and ((is_lifetime and subscription.get("expires_at") is None)
+             or (expires is not None and expires > _now()))
     )
     if account.get("role") == "admin" and account.get("status") == "active":
         active = True
@@ -522,7 +524,7 @@ def grant_subscription(
         plan = PLAN_DEFINITIONS.get(plan_code)
         if not plan:
             raise ValueError("Unknown subscription plan.")
-        days = int(plan["days"])
+        days = int(plan["days"]) if plan["days"] is not None else None
         label = plan["label"]
 
     con = connect()
@@ -534,8 +536,8 @@ def grant_subscription(
     row = con.execute("SELECT expires_at FROM subscriptions WHERE account_id=?", (account_id,)).fetchone()
     current_expiry = _parse(row["expires_at"]) if row else None
     now = _now()
-    starts = current_expiry if current_expiry and current_expiry > now else now
-    expires = starts + timedelta(days=days)
+    starts = current_expiry if days is not None and current_expiry and current_expiry > now else now
+    expires = starts + timedelta(days=days) if days is not None else None
     con.execute(
         """
         INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
@@ -547,7 +549,7 @@ def grant_subscription(
           status='active',
           updated_at=excluded.updated_at
         """,
-        (account_id, plan_code, _iso(starts), _iso(expires), _iso(now)),
+        (account_id, plan_code, _iso(starts), _iso(expires) if expires else None, _iso(now)),
     )
     con.execute(
         "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) VALUES(?,?,?,?,?)",

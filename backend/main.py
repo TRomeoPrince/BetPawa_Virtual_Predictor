@@ -7,10 +7,10 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links
+from . import picks, access_links, purchase_requests
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY
@@ -317,6 +317,28 @@ class LinkIssue(BaseModel):
     kind: str
 
 
+class PurchaseRequestBody(BaseModel):
+    email: str
+    username: str
+    display_name: str = ""
+    plan_code: str
+    payment_method: str
+    transaction_ref: str
+    proof_base64: str
+    age_confirmed: bool = False
+
+
+class PurchaseDecision(BaseModel):
+    approve: bool
+    verified: bool = False
+    reason: str = ""
+    public_base_url: str | None = None
+
+
+class PurchaseResend(BaseModel):
+    public_base_url: str | None = None
+
+
 class ClientCreate(BaseModel):
     username: str
     display_name: str = ""
@@ -379,6 +401,11 @@ def activation_page():
 @app.get("/access")
 def link_login_page():
     return _frontend_response(ROOT / "frontend" / "access-link.html")
+
+
+@app.get("/purchase")
+def purchase_page():
+    return _frontend_response(ROOT / "frontend" / "purchase.html")
 
 
 @app.get("/login")
@@ -533,6 +560,129 @@ def api_change_password(payload: PasswordChange, request: Request):
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True, "requires_login": True}
+
+
+@app.get("/api/purchase/catalog")
+def api_purchase_catalog(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return purchase_requests.catalog()
+
+
+@app.post("/api/purchase/requests")
+def api_submit_purchase(payload: PurchaseRequestBody, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    if not purchase_requests.purchase_enabled():
+        raise HTTPException(503, "Purchases are not accepting requests yet.")
+    try:
+        reference = purchase_requests.submit(
+            payload.email, payload.username, payload.display_name,
+            payload.plan_code, payload.payment_method, payload.transaction_ref,
+            payload.proof_base64, payload.age_confirmed,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "reference": reference, "status": "pending",
+            "message": "Payment proof received. Access is NOT active until manually verified and approved."}
+
+
+@app.get("/api/admin/payment-requests")
+def api_admin_payment_requests(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    return {"requests": purchase_requests.pending()}
+
+
+@app.get("/api/admin/payment-requests/{request_id}/proof")
+def api_admin_payment_proof(request_id: int, request: Request):
+    _require_admin(request)
+    found = purchase_requests.proof(request_id)
+    if not found:
+        raise HTTPException(404, "Proof not found.")
+    data, mime = found
+    ext = {"image/png":"png", "image/jpeg":"jpg", "image/webp":"webp", "application/pdf":"pdf"}[mime]
+    return FileResponseBytes(
+        data, media_type="application/octet-stream",
+        headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff",
+                 "Content-Disposition":f'attachment; filename="payment-proof-{request_id}.{ext}"'},
+    )
+
+
+def _purchase_public_origin(admin_supplied: str | None) -> str:
+    from urllib.parse import urlparse
+    origin = (admin_supplied or os.getenv("PREDICTOR_PUBLIC_BASE_URL","")).strip().rstrip("/")
+    try:
+        parsed = urlparse(origin)
+        valid_port = parsed.port in (None,443)
+    except ValueError:
+        valid_port = False
+        parsed = None
+    if (not parsed or parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.path or parsed.query or parsed.fragment or not valid_port):
+        raise HTTPException(400,"Configure a valid HTTPS public website origin before approving.")
+    return origin
+
+
+@app.post("/api/admin/payment-requests/{request_id}/review")
+def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    base = _purchase_public_origin(payload.public_base_url) if payload.approve else None
+    try:
+        purchase = purchase_requests.approve_or_reject(
+            request_id, int(admin["id"]), payload.approve, payload.verified, payload.reason
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if not payload.approve:
+        return {"ok": True, "status": "rejected"}
+    # A pending reservation prevents duplicate account creation on repeated approvals.
+    try:
+        account, _temp = create_client(
+            purchase["requested_username"],purchase["display_name"],
+            plan_code=purchase["plan_code"],created_by=int(admin["id"]),
+        )
+        purchase_requests.mark_approved(request_id, int(account["id"]))
+    except Exception:
+        purchase_requests.reset_processing(request_id)
+        raise
+    invitation = access_links.issue(int(account["id"]), "activation", int(admin["id"]))
+    link = base + "/activate#" + invitation["token"]
+    sent = False
+    error = None
+    try:
+        purchase_requests.email_activation(
+            purchase["email"], account["username"], invitation["token"], base
+        )
+        sent = True
+    except (Exception) as exc:
+        # SMTP failure must not undo a verified payment or pretend mail was sent.
+        error = str(exc)[:200]
+    purchase_requests.set_email_status(request_id, "sent" if sent else "pending")
+    return {"ok":True,"status":"approved", "email_sent":sent,
+            "email_notice":error, "activation_link":None if sent else link,
+            "client_account_id":account["id"]}
+
+
+@app.post("/api/admin/payment-requests/{request_id}/resend")
+def api_admin_resend_purchase(request_id: int, payload: PurchaseResend, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    row = purchase_requests.approved_account(request_id)
+    if not row:
+        raise HTTPException(404,"Approved request not found.")
+    account = get_account(int(row["client_account_id"]))
+    if not account or not account["must_change_password"]:
+        raise HTTPException(400,"Account already activated or removed.")
+    base = _purchase_public_origin(payload.public_base_url)
+    invitation = access_links.issue(int(account["id"]),"activation",int(admin["id"]))
+    link = base + "/activate#" + invitation["token"]
+    try:
+        purchase_requests.email_activation(row["email"],account["username"],invitation["token"],base)
+        purchase_requests.set_email_status(request_id,"sent")
+        return {"ok":True,"email_sent":True}
+    except Exception as exc:
+        purchase_requests.set_email_status(request_id,"pending")
+        return {"ok":True,"email_sent":False,"notice":str(exc)[:200],"activation_link":link}
 
 
 @app.get("/api/plans")
