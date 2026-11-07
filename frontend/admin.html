@@ -25,7 +25,10 @@
 <input id="newUser" placeholder="Username (e.g., tester01)" autocomplete="off" aria-label="Username">
 <input id="newName" placeholder="Display name" autocomplete="off" aria-label="Display name">
 <select id="newPlan" aria-label="Subscription plan"><option value="">No plan</option></select>
-<button class="btn primary" type="button" id="createClientButton">Create client & activation link</button>
+<input id="newPassword" type="password" placeholder="PUBLIC TRIAL password (12+)" autocomplete="new-password" aria-label="Public trial password" minlength="12" maxlength="128">
+<input id="newExpiry" type="datetime-local" aria-label="Custom expiry date and time" title="Absolute expiry (your computer's local timezone)">
+<button class="btn primary" type="button" id="createClientButton">Create client</button>
+<p class="hint">For a shared public trial, use username <strong>PUBLIC TRIAL</strong>, choose your own strong password and set the exact expiry date/time. Other clients retain the normal temporary-password and activation-link flow. Date/time uses your computer's timezone (EAT in Uganda).</p>
 </div>
 <div id="tempPass" class="credentialBox hidden" role="status" aria-live="polite">
 <h3 id="credentialsHeading">Client invitation created</h3>
@@ -95,7 +98,11 @@ function renderClients(){
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;plan.append(opt)}
   const custom=document.createElement('option');custom.value='custom';custom.textContent='Custom days';plan.append(custom);
   const days=document.createElement('input');days.id='days-'+c.id;days.style.width='86px';days.type='number';days.min='1';days.placeholder='days';
-  actions.append(plan,days,button('Grant','primary',()=>grant(c.id)),button('Revoke','danger',()=>revoke(c.id)));
+  const setDate=document.createElement('input');setDate.id='expiry-'+c.id;setDate.type='datetime-local';setDate.title='Set exact expiry (local timezone)';
+   setDate.style.maxWidth='210px';
+   actions.append(plan,days,button('Grant','primary',()=>grant(c.id)),setDate,
+                  button('Set expiry','',()=>setExpiry(c.id)),
+                  button('Revoke','danger',()=>revoke(c.id)));
   tr.append(actions);
    const deletion=td('');
    deletion.append(button('Delete client','danger',()=>deleteClient(c.id,c.username)));
@@ -151,8 +158,8 @@ function showCredentials(username,kind,token,password=''){
  issued={username,kind,token,password};
  $('issuedUsername').value=username;$('issuedPassword').value=password;
  $('issuedLink').value=token?publicOrigin()+(kind==='login'?'/access#':'/activate#')+encodeURIComponent(token):'';
- $('credentialsHeading').textContent=kind==='login'?'Personal sign-in link':kind==='reset'?'Replacement activation link':'Client invitation created';
- $('copyStatus').textContent='Keep this private link secret. Copy it now; it will not be shown again.';
+ $('credentialsHeading').textContent=kind==='login'?'Personal sign-in link':kind==='public'?'Public trial login credentials':kind==='reset'?'Replacement activation link':'Client invitation created';
+ $('copyStatus').textContent=kind==='public'?'PUBLIC TRIAL uses a shared login; client selections and journal are shared.':'Keep this private link secret. Copy it now; it will not be shown again.';
  $('tempPass').classList.remove('hidden');
  $('tempPass').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -169,12 +176,15 @@ async function copyInvitation(){
  const origin=publicOrigin();
  const message=issued.kind==='login'
   ?'BetPawa Predictor — personal direct sign-in\nDirect login: '+$('issuedLink').value+'\nUsername: '+issued.username+'\nKeep your link private. Adults aged 25+ only.'
+  :issued.kind==='public'
+  ?'BetPawa Predictor — public trial access\nLogin: '+origin+'/login\nUsername: '+issued.username+'\nPassword: '+issued.password+'\nAccess expires on the administrator-set date. Adults aged 25+ only.'
   :'BetPawa Predictor — private tester access\nLogin: '+origin+'/login\nUsername: '+issued.username+'\nTemporary password: '+(issued.password||'(use direct activation link)')+'\nDirect activation link: '+$('issuedLink').value+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
  try{await copyText(message);$('copyStatus').textContent='Full invitation copied.'}
  catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Clipboard unavailable; copy the fields manually.'}
 }
 async function copyDirectLink(){
  if(!issued)return;
+ if(!issued.token){$('copyStatus').textContent='This shared trial uses username/password login. Issue a personal link from the client row if needed.';return}
  try{await copyText($('issuedLink').value);$('copyStatus').textContent='Direct link copied. Send privately.'}
  catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select and copy the link manually.'}
 }
@@ -207,6 +217,23 @@ async function deleteClient(id,username){
   await load();feedback('Deleted @'+username+' and their account data.');
  }catch(error){feedback(error.message,true)}
 }
+function expiryIso(value){
+ if(!value)return null;
+ const date=new Date(value);
+ if(!Number.isFinite(date.getTime()))throw Error('Choose a valid expiry date and time.');
+ return date.toISOString();
+}
+async function setExpiry(id){
+ try{
+  const value=$('expiry-'+id).value;
+  if(!value){feedback('Select a date and time first.',true);return}
+  await api('/api/admin/clients/'+id+'/subscription/expiry',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({expires_at:expiryIso(value)}),
+  });
+  feedback('Exact expiry date saved (not added to existing days).');await load();
+ }catch(error){feedback(error.message,true)}
+}
 async function createClient(){
  const username=$('newUser').value.trim(),display_name=$('newName').value.trim();
  if(username.length<3){feedback('Username must be at least 3 characters.',true);$('newUser').focus();return}
@@ -214,10 +241,18 @@ async function createClient(){
  try{
   const result=await api('/api/admin/clients',{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null}),
+   body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null,
+       chosen_password:username==='PUBLIC TRIAL'?$(newPassword').value:null,
+       expires_at:expiryIso($('newExpiry').value)}),
   });
-  showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
-  $('newUser').value='';$('newName').value='';feedback('Client created. Copy the full invitation or the direct activation link.');
+  if(result.activation_token){
+    showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  }else{
+    // PUBLIC TRIAL: password supplied by admin, account ready for ordinary login.
+    showCredentials(result.account.username,'public',null,result.temporary_password);
+  }
+  $('newUser').value='';$('newName').value='';$('newPassword').value='';$('newExpiry').value='';
+  feedback(result.activation_token?'Client created. Copy the invitation or direct activation link.':'Public trial created. Share its login credentials privately or publish only after security review.');
   await load();
  }catch(error){feedback(error.message,true)}
  finally{$('createClientButton').disabled=false}

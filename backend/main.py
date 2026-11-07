@@ -25,6 +25,7 @@ from .access import (
     change_password,
     create_client,
     delete_client,
+    set_subscription_expiry,
     create_session,
     delete_session,
     ensure_bootstrap_admin,
@@ -319,11 +320,17 @@ class ClientCreate(BaseModel):
     username: str
     display_name: str = ""
     plan_code: str | None = None
+    chosen_password: str | None = None
+    expires_at: str | None = None
 
 
 class SubscriptionGrant(BaseModel):
     plan_code: str
     custom_days: int | None = None
+
+
+class SubscriptionExpiry(BaseModel):
+    expires_at: str
 
 
 class SubscriptionRequestBody(BaseModel):
@@ -633,14 +640,20 @@ def api_admin_create_client(payload: ClientCreate, request: Request, response: R
             payload.display_name,
             payload.plan_code,
             created_by=int(admin["id"]),
+            chosen_password=payload.chosen_password,
+            expires_at=payload.expires_at,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    invitation=access_links.issue(int(account["id"]),"activation",int(admin["id"]))
+    # A shared PUBLIC TRIAL account has a preset password and is already activated.
+    # No activation link is issued for such an account.
+    invitation = (access_links.issue(int(account["id"]), "activation", int(admin["id"]))
+                  if account["must_change_password"] else None)
     return {
         "ok": True, "account": public_account(account),
         "temporary_password": temporary_password,
-        "activation_token": invitation["token"],"activation_expires_at":invitation["expires_at"],
+        "activation_token": invitation["token"] if invitation else None,
+        "activation_expires_at": invitation["expires_at"] if invitation else None,
     }
 
 
@@ -704,6 +717,21 @@ def api_admin_grant_subscription(
             account_id,
             payload.plan_code,
             custom_days=payload.custom_days,
+            actor_account_id=int(admin["id"]),
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
+
+
+@app.post("/api/admin/clients/{account_id}/subscription/expiry")
+def api_admin_set_subscription_expiry(
+    account_id: int, payload: SubscriptionExpiry, request: Request,
+):
+    admin = _require_admin(request)
+    try:
+        set_subscription_expiry(
+            account_id, payload.expires_at,
             actor_account_id=int(admin["id"]),
         )
     except ValueError as exc:
