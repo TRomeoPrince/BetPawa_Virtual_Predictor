@@ -270,8 +270,6 @@ async function revokeLink(id,username){
 }
 async function deleteClient(id,username){
  if(!confirm('Permanently delete @'+username+' and their saved picks, journal, subscription and login links? This cannot be undone.'))return;
- const typed=prompt('To DELETE @'+username+', enter their username exactly:');
- if(typed!==username){feedback('Client deletion cancelled.',true);return}
  try{
   await api('/api/admin/clients/'+id,{method:'DELETE'});
   if(issued&&issued.username===username)closeCredentials();
