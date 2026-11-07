@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 
-from . import picks
+from . import picks, access_links
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY
@@ -300,6 +300,20 @@ class PasswordChange(BaseModel):
     age_confirmed: bool = False
 
 
+class LinkToken(BaseModel):
+    token: str
+
+
+class LinkActivation(BaseModel):
+    token: str
+    new_password: str
+    age_confirmed: bool = False
+
+
+class LinkIssue(BaseModel):
+    kind: str
+
+
 class ClientCreate(BaseModel):
     username: str
     display_name: str = ""
@@ -346,6 +360,16 @@ def _frontend_response(path: Path):
 def home():
     """Public marketing page; private dashboards remain behind authentication."""
     return _frontend_response(FRONTEND)
+
+
+@app.get("/activate")
+def activation_page():
+    return _frontend_response(ROOT / "frontend" / "activate.html")
+
+
+@app.get("/access")
+def link_login_page():
+    return _frontend_response(ROOT / "frontend" / "access-link.html")
 
 
 @app.get("/login")
@@ -426,6 +450,33 @@ def legacy_market_redirect(request: Request):
     return RedirectResponse(f"/client/{category}", status_code=302)
 
 
+def _link_session(request: Request, response: Response, account):
+    delete_session(request.cookies.get(SESSION_COOKIE))
+    response.set_cookie(
+        SESSION_COOKIE,create_session(int(account["id"])),max_age=60*60*24*30,
+        httponly=True,samesite="lax",secure=request.url.scheme=="https",
+    )
+    response.headers["Cache-Control"]="no-store"
+    return {"ok":True,"account":public_account(account)}
+
+
+@app.post("/api/auth/link-login")
+def api_link_login(payload: LinkToken, request: Request, response: Response):
+    account=access_links.redeem_login(payload.token)
+    if not account:
+        raise HTTPException(401,"Link invalid, revoked, expired or subscription inactive.")
+    return _link_session(request,response,account)
+
+
+@app.post("/api/auth/link-activate")
+def api_link_activate(payload: LinkActivation,request: Request,response: Response):
+    try:
+        account=access_links.activate(payload.token,payload.new_password,payload.age_confirmed)
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return _link_session(request,response,account)
+
+
 @app.post("/api/auth/login")
 def api_login(payload: LoginRequest, request: Request, response: Response):
     account = authenticate(payload.username, payload.password)
@@ -464,6 +515,8 @@ def api_change_password(payload: PasswordChange, request: Request):
         raise HTTPException(400, "You must confirm you are at least 25 years old.")
     try:
         change_password(int(account["id"]), payload.current_password, payload.new_password)
+        if account.get("role")=="client":
+            access_links.invalidate(int(account["id"]))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True, "requires_login": True}
@@ -582,10 +635,11 @@ def api_admin_create_client(payload: ClientCreate, request: Request, response: R
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    invitation=access_links.issue(int(account["id"]),"activation",int(admin["id"]))
     return {
-        "ok": True,
-        "account": public_account(account),
+        "ok": True, "account": public_account(account),
         "temporary_password": temporary_password,
+        "activation_token": invitation["token"],"activation_expires_at":invitation["expires_at"],
     }
 
 
@@ -597,11 +651,33 @@ def api_admin_reset_client_password(account_id: int, request: Request, response:
         temp_password = reset_client_password(account_id, int(admin["id"]))
     except ValueError as exc:
         raise HTTPException(404, str(exc))
+    access_links.invalidate(account_id)
+    invitation=access_links.issue(account_id,"activation",int(admin["id"]))
     return {
-        "ok": True,
-        "account": public_account(get_account(account_id)),
+        "ok": True, "account": public_account(get_account(account_id)),
         "temporary_password": temp_password,
+        "activation_token": invitation["token"],"activation_expires_at":invitation["expires_at"],
     }
+
+
+@app.post("/api/admin/clients/{account_id}/links")
+def admin_issue_link(account_id:int,payload:LinkIssue,request:Request,response:Response):
+    admin=_require_admin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        return {"ok":True,"kind":payload.kind,**access_links.issue(account_id,payload.kind,int(admin["id"]))}
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+
+
+@app.post("/api/admin/clients/{account_id}/links/revoke")
+def admin_revoke_link(account_id:int,payload:LinkIssue,request:Request):
+    admin=_require_admin(request)
+    try:
+        access_links.revoke(account_id,payload.kind,int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True}
 
 
 @app.post("/api/admin/clients/{account_id}/subscription")

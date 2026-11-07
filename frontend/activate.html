@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Activate account — BetPawa Predictor</title><style>body{font:16px system-ui,Segoe UI,sans-serif;background:#f5f9f1;color:#173c2b;min-height:100vh;display:grid;place-items:center;margin:0;padding:20px;box-sizing:border-box}.card{background:#fff;border:1px solid #d5e5d3;border-radius:18px;padding:30px;max-width:510px;width:100%;box-shadow:0 12px 32px #143b2810}input[type=password]{display:block;width:100%;box-sizing:border-box;padding:12px;margin:9px 0 16px;border:1px solid #bacbb8;border-radius:8px}button{border:0;border-radius:10px;background:#17694c;color:white;padding:13px 18px;font-weight:700;cursor:pointer}button:disabled{opacity:.6}p{line-height:1.5}small{color:#64796d}.error{color:#ad3143}label{font-size:14px;font-weight:600}.check{display:flex;gap:9px;align-items:flex-start}.check input{margin-top:3px}</style></head><body><main class="card"><h1>Activate your account</h1><p>Create your private password. This invitation works once and expires after 24 hours.</p><form id="form"><label for="pw">New password (12–128 characters)</label><input id="pw" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><label for="confirm">Confirm password</label><input id="confirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><label class="check"><input id="age" type="checkbox" required><span>I confirm I am at least 25 years old and understand that predictions are not guaranteed.</span></label><p><button id="go">Activate and enter dashboard</button></p></form><p id="error" class="error" role="alert"></p><small>Keep your invitation private. You can later use your username and password to sign in.</small></main><script>
+const raw=location.hash.slice(1);history.replaceState(null,'','/activate');
+let token='';try{token=decodeURIComponent(raw)}catch(e){}
+if(!token){document.getElementById('form').hidden=true;document.getElementById('error').textContent='Missing invitation. Ask your administrator for a fresh link.'}
+document.getElementById('form').addEventListener('submit',async event=>{
+ event.preventDefault();const msg=document.getElementById('error');msg.textContent='';
+ const pw=document.getElementById('pw').value;
+ if(pw!==document.getElementById('confirm').value){msg.textContent='Passwords do not match.';return}
+ const button=document.getElementById('go');button.disabled=true;
+ try{
+  const response=await fetch('/api/auth/link-activate',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({token,new_password:pw,age_confirmed:document.getElementById('age').checked})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data.detail||'Activation failed.');
+  token='';location.replace('/client');
+ }catch(err){msg.textContent=err.message;button.disabled=false}
+});
+</script></body></html>
