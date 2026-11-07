@@ -110,7 +110,7 @@ class PurchaseRequestTests(unittest.TestCase):
             "approve":True,"verified":True,
         }).status_code,400)
         self.assertEqual(len(access.list_clients()),1)
-        resend=self.http.post("/api/admin/payment-requests/1/resend")
+        resend=self.http.post("/api/admin/payment-requests/1/resend",json={"public_base_url":"https://example.ngrok-free.dev"})
         self.assertEqual(resend.status_code,200,resend.text)
         self.assertFalse(resend.json()["email_sent"])
         self.assertIn("/activate#",resend.json()["activation_link"])
@@ -129,6 +129,26 @@ class PurchaseRequestTests(unittest.TestCase):
         invalid=self.payload("buyer5","MOMO88888")
         invalid["age_confirmed"]=False
         self.assertEqual(self.http.post("/api/purchase/requests",json=invalid).status_code,400)
+
+    def test_purchase_disabled_by_default(self):
+        with patch.dict(os.environ, {"PREDICTOR_PURCHASE_ENABLED": "false"}):
+            cat=self.http.get("/api/purchase/catalog").json()
+            self.assertFalse(cat["accepting_requests"])
+            self.assertEqual(self.http.post("/api/purchase/requests",json=self.payload()).status_code,503)
+            self.assertEqual(access.list_clients(),[])
+
+    def test_approval_requires_public_https_origin(self):
+        self.http.post("/api/auth/logout")
+        self.assertEqual(self.http.post("/api/purchase/requests",json=self.payload()).status_code,200)
+        self.http.post("/api/auth/login",json={
+            "username":"admin","password":"ChangedAdminPassword2026!"
+        })
+        wrong=self.http.post("/api/admin/payment-requests/1/review",json={
+            "approve":True,"verified":True,"public_base_url":"http://localhost:8010"
+        })
+        self.assertEqual(wrong.status_code,400)
+        self.assertEqual(access.list_clients(),[])
+        self.assertEqual(self.http.get("/api/admin/payment-requests").json()["requests"][0]["status"],"pending")
 
     def test_rejected_request_never_creates_account(self):
         self.http.post("/api/auth/logout")
