@@ -518,6 +518,8 @@ def api_me(request: Request):
 @app.post("/api/auth/change-password")
 def api_change_password(payload: PasswordChange, request: Request):
     account = _require_account(request, allow_password_setup=True)
+    if account.get("username") == "PUBLIC TRIAL":
+        raise HTTPException(403, "Public trial password is managed by the administrator.")
     if (account.get("must_change_password") and account.get("role") == "client"
             and not payload.age_confirmed):
         raise HTTPException(400, "You must confirm you are at least 25 years old.")
