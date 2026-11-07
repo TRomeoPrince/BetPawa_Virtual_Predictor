@@ -379,6 +379,48 @@ def create_client(
     return get_account(account_id), temp_password
 
 
+def delete_client(account_id: int, admin_id: int) -> None:
+    """Permanently delete only one client and all account-scoped private data."""
+    from . import db, picks
+    # Ensure optional journal and predictor tables exist before transaction.
+    jcon = picks.connect_journal()
+    jcon.close()
+    dcon = db.connect()
+    dcon.close()
+    from . import access_links
+    lcon = access_links.connect()
+    lcon.close()
+    con = connect()
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        row = con.execute(
+            "SELECT user_key FROM accounts WHERE id=? AND role='client'",
+            (account_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Client not found.")
+        for table in ("user_prediction_batches", "user_predictions",
+                      "prediction_supports", "client_bet_journal"):
+            con.execute(f"DELETE FROM {table} WHERE user_id=?", (row["user_key"],))
+        for table in ("sessions", "subscriptions", "subscription_requests",
+                      "client_access_links"):
+            con.execute(f"DELETE FROM {table} WHERE account_id=?", (account_id,))
+        con.execute("UPDATE access_audit SET actor_account_id=NULL WHERE actor_account_id=?", (account_id,))
+        con.execute("UPDATE access_audit SET target_account_id=NULL,details=NULL WHERE target_account_id=?", (account_id,))
+        con.execute("DELETE FROM accounts WHERE id=?", (account_id,))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,NULL,'DELETE_CLIENT',NULL,?)",
+            (admin_id, _iso(_now())),
+        )
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
+
+
 def get_account(account_id: int) -> dict[str, Any] | None:
     con = connect()
     row = con.execute("SELECT * FROM accounts WHERE id=?", (account_id,)).fetchone()

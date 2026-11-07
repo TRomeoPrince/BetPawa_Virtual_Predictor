@@ -24,6 +24,7 @@ from .access import (
     authenticate,
     change_password,
     create_client,
+    delete_client,
     create_session,
     delete_session,
     ensure_bootstrap_admin,
@@ -658,6 +659,17 @@ def api_admin_reset_client_password(account_id: int, request: Request, response:
         "temporary_password": temp_password,
         "activation_token": invitation["token"],"activation_expires_at":invitation["expires_at"],
     }
+
+
+@app.delete("/api/admin/clients/{account_id}")
+def api_admin_delete_client(account_id: int, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        delete_client(account_id, int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
 
 
 @app.post("/api/admin/clients/{account_id}/links")
