@@ -294,6 +294,7 @@ class SelectionUpdate(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+    age_confirmed: bool = False
 
 
 class PasswordChange(BaseModel):
@@ -490,6 +491,8 @@ def api_login(payload: LoginRequest, request: Request, response: Response):
     account = authenticate(payload.username, payload.password)
     if not account:
         raise HTTPException(401, "Invalid username or password.")
+    if account.get("username") == "PUBLIC TRIAL" and not payload.age_confirmed:
+        raise HTTPException(403, "Confirm you are at least 25 years old to enter the public trial.")
     token = create_session(int(account["id"]))
     response.set_cookie(
         SESSION_COOKIE,

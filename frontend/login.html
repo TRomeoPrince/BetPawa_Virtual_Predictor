@@ -15,7 +15,7 @@
 <div class="shell">
 <aside class="aside"><a href="/" class="logo"><span class="mark" aria-hidden="true">BP</span>BetPawa Predictor</a><div><h1>Your predictions.<br>Your progress.</h1><p>Keep your market research, saved picks and results together in one secure client dashboard.</p></div><small>Independent analysis tool · Not affiliated with betPawa · Historical patterns do not guarantee outcomes.</small></aside>
 <main class="right"><div class="card"><a class="back" href="/">← Back to homepage</a><h2>Welcome back</h2><p class="sub">Sign in with the username and password provided for your account.</p>
-<form id="loginForm"><div class="field"><label for="username">Username</label><input id="username" name="username" autocomplete="username" maxlength="100" required autofocus></div><div class="field"><label for="password">Password</label><div class="passwordWrap"><input id="password" name="password" type="password" autocomplete="current-password" required><button id="showPassword" class="show" type="button" aria-label="Show password">Show</button></div></div><button id="submit" class="button" type="submit">Sign in to dashboard</button><div id="error" class="error" role="alert" aria-live="polite"></div></form>
+<form id="loginForm"><div class="field"><label for="username">Username</label><input id="username" name="username" autocomplete="username" maxlength="100" required autofocus></div><div class="field"><label for="password">Password</label><div class="passwordWrap"><input id="password" name="password" type="password" autocomplete="current-password" required><button id="showPassword" class="show" type="button" aria-label="Show password">Show</button></div></div><label id="trialAgeWrap" style="display:none;align-items:flex-start;gap:9px;font-size:13px;line-height:1.5;margin:14px 0"><input id="trialAge" type="checkbox" style="width:auto;margin-top:3px"><span>I confirm I am at least 25 years old. Historical predictions are not guaranteed.</span></label><button id="submit" class="button" type="submit">Sign in to dashboard</button><div id="error" class="error" role="alert" aria-live="polite"></div></form>
 <p class="note" id="loginNotice">New here? Accounts are currently issued by the administrator. On your first login, you will be asked to replace the temporary password with your own. For adults aged 25+ only.</p></div></main>
 </div>
 <script>
@@ -23,11 +23,13 @@ const form=document.getElementById('loginForm'),username=document.getElementById
 if(new URLSearchParams(location.search).get('password')==='updated'){
  document.getElementById('loginNotice').textContent='Password saved. Please sign in using your new personal password.';
 }
+const trialAge=document.getElementById('trialAge'),trialAgeWrap=document.getElementById('trialAgeWrap');
+username.addEventListener('input',()=>{const isTrial=username.value.trim().toUpperCase()==='PUBLIC TRIAL';trialAgeWrap.style.display=isTrial?'flex':'none';trialAge.required=isTrial;if(!isTrial)trialAge.checked=false});
 showPassword.addEventListener('click',()=>{const visible=password.type==='text';password.type=visible?'password':'text';showPassword.textContent=visible?'Show':'Hide';showPassword.setAttribute('aria-label',visible?'Show password':'Hide password')});
 form.addEventListener('submit',async event=>{
   event.preventDefault();error.textContent='';submit.disabled=true;submit.textContent='Signing in…';
   try{
-    const response=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({username:username.value.trim(),password:password.value})});
+    const response=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({username:username.value.trim(),password:password.value,age_confirmed:trialAge.checked})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.detail||'Unable to sign in. Check your details.');
     location.assign(data.account?.must_change_password?'/password-setup':data.account?.role==='admin'?'/admin':'/client');

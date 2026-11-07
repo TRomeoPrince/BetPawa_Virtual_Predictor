@@ -54,7 +54,10 @@ class PublicTrialExpiryTests(unittest.TestCase):
         self.assertEqual(datetime.fromisoformat(body["account"]["subscription"]["expires_at"]),
                          datetime.fromisoformat(future))
         self.http.post("/api/auth/logout")
-        logged = self.login("PUBLIC TRIAL","AdminChosenTrialPassword2026!")
+        self.assertEqual(self.login("PUBLIC TRIAL","AdminChosenTrialPassword2026!").status_code,403)
+        logged = self.http.post("/api/auth/login", json={
+            "username":"PUBLIC TRIAL","password":"AdminChosenTrialPassword2026!","age_confirmed":True
+        })
         self.assertEqual(logged.status_code,200,logged.text)
         self.assertEqual(self.http.get("/client/overs").status_code,200)
         # A public user cannot replace the password and lock everybody else out.
@@ -91,7 +94,9 @@ class PublicTrialExpiryTests(unittest.TestCase):
         con.commit()
         con.close()
         self.http.post("/api/auth/logout")
-        self.assertEqual(self.login("PUBLIC TRIAL","AdminChosenTrialPassword2026!").status_code,200)
+        self.assertEqual(self.http.post("/api/auth/login",json={
+            "username":"PUBLIC TRIAL","password":"AdminChosenTrialPassword2026!","age_confirmed":True
+        }).status_code,200)
         self.assertEqual(self.http.get("/client/overs").status_code,302)
         self.assertEqual(self.http.get("/client/overs").headers["location"],"/client")
         self.assertFalse(self.http.get("/api/auth/me").json()["account"]["subscription"]["is_active"])
