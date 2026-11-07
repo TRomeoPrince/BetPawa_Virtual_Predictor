@@ -170,7 +170,7 @@ def _account_with_subscription(con, row) -> dict[str, Any] | None:
     subscription.update({
         "is_active": active,
         "remaining_seconds": remaining_seconds,
-        "plan_label": plan["label"] if plan else (plan_code or "No plan"),
+        "plan_label": plan["label"] if plan else ("Custom expiry" if plan_code == "custom_date" else (plan_code or "No plan")),
     })
     account["subscription"] = subscription
     account["must_change_password"] = bool(account.get("must_change_password"))
@@ -329,16 +329,29 @@ def create_client(
     display_name: str,
     plan_code: str | None = None,
     created_by: int | None = None,
+    chosen_password: str | None = None,
+    expires_at: str | None = None,
 ) -> tuple[dict[str, Any], str]:
     username = username.strip()
     display_name = display_name.strip() or username
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", username):
-        raise ValueError("Username must be 3–40 characters: letters, numbers, dots, underscores or hyphens.")
+    # Only the explicitly named shared trial account may contain a space.
+    if username != "PUBLIC TRIAL" and not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", username):
+        raise ValueError("Username must be 3–40 characters: letters, numbers, dots, underscores or hyphens (or PUBLIC TRIAL).")
+    if chosen_password is not None:
+        if username != "PUBLIC TRIAL":
+            raise ValueError("Admin-set passwords are available only for PUBLIC TRIAL.")
+        if not 12 <= len(chosen_password) <= 128:
+            raise ValueError("Public trial password must contain 12 to 128 characters.")
+    if username == "PUBLIC TRIAL" and chosen_password is None:
+        raise ValueError("Set a password for PUBLIC TRIAL.")
     if len(display_name) > 100:
         raise ValueError("Display name must be 100 characters or less.")
     if plan_code and plan_code not in PLAN_DEFINITIONS:
         raise ValueError("Unknown subscription plan.")
-    temp_password = secrets.token_urlsafe(18)
+    # Validate before inserting an account.
+    if expires_at is not None:
+        _validate_expiry(expires_at)
+    temp_password = chosen_password if chosen_password is not None else secrets.token_urlsafe(18)
     now = _iso(_now())
     con = connect()
     try:
@@ -351,11 +364,11 @@ def create_client(
             INSERT INTO accounts
               (user_key, username, display_name, password_hash, role, status,
                must_change_password, created_at)
-            VALUES (?, ?, ?, ?, 'client', 'active', 1, ?)
+            VALUES (?, ?, ?, ?, 'client', 'active', ?, ?)
             """,
             (
                 secrets.token_hex(16), username, display_name,
-                hash_password(temp_password), now,
+                hash_password(temp_password), 0 if chosen_password is not None else 1, now,
             ),
         )
         account_id = int(cur.lastrowid)
@@ -374,7 +387,10 @@ def create_client(
     finally:
         con.close()
 
-    if plan_code:
+    if expires_at is not None:
+        set_subscription_expiry(account_id, expires_at, plan_code or "custom_date",
+                                actor_account_id=created_by)
+    elif plan_code:
         grant_subscription(account_id, plan_code, actor_account_id=created_by)
     return get_account(account_id), temp_password
 
@@ -437,6 +453,58 @@ def list_clients() -> list[dict[str, Any]]:
     out = [_account_with_subscription(con, row) for row in rows]
     con.close()
     return [x for x in out if x]
+
+
+def _validate_expiry(value: str) -> datetime:
+    try:
+        dt = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise ValueError("Enter a valid expiry date with a timezone.")
+    if dt.tzinfo is None or dt.utcoffset() is None:
+        raise ValueError("Expiry date must include a timezone offset.")
+    dt = dt.astimezone(timezone.utc)
+    now = _now()
+    if dt <= now:
+        raise ValueError("Expiry date must be in the future.")
+    if dt > now + timedelta(days=3650):
+        raise ValueError("Expiry date cannot be more than 10 years ahead.")
+    return dt
+
+
+def set_subscription_expiry(
+    account_id: int,
+    expires_at: str,
+    plan_code: str = "custom_date",
+    actor_account_id: int | None = None,
+):
+    """Set a precise absolute expiry, replacing—not extending—the current one."""
+    expires = _validate_expiry(expires_at)
+    if plan_code != "custom_date" and plan_code not in PLAN_DEFINITIONS:
+        raise ValueError("Unknown subscription plan.")
+    now = _now()
+    con = connect()
+    try:
+        row = con.execute("SELECT role FROM accounts WHERE id=?", (account_id,)).fetchone()
+        if not row or row["role"] != "client":
+            raise ValueError("Client not found.")
+        con.execute("""
+            INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
+            VALUES(?,?,?,?, 'active', ?)
+            ON CONFLICT(account_id) DO UPDATE SET
+              plan_code=excluded.plan_code,
+              starts_at=excluded.starts_at,
+              expires_at=excluded.expires_at,
+              status='active',
+              updated_at=excluded.updated_at
+        """, (account_id, plan_code, _iso(now), _iso(expires), _iso(now)))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (actor_account_id, account_id, "SET_SUBSCRIPTION_EXPIRY", _iso(expires), _iso(now)),
+        )
+        con.commit()
+    finally:
+        con.close()
 
 
 def grant_subscription(

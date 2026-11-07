@@ -36,6 +36,8 @@ def issue(account_id, kind, admin_id):
                           (account_id,)).fetchone()
         if not row or row["role"] != "client" or row["status"] != "active":
             raise ValueError("Active client not found.")
+        if con.execute("SELECT username FROM accounts WHERE id=?", (account_id,)).fetchone()["username"] == "PUBLIC TRIAL":
+            raise ValueError("Shared public trials use password login and age confirmation.")
         if (kind == "activation") != bool(row["must_change_password"]):
             raise ValueError("The account's activation state does not allow this link.")
         now = access._now()
