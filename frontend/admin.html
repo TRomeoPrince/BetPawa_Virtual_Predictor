@@ -11,7 +11,7 @@
 <nav class="tabs" aria-label="Admin sections">
 <button type="button" class="btn" data-tab="overview">Overview</button>
 <button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
-<button type="button" class="btn" data-tab="requests">Requests</button>
+<button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
 <button type="button" class="btn" data-tab="strategies">Strategies</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
@@ -43,13 +43,18 @@
 <div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Access</th><th>Client links</th><th>Grant / revoke</th><th>Delete</th></tr></thead><tbody id="clientRows"></tbody></table></div>
 </section>
 <section id="requests" class="tab panel hidden"><h2>Subscription requests</h2><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
+<section id="purchases" class="tab panel hidden"><h2>Customer payment requests</h2>
+<p class="hint">Check your actual receiving MTN account or wallet before approving. A screenshot alone does not establish settlement. Email delivery requires SMTP configuration.</p>
+<div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Plan</th><th>Payment</th><th>Status</th><th>Review</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
+<p id="purchaseNotice" class="hint"></p><label for="manualActivationLink">Email unavailable? Private activation link for manual sending</label><input id="manualActivationLink" readonly style="width:min(100%,740px)">
+</section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
 <section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let state={clients:[],requests:[],strategies:[],plans:[],me:null},issued=null;
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],me:null},issued=null;
 function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
 async function api(url,options){
  const response=await fetch(url,{credentials:'same-origin',...options});
@@ -119,6 +124,58 @@ function renderRequests(){
   tr.append(actions);$('requestRows').append(tr);
  }
 }
+function renderPurchases(){
+ $('purchaseRows').replaceChildren();
+ for(const p of state.purchases){
+  const tr=document.createElement('tr');
+  tr.append(
+   td(p.display_name+' (@'+p.requested_username+') · '+p.email),
+   td(p.plan_code+' · '+(p.expected_ugx===null?'No price':'UGX '+p.expected_ugx)),
+   td(p.payment_method+' · '+p.transaction_ref),
+   td(p.status.toUpperCase()+' · Email: '+p.email_status)
+  );
+  const actions=td('');
+  actions.append(button('Download proof','',()=>window.open('/api/admin/payment-requests/'+p.id+'/proof','_blank','noopener')));
+  if(p.status==='pending'){
+   actions.append(button('Approve verified','primary',()=>reviewPurchase(p.id,true)));
+   actions.append(button('Reject','danger',()=>reviewPurchase(p.id,false)));
+  }else if(p.status==='approved'&&p.email_status!=='sent'){
+   actions.append(button('Retry activation email','',()=>retryPurchaseEmail(p.id)));
+  }
+  tr.append(actions);$('purchaseRows').append(tr);
+ }
+}
+async function reviewPurchase(id,approve){
+ let verified=false,reason='';
+ if(approve){
+  verified=confirm('Have you INDEPENDENTLY verified that the full payment reached your MTN account or cryptocurrency wallet?\n\nOnly approve after checking settlement.');
+  if(!verified)return;
+ }else{
+  if(!confirm('Reject this payment request?'))return;
+  reason=prompt('Rejection reason (optional):')||'Payment not verified';
+ }
+ try{
+  const response=await api('/api/admin/payment-requests/'+id+'/review',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({approve,verified,reason}),
+  });
+  $('manualActivationLink').value=response.activation_link||'';
+  $('purchaseNotice').textContent=response.status==='rejected'?'Request rejected.':
+   response.email_sent?'Account created and activation email sent.':
+   'Account created, but email was NOT sent: '+(response.email_notice||'SMTP not configured.')+
+   (response.activation_link?' Copy the private activation link and send it manually.':' Set the HTTPS public base URL.');
+  await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function retryPurchaseEmail(id){
+ try{
+  const response=await api('/api/admin/payment-requests/'+id+'/resend',{method:'POST'});
+  $('manualActivationLink').value=response.activation_link||'';
+  $('purchaseNotice').textContent=response.email_sent?'Activation email sent.':
+    'Email unavailable: '+response.notice+(response.activation_link?' Copy the fallback activation link.':'');
+  await load();
+ }catch(error){feedback(error.message,true)}
+}
 function renderStrategies(){
  const q=$('strategySearch').value.toLowerCase();$('strategyList').replaceChildren();
  for(const s of state.strategies.filter(x=>JSON.stringify(x).toLowerCase().includes(q))){
@@ -137,14 +194,14 @@ async function load(){
   if(me.account.must_change_password){location.assign('/password-setup');return}
   if(me.account.role!=='admin'){location.assign('/client');return}
   state.me=me.account;
-  const [clients,requests,strategies,plans]=await Promise.all([
-   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans')
+  const [clients,requests,strategies,plans,purchases]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests')
   ]);
-  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderStrategies();
+  renderStats();renderClients();renderRequests();renderPurchases();renderStrategies();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){
