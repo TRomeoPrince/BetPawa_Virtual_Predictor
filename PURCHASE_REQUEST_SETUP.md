@@ -4,7 +4,7 @@ This implementation is intentionally **not a payment gateway**. A receipt or tra
 
 ## Public customer flow
 
-- Open /purchase. Select a plan with a configured UGX price (the Daily plan defaults to UGX 5,000; other prices are intentionally not guessed).
+- Open /purchase. Select an approved plan: Daily UGX 5,000, Weekly UGX 20,000, Monthly UGX 60,000, Yearly UGX 500,000, or Lifetime UGX 1,000,000. All plans include three sessions of five matchdays each per day (15 matchdays daily).
 - Select MTN or the exact coin/network, then transfer payment. Wallet addresses and the MTN number come from the owner's supplied instructions.
 - Enter email, preferred username, transaction reference and upload PNG/JPG/WebP/PDF proof (2 MB limit).
 - The request remains pending until manual verification. No automatic proof acceptance or subscription grant happens.
@@ -18,14 +18,13 @@ This implementation is intentionally **not a payment gateway**. A receipt or tra
 
 ## Configure pricing
 
-Set server environment variables (positive whole UGX amounts). Without a value, a plan appears unpriced/disabled.
+These exact prices are built in. The server environment variables below optionally override them (positive whole UGX amounts). Lifetime grants access without a calendar expiry while the service/account remains active; it is still subject to admin revocation and service availability.
 
 PREDICTOR_PRICE_DAILY_UGX=5000
-PREDICTOR_PRICE_WEEKLY_UGX=
-PREDICTOR_PRICE_MONTHLY_UGX=
-PREDICTOR_PRICE_QUARTERLY_UGX=
-PREDICTOR_PRICE_HALF_YEAR_UGX=
-PREDICTOR_PRICE_ANNUAL_UGX=
+PREDICTOR_PRICE_WEEKLY_UGX=20000
+PREDICTOR_PRICE_MONTHLY_UGX=60000
+PREDICTOR_PRICE_ANNUAL_UGX=500000
+PREDICTOR_PRICE_LIFETIME_UGX=1000000
 
 No conversion between UGX and crypto is currently automated. The displayed UGX plan price is not a fixed token amount. Ensure customers agree the crypto amount before transfer.
 

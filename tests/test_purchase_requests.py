@@ -63,7 +63,10 @@ class PurchaseRequestTests(unittest.TestCase):
         self.assertEqual(m["btc_bitcoin"]["address"],"14QTD6Eao9TMeuvStxjgrhyr9Qr4PSQ3rR")
         self.assertEqual(m["usdc_solana"]["address"],"DDq3v8aj28dUw4mMcGUob94YgNQx9qn8XrNUnmQGpgPs")
         self.assertEqual({x["code"]:x["price_ugx"] for x in data["plans"]}["daily"],5000)
-        self.assertIsNone({x["code"]:x["price_ugx"] for x in data["plans"]}["monthly"])
+        actual={x["code"]:x["price_ugx"] for x in data["plans"]}
+        self.assertEqual(actual,{"daily":5000,"weekly":20000,"monthly":60000,"annual":500000,"lifetime":1000000})
+        self.assertNotIn("quarterly",actual)
+        self.assertNotIn("half_year",actual)
         self.assertEqual(self.http.get("/purchase").status_code,200)
 
     def test_public_receipt_cannot_approve_and_admin_review_can(self):
@@ -120,7 +123,7 @@ class PurchaseRequestTests(unittest.TestCase):
         invalid["proof_base64"]=base64.b64encode(b"<script>alert(1)</script>"*5).decode()
         self.assertEqual(self.http.post("/api/purchase/requests",json=invalid).status_code,400)
         invalid=self.payload("buyer4","MOMO99999")
-        invalid["plan_code"]="monthly"
+        invalid["plan_code"]="quarterly"
         self.assertEqual(self.http.post("/api/purchase/requests",json=invalid).status_code,400)
         invalid=self.payload("buyer5","MOMO88888")
         invalid["age_confirmed"]=False

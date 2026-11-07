@@ -43,9 +43,8 @@ PRICE_ENV = {
     "daily":"PREDICTOR_PRICE_DAILY_UGX",
     "weekly":"PREDICTOR_PRICE_WEEKLY_UGX",
     "monthly":"PREDICTOR_PRICE_MONTHLY_UGX",
-    "quarterly":"PREDICTOR_PRICE_QUARTERLY_UGX",
-    "half_year":"PREDICTOR_PRICE_HALF_YEAR_UGX",
     "annual":"PREDICTOR_PRICE_ANNUAL_UGX",
+    "lifetime":"PREDICTOR_PRICE_LIFETIME_UGX",
 }
 
 def connect():
@@ -77,10 +76,19 @@ def connect():
     con.commit()
     return con
 
+DEFAULT_PRICES = {
+    "daily": 5000,
+    "weekly": 20000,
+    "monthly": 60000,
+    "annual": 500000,
+    "lifetime": 1000000,
+}
+
+
 def prices():
     result={}
     for code,env in PRICE_ENV.items():
-        raw=os.getenv(env,"5000" if code=="daily" else "").strip()
+        raw=os.getenv(env,str(DEFAULT_PRICES[code])).strip()
         try:
             value=int(raw)
             result[code]=value if 0<value<=100_000_000 else None
