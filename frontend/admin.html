@@ -25,18 +25,19 @@
 <input id="newUser" placeholder="Username (e.g., tester01)" autocomplete="off" aria-label="Username">
 <input id="newName" placeholder="Display name" autocomplete="off" aria-label="Display name">
 <select id="newPlan" aria-label="Subscription plan"><option value="">No plan</option></select>
-<button class="btn primary" type="button" id="createClientButton">Generate temporary password</button>
+<button class="btn primary" type="button" id="createClientButton">Create client & activation link</button>
 </div>
 <div id="tempPass" class="credentialBox hidden" role="status" aria-live="polite">
 <h3 id="credentialsHeading">Client invitation created</h3>
-<p class="hint">This password is displayed <strong>only once</strong>. Copy it now. If lost, issue a replacement from the client table.</p>
+<p class="hint">You can send the full invitation with credentials, or copy the direct link separately. Keep both private.</p>
 <label for="issuedUsername">Username</label><input id="issuedUsername" readonly>
-<label for="issuedPassword">Fallback temporary password</label><input id="issuedPassword" readonly><label for="issuedLink">Private invitation or sign-in link</label><input id="issuedLink" readonly>
-<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyLink">Copy link</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
+<label for="issuedPassword">Temporary password (one-time display)</label><input id="issuedPassword" readonly>
+<label for="issuedLink">Direct activation or sign-in link</label><input id="issuedLink" readonly>
+<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyDirectLink">Copy direct link</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
 <p id="copyStatus" class="hint"></p>
 </div>
 <h3>Manage clients</h3>
-<div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Access</th><th>Password</th><th>Grant / revoke</th></tr></thead><tbody id="clientRows"></tbody></table></div>
+<div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Access</th><th>Client links</th><th>Grant / revoke</th><th>Delete</th></tr></thead><tbody id="clientRows"></tbody></table></div>
 </section>
 <section id="requests" class="tab panel hidden"><h2>Subscription requests</h2><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
@@ -85,7 +86,7 @@ function renderClients(){
   pill.className='pill '+(c.subscription.is_active?'good':'bad');
   pill.textContent=c.subscription.is_active?'ACTIVE':'INACTIVE';access.append(pill);tr.append(access);
   const password=td('');const label=document.createElement('div');label.className='muted';
-  label.textContent=c.must_change_password?'First-login setup pending':'Personal password set';
+  label.textContent=c.must_change_password?'Activation pending':'Account activated';
   password.append(label,button('Reset password','',()=>resetClient(c.id,c.username)));
    password.append(button(c.must_change_password?'New activation link':'Generate / rotate personal link','',()=>issueLink(c.id,c.username,c.must_change_password?'activation':'login')));
    password.append(button('Revoke personal link','danger',()=>revokeLink(c.id,c.username)));tr.append(password);
@@ -95,7 +96,10 @@ function renderClients(){
   const custom=document.createElement('option');custom.value='custom';custom.textContent='Custom days';plan.append(custom);
   const days=document.createElement('input');days.id='days-'+c.id;days.style.width='86px';days.type='number';days.min='1';days.placeholder='days';
   actions.append(plan,days,button('Grant','primary',()=>grant(c.id)),button('Revoke','danger',()=>revoke(c.id)));
-  tr.append(actions);$('clientRows').append(tr);
+  tr.append(actions);
+   const deletion=td('');
+   deletion.append(button('Delete client','danger',()=>deleteClient(c.id,c.username)));
+   tr.append(deletion);$('clientRows').append(tr);
  }
 }
 function renderRequests(){
@@ -143,9 +147,9 @@ function publicOrigin(){
  if(url.protocol!=='https:'||url.username||url.password)throw Error('Enter a valid HTTPS public tester URL.');
  return url.origin;
 }
-function showCredentials(username,password,kind,token){
- issued={username,password,kind,token};
- $('issuedUsername').value=username;$('issuedPassword').value=password||'';
+function showCredentials(username,kind,token,password=''){
+ issued={username,kind,token,password};
+ $('issuedUsername').value=username;$('issuedPassword').value=password;
  $('issuedLink').value=token?publicOrigin()+(kind==='login'?'/access#':'/activate#')+encodeURIComponent(token):'';
  $('credentialsHeading').textContent=kind==='login'?'Personal sign-in link':kind==='reset'?'Replacement activation link':'Client invitation created';
  $('copyStatus').textContent='Keep this private link secret. Copy it now; it will not be shown again.';
@@ -158,23 +162,31 @@ function closeCredentials(){
 }
 async function copyText(value){
  if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);return}
- throw new Error('Automatic copy unavailable. Select the visible password and copy it manually.');
+ throw new Error('Automatic copy unavailable. Select and copy the visible link manually.');
 }
 async function copyInvitation(){
  if(!issued)return;
- const msg='BetPawa Predictor — private '+(issued.kind==='login'?'sign-in':'activation')+' link\n'+$('issuedLink').value+'\nDo not share this link. Anyone who obtains it can access the account. For adults aged 25+.';
- try{await copyText(msg);$('copyStatus').textContent='Full invitation copied.'}
- catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select the link and copy manually.'}
+ const origin=publicOrigin();
+ const message=issued.kind==='login'
+  ?'BetPawa Predictor — personal direct sign-in\nDirect login: '+$('issuedLink').value+'\nUsername: '+issued.username+'\nKeep your link private. Adults aged 25+ only.'
+  :'BetPawa Predictor — private tester access\nLogin: '+origin+'/login\nUsername: '+issued.username+'\nTemporary password: '+(issued.password||'(use direct activation link)')+'\nDirect activation link: '+$('issuedLink').value+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
+ try{await copyText(message);$('copyStatus').textContent='Full invitation copied.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Clipboard unavailable; copy the fields manually.'}
 }
-async function copyLink(){
+async function copyDirectLink(){
  if(!issued)return;
- try{await copyText($('issuedLink').value);$('copyStatus').textContent='Link copied.'}
- catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select the link and copy manually.'}
+ try{await copyText($('issuedLink').value);$('copyStatus').textContent='Direct link copied. Send privately.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select and copy the link manually.'}
+}
+async function copyPassword(){
+ if(!issued||!issued.password){$('copyStatus').textContent='No new temporary password was generated for this link.';return}
+ try{await copyText(issued.password);$('copyStatus').textContent='Temporary password copied.'}
+ catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent='Select and copy the temporary password manually.'}
 }
 async function issueLink(id,username,kind){
  try{
   const res=await api('/api/admin/clients/'+id+'/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind})});
-  showCredentials(username,'',kind,res.token);
+  showCredentials(username,kind,res.token);
   feedback('New private link generated. The previous link of this kind no longer works.');
  }catch(error){feedback(error.message,true)}
 }
@@ -185,10 +197,15 @@ async function revokeLink(id,username){
   feedback('Personal link revoked.');
  }catch(error){feedback(error.message,true)}
 }
-async function copyPassword(){
- if(!issued)return;
- try{await copyText(issued.password);$('copyStatus').textContent='Temporary password copied.'}
- catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent=error.message}
+async function deleteClient(id,username){
+ if(!confirm('Permanently delete @'+username+' and their saved picks, journal, subscription and login links? This cannot be undone.'))return;
+ const typed=prompt('To DELETE @'+username+', enter their username exactly:');
+ if(typed!==username){feedback('Client deletion cancelled.',true);return}
+ try{
+  await api('/api/admin/clients/'+id,{method:'DELETE'});
+  if(issued&&issued.username===username)closeCredentials();
+  await load();feedback('Deleted @'+username+' and their account data.');
+ }catch(error){feedback(error.message,true)}
 }
 async function createClient(){
  const username=$('newUser').value.trim(),display_name=$('newName').value.trim();
@@ -199,8 +216,8 @@ async function createClient(){
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null}),
   });
-  showCredentials(result.account.username,result.temporary_password,'activation',result.activation_token);
-  $('newUser').value='';$('newName').value='';feedback('Client created. Copy their temporary credentials now.');
+  showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  $('newUser').value='';$('newName').value='';feedback('Client created. Copy the full invitation or the direct activation link.');
   await load();
  }catch(error){feedback(error.message,true)}
  finally{$('createClientButton').disabled=false}
@@ -209,8 +226,8 @@ async function resetClient(id,username){
  if(!confirm('Reset password for @'+username+'? Their current password and all existing sessions will stop working.'))return;
  try{
   const result=await api('/api/admin/clients/'+id+'/reset-password',{method:'POST'});
-  showCredentials(result.account.username,result.temporary_password,'activation',result.activation_token);
-  feedback('Replacement password generated. Share it privately.');
+  showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  feedback('New credentials and activation link ready. Share privately.');
   await load();
  }catch(error){feedback(error.message,true)}
 }
@@ -237,7 +254,7 @@ async function review(id,approve){
 }
 $('createClientButton').addEventListener('click',createClient);
 $('copyInvitation').addEventListener('click',copyInvitation);
-$('copyLink').addEventListener('click',copyLink);
+$('copyDirectLink').addEventListener('click',copyDirectLink);
 $('copyPassword').addEventListener('click',copyPassword);
 $('closeCredentials').addEventListener('click',closeCredentials);
 $('strategySearch').addEventListener('input',renderStrategies);
