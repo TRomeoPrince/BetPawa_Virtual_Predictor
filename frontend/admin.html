@@ -242,7 +242,7 @@ async function createClient(){
   const result=await api('/api/admin/clients',{
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null,
-       chosen_password:username==='PUBLIC TRIAL'?$(newPassword').value:null,
+       chosen_password:username==='PUBLIC TRIAL'?$('newPassword').value:null,
        expires_at:expiryIso($('newExpiry').value)}),
   });
   if(result.activation_token){
