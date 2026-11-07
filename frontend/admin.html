@@ -45,6 +45,7 @@
 <section id="requests" class="tab panel hidden"><h2>Subscription requests</h2><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
 <section id="purchases" class="tab panel hidden"><h2>Customer payment requests</h2>
 <p class="hint">Check your actual receiving MTN account or wallet before approving. A screenshot alone does not establish settlement. Email delivery requires SMTP configuration.</p>
+<label for="purchasePublicUrl">Current HTTPS website URL (ngrok or permanent domain)</label><input id="purchasePublicUrl" type="url" placeholder="https://your-domain.ngrok-free.dev" style="width:min(100%,560px)" title="Used to build activation links even when SMTP is unavailable">
 <div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Plan</th><th>Payment</th><th>Status</th><th>Review</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
 <p id="purchaseNotice" class="hint"></p><label for="manualActivationLink">Email unavailable? Private activation link for manual sending</label><input id="manualActivationLink" readonly style="width:min(100%,740px)">
 </section>
@@ -148,6 +149,7 @@ function renderPurchases(){
 async function reviewPurchase(id,approve){
  let verified=false,reason='';
  if(approve){
+  if(!$('purchasePublicUrl').value.startsWith('https://')){feedback('Enter the current HTTPS website URL above before approving.',true);return}
   verified=confirm('Have you INDEPENDENTLY verified that the full payment reached your MTN account or cryptocurrency wallet?\n\nOnly approve after checking settlement.');
   if(!verified)return;
  }else{
@@ -157,7 +159,7 @@ async function reviewPurchase(id,approve){
  try{
   const response=await api('/api/admin/payment-requests/'+id+'/review',{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({approve,verified,reason}),
+   body:JSON.stringify({approve,verified,reason,public_base_url:$('purchasePublicUrl').value.trim()}),
   });
   $('manualActivationLink').value=response.activation_link||'';
   $('purchaseNotice').textContent=response.status==='rejected'?'Request rejected.':
@@ -169,7 +171,9 @@ async function reviewPurchase(id,approve){
 }
 async function retryPurchaseEmail(id){
  try{
-  const response=await api('/api/admin/payment-requests/'+id+'/resend',{method:'POST'});
+  const response=await api('/api/admin/payment-requests/'+id+'/resend',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({public_base_url:$('purchasePublicUrl').value.trim()})});
   $('manualActivationLink').value=response.activation_link||'';
   $('purchaseNotice').textContent=response.email_sent?'Activation email sent.':
     'Email unavailable: '+response.notice+(response.activation_link?' Copy the fallback activation link.':'');

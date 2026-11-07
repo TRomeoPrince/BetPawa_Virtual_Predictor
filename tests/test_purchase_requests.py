@@ -21,6 +21,7 @@ class PurchaseRequestTests(unittest.TestCase):
             "PREDICTOR_SMTP_HOST":"",
             "PREDICTOR_SMTP_FROM":"",
             "PREDICTOR_PRICE_DAILY_UGX":"5000",
+            "PREDICTOR_PURCHASE_ENABLED":"true",
         })
         self.env.start()
         from backend import main

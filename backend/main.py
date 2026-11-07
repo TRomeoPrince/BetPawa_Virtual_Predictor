@@ -332,6 +332,11 @@ class PurchaseDecision(BaseModel):
     approve: bool
     verified: bool = False
     reason: str = ""
+    public_base_url: str | None = None
+
+
+class PurchaseResend(BaseModel):
+    public_base_url: str | None = None
 
 
 class ClientCreate(BaseModel):
@@ -566,6 +571,8 @@ def api_purchase_catalog(response: Response):
 @app.post("/api/purchase/requests")
 def api_submit_purchase(payload: PurchaseRequestBody, response: Response):
     response.headers["Cache-Control"] = "no-store"
+    if not purchase_requests.purchase_enabled():
+        raise HTTPException(503, "Purchases are not accepting requests yet.")
     try:
         reference = purchase_requests.submit(
             payload.email, payload.username, payload.display_name,
@@ -600,10 +607,26 @@ def api_admin_payment_proof(request_id: int, request: Request):
     )
 
 
+def _purchase_public_origin(admin_supplied: str | None) -> str:
+    from urllib.parse import urlparse
+    origin = (admin_supplied or os.getenv("PREDICTOR_PUBLIC_BASE_URL","")).strip().rstrip("/")
+    try:
+        parsed = urlparse(origin)
+        valid_port = parsed.port in (None,443)
+    except ValueError:
+        valid_port = False
+        parsed = None
+    if (not parsed or parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.path or parsed.query or parsed.fragment or not valid_port):
+        raise HTTPException(400,"Configure a valid HTTPS public website origin before approving.")
+    return origin
+
+
 @app.post("/api/admin/payment-requests/{request_id}/review")
 def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request: Request, response: Response):
     admin = _require_admin(request)
     response.headers["Cache-Control"] = "no-store"
+    base = _purchase_public_origin(payload.public_base_url) if payload.approve else None
     try:
         purchase = purchase_requests.approve_or_reject(
             request_id, int(admin["id"]), payload.approve, payload.verified, payload.reason
@@ -623,13 +646,7 @@ def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request
         purchase_requests.reset_processing(request_id)
         raise
     invitation = access_links.issue(int(account["id"]), "activation", int(admin["id"]))
-    base = os.getenv("PREDICTOR_PUBLIC_BASE_URL","").strip().rstrip("/")
-    # Only return a full link if explicitly configured and its origin is HTTPS.
-    from urllib.parse import urlparse
-    parsed = urlparse(base)
-    link = (parsed.scheme + "://" + parsed.netloc + "/activate#" + invitation["token"]
-            if parsed.scheme == "https" and parsed.netloc and not parsed.username and not parsed.password
-            else None)
+    link = base + "/activate#" + invitation["token"]
     sent = False
     error = None
     try:
@@ -647,7 +664,7 @@ def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request
 
 
 @app.post("/api/admin/payment-requests/{request_id}/resend")
-def api_admin_resend_purchase(request_id: int, request: Request, response: Response):
+def api_admin_resend_purchase(request_id: int, payload: PurchaseResend, request: Request, response: Response):
     admin = _require_admin(request)
     response.headers["Cache-Control"] = "no-store"
     row = purchase_requests.approved_account(request_id)
@@ -656,13 +673,9 @@ def api_admin_resend_purchase(request_id: int, request: Request, response: Respo
     account = get_account(int(row["client_account_id"]))
     if not account or not account["must_change_password"]:
         raise HTTPException(400,"Account already activated or removed.")
+    base = _purchase_public_origin(payload.public_base_url)
     invitation = access_links.issue(int(account["id"]),"activation",int(admin["id"]))
-    base = os.getenv("PREDICTOR_PUBLIC_BASE_URL","").strip().rstrip("/")
-    from urllib.parse import urlparse
-    parsed = urlparse(base)
-    link = (parsed.scheme+"://"+parsed.netloc+"/activate#"+invitation["token"]
-            if parsed.scheme=="https" and parsed.netloc and not parsed.username and not parsed.password
-            else None)
+    link = base + "/activate#" + invitation["token"]
     try:
         purchase_requests.email_activation(row["email"],account["username"],invitation["token"],base)
         purchase_requests.set_email_status(request_id,"sent")

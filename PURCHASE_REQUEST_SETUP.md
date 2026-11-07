@@ -2,6 +2,12 @@
 
 This implementation is intentionally **not a payment gateway**. A receipt or transfer hash is only an untrusted payment claim. A client account is created only when an administrator checks the actual received funds and explicitly approves.
 
+## Before accepting purchases
+
+Purchase requests are **disabled by default**. The page shows the plans and payment methods but will not accept submissions until the operator explicitly sets `PREDICTOR_PURCHASE_ENABLED=true` after testing and checking applicable requirements.
+
+Before approval, enter the current HTTPS ngrok origin under Admin → Payment Requests → Current HTTPS website URL. This provides a private activation-link fallback when SMTP is unavailable.
+
 ## Public customer flow
 
 - Open /purchase. Select an approved plan: Daily UGX 5,000, Weekly UGX 20,000, Monthly UGX 60,000, Yearly UGX 500,000, or Lifetime UGX 1,000,000. All plans include three sessions of five matchdays each per day (15 matchdays daily).

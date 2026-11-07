@@ -39,6 +39,12 @@ const $=id=>document.getElementById(id);let catalog={plans:[],methods:[]};
 function money(n){return typeof n==='number'?'UGX '+n.toLocaleString('en-UG'):'Price unavailable'}
 function render(){
  $('plan').replaceChildren();
+ $('submit').disabled=!catalog.accepting_requests;
+ if(!catalog.accepting_requests){
+  $('status').textContent='Checkout preview only. Do not send payment yet; purchase requests are not open.';
+  $('status').className='error';
+  $('submit').textContent='Purchases not open yet';
+ }
  for(const p of catalog.plans){const opt=document.createElement('option');opt.value=p.code;
   opt.textContent=p.label+' · '+money(p.price_ugx);opt.disabled=p.price_ugx===null;$('plan').append(opt)}
  const available=catalog.plans.find(p=>p.price_ugx!==null);if(available)$('plan').value=available.code;

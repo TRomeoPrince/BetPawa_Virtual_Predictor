@@ -96,8 +96,12 @@ def prices():
             result[code]=None
     return result
 
+def purchase_enabled():
+    return os.getenv("PREDICTOR_PURCHASE_ENABLED","false").lower() in ("1","true","yes","on")
+
+
 def catalog():
-    return {"plans":[{"code":c,"label":access.PLAN_DEFINITIONS[c]["label"],
+    return {"accepting_requests": purchase_enabled(), "plans":[{"code":c,"label":access.PLAN_DEFINITIONS[c]["label"],
                       "days":access.PLAN_DEFINITIONS[c]["days"],
                       "price_ugx":p} for c,p in prices().items()],
             "methods":[{"code":c,**v} for c,v in METHODS.items()]}
@@ -110,6 +114,7 @@ def _mime(data):
     raise ValueError("Payment proof must be PNG, JPG, WebP or PDF.")
 
 def submit(email, username, display_name, plan, method, txref, proof_b64, age_confirmed):
+    if not purchase_enabled():raise ValueError("Purchase requests are not open yet.")
     if not age_confirmed:raise ValueError("Confirm you are at least 25 years old.")
     email=email.strip().lower()
     username=username.strip()
@@ -149,7 +154,7 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
         ).fetchone():
             raise ValueError("This username is already requested. Choose another.")
         if con.execute(
-            "SELECT 1 FROM purchase_requests WHERE payment_method=? AND transaction_ref=? AND status!='rejected'",
+            "SELECT 1 FROM purchase_requests WHERE payment_method=? AND transaction_ref=?",
             (method,txref),
         ).fetchone():
             raise ValueError("This transaction reference has already been submitted.")
