@@ -164,7 +164,7 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
                 raise ValueError("You already have a payment awaiting review.")
         elif con.execute("SELECT 1 FROM accounts WHERE lower(username)=lower(?)",(username,)).fetchone():
             raise ValueError("This username is already in use. Sign in to upgrade.")
-        if con.execute(
+        if account_id is None and con.execute(
             "SELECT 1 FROM purchase_requests WHERE lower(requested_username)=lower(?) AND status IN ('pending','processing','approved')",
             (username,),
         ).fetchone():

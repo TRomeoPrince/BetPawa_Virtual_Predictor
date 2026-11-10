@@ -130,6 +130,7 @@ def _free_market_result(public_result):
         "ok": True, "free": True,
         "season": public_result.get("season"),
         "next_matchday": public_result.get("next_matchday"),
+        "latest_completed_matchday": public_result.get("latest_completed_matchday"),
         "next_round_id": public_result.get("next_round_id"),
         "next_target": {k: v for k, v in fixtures.items() if k.upper() in allowed},
         "predictions": [p for p in public_result.get("predictions", [])
