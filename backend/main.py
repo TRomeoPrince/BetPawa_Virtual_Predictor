@@ -419,6 +419,7 @@ class SubscriptionRequestBody(BaseModel):
 
 class RequestReview(BaseModel):
     approve: bool
+    verified: bool = False
 
 
 class BetJournalBody(BaseModel):
@@ -543,6 +544,8 @@ def client_market_page(category: str, request: Request):
         return RedirectResponse("/login", status_code=302)
     if account.get("must_change_password"):
         return RedirectResponse("/password-setup", status_code=302)
+    if not _is_vip(account) and not account.get("email"):
+        return RedirectResponse("/client", status_code=302)
     return _frontend_response(MARKET_PAGE)
 
 
@@ -596,6 +599,13 @@ def api_signup(payload: SignupRequest, request: Request, response: Response):
                         httponly=True, samesite="lax", secure=request.url.scheme == "https")
     response.headers["Cache-Control"] = "no-store"
     return {"ok": True, "account": public_account(account), "membership": "free"}
+
+
+@app.get("/api/account/contact")
+def api_account_contact(request: Request):
+    account = _require_account(request)
+    return {"username": account["username"], "display_name": account["display_name"],
+            "email": account.get("email")}
 
 
 @app.get("/api/referrals/me")
@@ -1061,6 +1071,8 @@ def api_admin_review_subscription(
     request: Request,
 ):
     admin = _require_admin(request)
+    if payload.approve and not payload.verified:
+        raise HTTPException(400, "Verify the received payment independently before approval.")
     try:
         review_subscription_request(request_id, payload.approve, int(admin["id"]))
     except ValueError as exc:
@@ -1092,6 +1104,8 @@ def predict_category(category: str, request: Request, response: Response):
     is_free = not _is_vip(account)
     user_id = account["user_key"]
     started = time.perf_counter()
+    if is_free and not account.get("email"):
+        raise HTTPException(403, "An active subscription is required.")
     if is_free and datetime.now(EAT).hour != 22:
         raise HTTPException(403, "Free EPL/Dutch rounds open at 10:00 PM EAT for 25 minutes.")
     try:
