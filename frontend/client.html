@@ -17,7 +17,7 @@
 <div class="eyebrow">Client workspace</div><h1 class="title">Your prediction dashboard</h1><div id="welcome" class="muted">Loading your account…</div>
 <div id="preview" class="preview" hidden>Admin preview — you are viewing the same workspace clients use. Your admin account has full access.</div>
 <section class="statusCard" aria-label="Subscription status"><div><div class="eyebrow" style="color:#c6eacb">Your access</div><h2 id="planTitle">Checking subscription…</h2><p id="subText" class="muted"></p></div><span id="subPill" class="pill inactive">CHECKING</span></section>
-<section class="picksHub" aria-label="My Picks Hub"><div><div class="eyebrow">All your selections in one place</div><h2>My Picks Hub</h2><p>Latest combo · Overs · Unders · BTTS · Wins · Selection history · Personal bet journal</p></div><a class="btn primary" href="/client/picks">Open My Picks Hub →</a><div id="picksPreview" class="picksPreview" aria-live="polite"><div class="muted">Loading your saved selections…</div></div><div id="picksRecent" class="picksRecent"></div></section>
+<section id="picksHub" class="picksHub" aria-label="My Picks Hub"><div><div class="eyebrow">All your selections in one place</div><h2>My Picks Hub</h2><p>Latest combo · Overs · Unders · BTTS · Wins · Selection history · Personal bet journal</p></div><a class="btn primary" href="/client/picks">Open My Picks Hub →</a><div id="picksPreview" class="picksPreview" aria-live="polite"><div class="muted">Loading your saved selections…</div></div><div id="picksRecent" class="picksRecent"></div></section>
 <section class="section"><div class="sectionHead"><div><h2>Explore prediction markets</h2><p>Open a market to see available matchday fixtures, qualifying picks and your tracked results.</p></div></div><div class="markets">
 <a class="market" href="/client/overs"><span class="symbol" aria-hidden="true">↗</span><h3>Overs</h3><p>Goal-over predictions and ranked picks.</p><span class="open">Explore Overs →</span></a>
 <a class="market" href="/client/unders"><span class="symbol" aria-hidden="true">↘</span><h3>Unders</h3><p>Qualified goal-under predictions.</p><span class="open">Explore Unders →</span></a>
@@ -25,6 +25,7 @@
 <a class="market" href="/client/wins"><span class="symbol" aria-hidden="true">✓</span><h3>Wins</h3><p>Home and away win patterns, when qualified.</p><span class="open">Explore Wins →</span></a>
 </div></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
+<section class="section panel" id="referrals"><div class="sectionHead"><div><h2>Invite friends</h2><p>Share your personal link. Track signups and verified VIP upgrades. No cash rewards are currently offered.</p></div></div><label for="referralLink">Your personal referral link</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="referralLink" readonly style="flex:1;min-width:190px;padding:12px;border:1px solid var(--line);border-radius:10px"><button id="copyReferral" type="button" class="btn">Copy link</button></div><p id="referralStats" class="muted"></p></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Account security</h2><p>Change your temporary password before using your account regularly.</p></div></div><div id="passNotice" class="notice"></div><form id="passwordForm" class="securityForm"><div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div class="field"><label for="newPassword">New password (12+ characters)</label><input id="newPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div><button class="btn primary" type="submit">Update password</button></form><div id="passwordMessage" class="feedback" role="status" aria-live="polite"></div></section>
 </main>
 <footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults aged 25+ only.</div></footer>
@@ -41,12 +42,13 @@ async function api(url,options){
 function showFeedback(id,message,error=false){const el=$(id);el.textContent=message;el.className='feedback '+(error?'error':'success')}
 function showAccount(){
   const sub=account.subscription||{},admin=account.role==='admin';
-  $('welcome').textContent='Welcome, '+(account.display_name||account.username)+'. Your markets and saved picks are ready when your access is active.';
+  $('welcome').textContent='Welcome, '+(account.display_name||account.username)+'. '+(admin||sub.is_active?'Your VIP markets are ready.':'Free EPL/Dutch predictions unlock from 10:00–10:25 PM EAT.');
+  $('picksHub').hidden=!(admin||sub.is_active);
   $('preview').hidden=!admin;$('adminLink').hidden=!admin;
-  $('planTitle').textContent=admin?'Administrator preview':(sub.plan_label||'No active plan');
-  $('subPill').textContent=admin?'ADMIN':(sub.is_active?'ACTIVE':'INACTIVE');
+  $('planTitle').textContent=admin?'Administrator preview':(sub.is_active?sub.plan_label:'Free membership');
+  $('subPill').textContent=admin?'ADMIN':(sub.is_active?'VIP':'FREE');
   $('subPill').className='pill '+(admin||sub.is_active?'active':'inactive');
-  $('subText').textContent=admin?'You can preview every client market.':(sub.is_active?'Access expires '+formatDate(sub.expires_at):'Your markets unlock after a subscription is approved and activated.');
+  $('subText').textContent=admin?'You can preview every client market.':(sub.is_active?(sub.expires_at?'VIP expires '+formatDate(sub.expires_at):'Lifetime VIP access'):'Five free EPL/Dutch virtual matchdays daily from 10:00 to 10:25 PM EAT. Upgrade to VIP for more rounds.');
   $('passNotice').textContent=account.must_change_password?'Your account is using a temporary password. Please change it now.':'';
 }
 async function loadPicksPreview(){
@@ -87,11 +89,11 @@ function renderPlans(plans){
   plans.forEach(plan=>{
     const card=document.createElement('article');card.className='plan';
     const title=document.createElement('h3');title.textContent=plan.label;
-    const duration=document.createElement('div');duration.className='muted';duration.textContent=plan.days+' day'+(plan.days===1?'':'s')+' access';
+    const duration=document.createElement('div');duration.className='muted';duration.textContent=(plan.days===null?'Lifetime':plan.days+' day'+(plan.days===1?'':'s'))+' VIP access';
     const button=document.createElement('button');button.className='btn primary';button.type='button';
-    button.textContent=account.role==='admin'?'Admin preview':(pending?'Request pending':'Request access');
-    button.disabled=account.role==='admin'||pending;
-    button.addEventListener('click',()=>requestPlan(plan.code));
+    button.textContent=account.role==='admin'?'Admin preview':'Pay and request VIP';
+    button.disabled=account.role==='admin';
+    button.addEventListener('click',()=>location.assign('/purchase?plan='+encodeURIComponent(plan.code)));
     card.append(title,duration,button);box.append(card);
   });
 }
@@ -106,7 +108,8 @@ async function load(){
     showAccount();
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
-    renderPlans(plans.plans||[]);
+    renderPlans((plans.plans||[]).filter(p=>['daily','weekly','monthly','annual','lifetime'].includes(p.code)));
+    if(account.role!=='admin')loadReferrals();
   }catch(error){if(!account)showFeedback('requestMessage',error.message,true);else showFeedback('requestMessage','Unable to load all account details: '+error.message,true)}
 }
 async function requestPlan(code){
@@ -117,6 +120,17 @@ async function requestPlan(code){
     await load();
   }catch(error){showFeedback('requestMessage',error.message,true)}
 }
+async function loadReferrals(){
+ try{
+  const info=await api('/api/referrals/me');
+  $('referralLink').value=info.url;
+  $('referralStats').textContent=info.visits+' visits · '+info.signups+' signups · '+info.vip_conversions+' paid VIP referrals.';
+ }catch(e){$('referralStats').textContent='Referral data unavailable: '+e.message}
+}
+$('copyReferral').addEventListener('click',async()=>{
+ try{await navigator.clipboard.writeText($('referralLink').value);$('referralStats').textContent+=' Link copied.'}
+ catch(e){$('referralLink').select();$('referralStats').textContent+=' Select and copy the highlighted link.'}
+});
 $('passwordForm').addEventListener('submit',async event=>{
   event.preventDefault();
   try{

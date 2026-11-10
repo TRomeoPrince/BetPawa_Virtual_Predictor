@@ -72,6 +72,10 @@ def connect():
             CHECK(status IN ('pending','processing','approved','rejected'))
         )
     """)
+    columns={r["name"] for r in con.execute("PRAGMA table_info(purchase_requests)")}
+    for name,kind in (("buyer_account_id","INTEGER"),("promo_code","TEXT"),("promotion_id","INTEGER")):
+        if name not in columns:
+            con.execute(f"ALTER TABLE purchase_requests ADD COLUMN {name} {kind}")
     con.execute("CREATE INDEX IF NOT EXISTS purchase_status_idx ON purchase_requests(status,submitted_at)")
     con.commit()
     return con
@@ -101,9 +105,11 @@ def purchase_enabled():
 
 
 def catalog():
+    from . import growth
     return {"accepting_requests": purchase_enabled(), "plans":[{"code":c,"label":access.PLAN_DEFINITIONS[c]["label"],
                       "days":access.PLAN_DEFINITIONS[c]["days"],
-                      "price_ugx":p} for c,p in prices().items()],
+                      "price_ugx":growth.quote(c)["price_ugx"] if p is not None else None,
+                      "regular_ugx":p} for c,p in prices().items()],
             "methods":[{"code":c,**v} for c,v in METHODS.items()]}
 
 def _mime(data):
@@ -113,7 +119,7 @@ def _mime(data):
     if data.startswith(b"%PDF-"):return "application/pdf"
     raise ValueError("Payment proof must be PNG, JPG, WebP or PDF.")
 
-def submit(email, username, display_name, plan, method, txref, proof_b64, age_confirmed):
+def submit(email, username, display_name, plan, method, txref, proof_b64, age_confirmed, account_id=None, promo_code=''):
     if not purchase_enabled():raise ValueError("Purchase requests are not open yet.")
     if not age_confirmed:raise ValueError("Confirm you are at least 25 years old.")
     email=email.strip().lower()
@@ -136,6 +142,8 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
         raise ValueError("Invalid proof attachment.")
     if not 50<=len(data)<=MAX_PROOF_BYTES:raise ValueError("Attach a proof file up to 2 MB.")
     mime=_mime(data)
+    from . import growth
+    offer=growth.quote(plan,promo_code)
     now=datetime.now(timezone.utc).isoformat()
     con=connect()
     try:
@@ -146,9 +154,17 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
             (email,(datetime.now(timezone.utc)-timedelta(hours=1)).isoformat()),
         ).fetchone()[0]
         if recent>=3:raise ValueError("Too many requests. Try again later.")
-        if con.execute("SELECT 1 FROM accounts WHERE lower(username)=lower(?)",(username,)).fetchone():
-            raise ValueError("This username is already in use. Choose another.")
-        if con.execute(
+        if account_id is not None:
+            owner=con.execute("SELECT username,email,role,status FROM accounts WHERE id=?",(account_id,)).fetchone()
+            if not owner or owner["role"]!="client" or owner["status"]!="active" or owner["username"].lower()!=username.lower():
+                raise ValueError("Sign in to your own account to request a VIP upgrade.")
+            if owner["email"] and owner["email"].lower()!=email:
+                raise ValueError("Use your account email for the VIP upgrade.")
+            if con.execute("SELECT 1 FROM purchase_requests WHERE buyer_account_id=? AND status IN ('pending','processing')",(account_id,)).fetchone():
+                raise ValueError("You already have a payment awaiting review.")
+        elif con.execute("SELECT 1 FROM accounts WHERE lower(username)=lower(?)",(username,)).fetchone():
+            raise ValueError("This username is already in use. Sign in to upgrade.")
+        if account_id is None and con.execute(
             "SELECT 1 FROM purchase_requests WHERE lower(requested_username)=lower(?) AND status IN ('pending','processing','approved')",
             (username,),
         ).fetchone():
@@ -162,9 +178,10 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
         con.execute("""
             INSERT INTO purchase_requests
               (reference,email,requested_username,display_name,plan_code,expected_ugx,
-               payment_method,transaction_ref,proof_mime,proof_blob,submitted_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?)
-        """,(reference,email,username,display_name,plan,prices()[plan],method,txref,mime,data,now))
+               payment_method,transaction_ref,proof_mime,proof_blob,submitted_at,buyer_account_id,promo_code,promotion_id)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,(reference,email,username,display_name,plan,offer["price_ugx"],method,txref,mime,data,now,
+             account_id,offer["promo_code"],offer["promotion_id"]))
         con.commit()
         return reference
     finally:
@@ -176,6 +193,7 @@ def pending():
         rows=con.execute("""
             SELECT id,reference,email,requested_username,display_name,plan_code,
                    expected_ugx,payment_method,transaction_ref,status,submitted_at,
+                   buyer_account_id,promo_code,promotion_id,
                    reviewed_at,client_account_id,email_status,rejection_reason,
                    LENGTH(proof_blob) AS proof_size,proof_mime
             FROM purchase_requests ORDER BY
@@ -209,6 +227,56 @@ def approve_or_reject(request_id,admin_id,approve,verified=False,reason=""):
         con.commit()
         return dict(row) if approve else None
     finally:con.close()
+
+def activate_existing_verified(request_id, account_id, plan_code, admin_id):
+    """Grant VIP and finalize approved payment in one SQLite transaction."""
+    from datetime import timedelta
+    meta=access.PLAN_DEFINITIONS.get(plan_code)
+    if not meta or plan_code not in PRICE_ENV:
+        raise ValueError("Unknown paid plan.")
+    con=connect()
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        proof=con.execute(
+            "SELECT id FROM purchase_requests WHERE id=? AND status='processing' AND buyer_account_id=? AND plan_code=?",
+            (request_id, account_id, plan_code),
+        ).fetchone()
+        if not proof:
+            raise ValueError("Verified payment reservation not found.")
+        sub=con.execute("SELECT plan_code,status,expires_at FROM subscriptions WHERE account_id=?",(account_id,)).fetchone()
+        if sub and sub["plan_code"]=="lifetime" and sub["status"]=="active":
+            raise ValueError("This member already has lifetime VIP access.")
+        now=datetime.now(timezone.utc)
+        expiry=None
+        if sub and sub["status"]=="active" and sub["expires_at"]:
+            try:
+                expiry=datetime.fromisoformat(sub["expires_at"])
+            except ValueError:
+                pass
+        start=expiry if expiry and expiry>now else now
+        ends=start+timedelta(days=int(meta["days"])) if meta["days"] is not None else None
+        con.execute("""
+            INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
+            VALUES(?,?,?,?, 'active',?)
+            ON CONFLICT(account_id) DO UPDATE SET
+                plan_code=excluded.plan_code,starts_at=excluded.starts_at,
+                expires_at=excluded.expires_at,status='active',updated_at=excluded.updated_at
+        """,(account_id,plan_code,start.isoformat(),ends.isoformat() if ends else None,now.isoformat()))
+        con.execute(
+            "UPDATE purchase_requests SET status='approved',client_account_id=?,email_status='not_needed' WHERE id=?",
+            (account_id,request_id),
+        )
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) VALUES(?,?,'VIP_PAID_UPGRADE',?,?)",
+            (admin_id,account_id,plan_code,now.isoformat()),
+        )
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
+
 
 def mark_approved(request_id,account_id):
     con=connect()

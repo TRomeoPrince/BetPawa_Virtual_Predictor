@@ -4,16 +4,17 @@ import os
 import re
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests
+from . import picks, access_links, purchase_requests, growth
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
-from .time_windows import time_priority, TIME_WINDOW_HISTORY
+from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
 from .private_rules import (
     RULES, ORIGINAL_RULE_META, NEW_STRATEGIES,
     PATTERN2_STRATEGIES, PATTERN2_LEGACY_KEYS,
@@ -103,6 +104,40 @@ def _require_active_access(request: Request):
     if account.get("role") != "admin" and not account.get("subscription", {}).get("is_active"):
         raise HTTPException(403, "An active subscription is required.")
     return account
+
+
+def _is_vip(account):
+    return account.get("role") == "admin" or bool(account.get("subscription", {}).get("is_active"))
+
+
+def _free_round_allowed(context, now=None):
+    """Five 5-minute target rounds starting at 22:00 EAT each day."""
+    now = now or datetime.now(EAT)
+    if now.hour != 22 or not 0 <= now.minute < 25:
+        return False
+    try:
+        target = estimate_target_datetime_eat(context["season"], context["next_matchday"])
+    except (ValueError, KeyError, TypeError, OverflowError):
+        return False
+    return target.date() == now.date() and target.hour == 22 and 0 <= target.minute < 25
+
+
+def _free_market_result(public_result):
+    """Only EPL and Dutch picks, never VIP history, other fixtures or rule metadata."""
+    allowed = {"ENGLISH", "EPL", "DUTCH", "NETHERLANDS"}
+    fixtures = public_result.get("next_target") or {}
+    return {
+        "ok": True, "free": True,
+        "season": public_result.get("season"),
+        "next_matchday": public_result.get("next_matchday"),
+        "latest_completed_matchday": public_result.get("latest_completed_matchday"),
+        "next_round_id": public_result.get("next_round_id"),
+        "next_target": {k: v for k, v in fixtures.items() if k.upper() in allowed},
+        "predictions": [p for p in public_result.get("predictions", [])
+                        if str(p.get("league", "")).upper() in allowed],
+        "trackers": [], "personal": {},
+        "free_window": "22:00-22:25 EAT",
+    }
 
 
 def _require_admin(request: Request):
@@ -291,6 +326,28 @@ class SelectionUpdate(BaseModel):
     selected: bool
 
 
+class SignupRequest(BaseModel):
+    username: str
+    display_name: str = ""
+    email: str
+    password: str
+    age_confirmed: bool = False
+    referral_code: str = ""
+
+
+class PromotionBody(BaseModel):
+    plan_code: str
+    price_ugx: int
+    code: str = ""
+    starts_at: str | None = None
+    ends_at: str | None = None
+    enabled: bool = True
+
+
+class PromotionToggle(BaseModel):
+    enabled: bool
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -326,6 +383,7 @@ class PurchaseRequestBody(BaseModel):
     transaction_ref: str
     proof_base64: str
     age_confirmed: bool = False
+    promo_code: str = ""
 
 
 class PurchaseDecision(BaseModel):
@@ -362,6 +420,7 @@ class SubscriptionRequestBody(BaseModel):
 
 class RequestReview(BaseModel):
     approve: bool
+    verified: bool = False
 
 
 class BetJournalBody(BaseModel):
@@ -406,6 +465,20 @@ def link_login_page():
 @app.get("/purchase")
 def purchase_page():
     return _frontend_response(ROOT / "frontend" / "purchase.html")
+
+
+@app.get("/signup")
+def signup_page(request: Request):
+    if _session_account(request):
+        return RedirectResponse("/client", status_code=302)
+    return _frontend_response(ROOT / "frontend" / "signup.html")
+
+
+@app.get("/r/{code}")
+def referral_redirect(code: str):
+    if not growth.track_visit(code):
+        raise HTTPException(404, "Referral link not found.")
+    return RedirectResponse("/signup?ref=" + code.strip().upper(), status_code=302)
 
 
 @app.get("/login")
@@ -472,7 +545,7 @@ def client_market_page(category: str, request: Request):
         return RedirectResponse("/login", status_code=302)
     if account.get("must_change_password"):
         return RedirectResponse("/password-setup", status_code=302)
-    if account.get("role") != "admin" and not account.get("subscription", {}).get("is_active"):
+    if not _is_vip(account) and not account.get("email"):
         return RedirectResponse("/client", status_code=302)
     return _frontend_response(MARKET_PAGE)
 
@@ -511,6 +584,38 @@ def api_link_activate(payload: LinkActivation,request: Request,response: Respons
     except ValueError as exc:
         raise HTTPException(400,str(exc))
     return _link_session(request,response,account)
+
+
+@app.post("/api/auth/signup")
+def api_signup(payload: SignupRequest, request: Request, response: Response):
+    if os.getenv("PREDICTOR_SIGNUP_ENABLED", "true").lower() not in ("1", "true", "yes", "on"):
+        raise HTTPException(503, "Registration is temporarily closed.")
+    try:
+        account = growth.signup(payload.username, payload.display_name, payload.email,
+                                payload.password, payload.age_confirmed, payload.referral_code)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    token = create_session(int(account["id"]))
+    response.set_cookie(SESSION_COOKIE, token, max_age=60*60*24*30,
+                        httponly=True, samesite="lax", secure=request.url.scheme == "https")
+    response.headers["Cache-Control"] = "no-store"
+    return {"ok": True, "account": public_account(account), "membership": "free"}
+
+
+@app.get("/api/account/contact")
+def api_account_contact(request: Request):
+    account = _require_account(request)
+    return {"username": account["username"], "display_name": account["display_name"],
+            "email": account.get("email")}
+
+
+@app.get("/api/referrals/me")
+def api_my_referrals(request: Request):
+    account = _require_account(request)
+    if account["role"] == "admin":
+        raise HTTPException(403, "Referrals are for members.")
+    origin = (os.getenv("PREDICTOR_PUBLIC_BASE_URL") or str(request.base_url)).rstrip("/")
+    return growth.referral_stats(int(account["id"]), origin)
 
 
 @app.post("/api/auth/login")
@@ -562,6 +667,42 @@ def api_change_password(payload: PasswordChange, request: Request):
     return {"ok": True, "requires_login": True}
 
 
+@app.get("/api/purchase/quote")
+def api_purchase_quote(plan_code: str, response: Response, promo_code: str = ""):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return growth.quote(plan_code, promo_code)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/admin/promotions")
+def api_admin_promotions(request: Request):
+    _require_admin(request)
+    return {"promotions": growth.list_promotions()}
+
+
+@app.post("/api/admin/promotions")
+def api_create_promotion(payload: PromotionBody, request: Request):
+    _require_admin(request)
+    try:
+        promo_id = growth.create_promotion(payload.plan_code, payload.price_ugx, payload.code,
+                                          payload.starts_at, payload.ends_at, payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "id": promo_id}
+
+
+@app.post("/api/admin/promotions/{promotion_id}/enabled")
+def api_toggle_promotion(promotion_id: int, payload: PromotionToggle, request: Request):
+    _require_admin(request)
+    try:
+        growth.set_promotion_enabled(promotion_id, payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
+
+
 @app.get("/api/purchase/catalog")
 def api_purchase_catalog(response: Response):
     response.headers["Cache-Control"] = "no-store"
@@ -569,15 +710,18 @@ def api_purchase_catalog(response: Response):
 
 
 @app.post("/api/purchase/requests")
-def api_submit_purchase(payload: PurchaseRequestBody, response: Response):
+def api_submit_purchase(payload: PurchaseRequestBody, request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
     if not purchase_requests.purchase_enabled():
         raise HTTPException(503, "Purchases are not accepting requests yet.")
+    actor = _session_account(request)
+    buyer_id = int(actor["id"]) if actor and actor.get("role") == "client" else None
     try:
         reference = purchase_requests.submit(
             payload.email, payload.username, payload.display_name,
             payload.plan_code, payload.payment_method, payload.transaction_ref,
             payload.proof_base64, payload.age_confirmed,
+            account_id=buyer_id, promo_code=payload.promo_code,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
@@ -636,12 +780,26 @@ def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request
     if not payload.approve:
         return {"ok": True, "status": "rejected"}
     # A pending reservation prevents duplicate account creation on repeated approvals.
+    if purchase.get("buyer_account_id") is not None:
+        try:
+            account_id = int(purchase["buyer_account_id"])
+            current = get_account(account_id)
+            if not current or current["role"] != "client" or current["status"] != "active" or current["username"].lower() != purchase["requested_username"].lower():
+                raise ValueError("The original buyer account is no longer available.")
+            purchase_requests.activate_existing_verified(request_id, account_id, purchase["plan_code"], int(admin["id"]))
+            growth.mark_vip_conversion(account_id)
+        except Exception:
+            purchase_requests.reset_processing(request_id)
+            raise
+        return {"ok": True, "status": "approved", "existing_account": True,
+                "email_sent": False, "activation_link": None, "client_account_id": account_id}
     try:
         account, _temp = create_client(
             purchase["requested_username"],purchase["display_name"],
             plan_code=purchase["plan_code"],created_by=int(admin["id"]),
         )
         purchase_requests.mark_approved(request_id, int(account["id"]))
+        growth.mark_vip_conversion(int(account["id"]))
     except Exception:
         purchase_requests.reset_processing(request_id)
         raise
@@ -716,7 +874,7 @@ def api_client_picks(
     request: Request, category: str = "all", scope: str = "latest",
     outcome: str = "all", limit: int = 50, offset: int = 0,
 ):
-    account = _require_account(request)
+    account = _require_active_access(request)
     try:
         return picks.get_picks(
             account["user_key"], category=category, scope=scope,
@@ -914,6 +1072,8 @@ def api_admin_review_subscription(
     request: Request,
 ):
     admin = _require_admin(request)
+    if payload.approve and not payload.verified:
+        raise HTTPException(400, "Verify the received payment independently before approval.")
     try:
         review_subscription_request(request_id, payload.approve, int(admin["id"]))
     except ValueError as exc:
@@ -941,12 +1101,19 @@ def status():
 def predict_category(category: str, request: Request, response: Response):
     if category not in {"overs", "unders", "btts", "wins"}:
         raise HTTPException(404, "Unknown market page.")
-    account = _require_active_access(request)
+    account = _require_account(request)
+    is_free = not _is_vip(account)
     user_id = account["user_key"]
     started = time.perf_counter()
+    if is_free and not account.get("email"):
+        raise HTTPException(403, "An active subscription is required.")
+    if is_free and datetime.now(EAT).hour != 22:
+        raise HTTPException(403, "Free EPL/Dutch rounds open at 10:00 PM EAT for 25 minutes.")
     try:
         context = feed.prediction_context()
-        graded_now = grade_user_predictions(user_id, context["completed_rounds_for_grading"])
+        if is_free and not _free_round_allowed(context):
+            raise HTTPException(403, "Only the five 10 PM EAT EPL/Dutch matchdays are free.")
+        graded_now = grade_user_predictions(user_id, context["completed_rounds_for_grading"]) if not is_free else 0
         result = build_prediction(context)
         category_result = {
             **result,
@@ -957,8 +1124,9 @@ def predict_category(category: str, request: Request, response: Response):
             ],
             "trackers": [],
         }
-        # Persist the full private support metadata server-side, then sanitize
-        # every prediction and history object before returning it to clients.
+        # A free response is filtered before returning; VIP history is never included.
+        if is_free:
+            return _free_market_result(_public_result(category_result))
         save_user_prediction_batch(user_id, category_result)
         history = get_user_history(user_id, category=category)
         public_result = _public_result(category_result)

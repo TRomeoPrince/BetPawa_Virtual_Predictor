@@ -405,9 +405,13 @@ def delete_client(account_id: int, admin_id: int) -> None:
     jcon.close()
     dcon = db.connect()
     dcon.close()
-    from . import access_links
+    from . import access_links, growth, purchase_requests
     lcon = access_links.connect()
     lcon.close()
+    gcon = growth.connect()
+    gcon.close()
+    pcon = purchase_requests.connect()
+    pcon.close()
     con = connect()
     try:
         con.execute("BEGIN IMMEDIATE")
@@ -420,6 +424,10 @@ def delete_client(account_id: int, admin_id: int) -> None:
         for table in ("user_prediction_batches", "user_predictions",
                       "prediction_supports", "client_bet_journal"):
             con.execute(f"DELETE FROM {table} WHERE user_id=?", (row["user_key"],))
+        con.execute("UPDATE referral_profiles SET referred_by=NULL WHERE referred_by=?", (account_id,))
+        con.execute("DELETE FROM referral_profiles WHERE account_id=?", (account_id,))
+        con.execute("UPDATE purchase_requests SET buyer_account_id=NULL WHERE buyer_account_id=?", (account_id,))
+        con.execute("UPDATE purchase_requests SET client_account_id=NULL WHERE client_account_id=?", (account_id,))
         for table in ("sessions", "subscriptions", "subscription_requests",
                       "client_access_links"):
             con.execute(f"DELETE FROM {table} WHERE account_id=?", (account_id,))
