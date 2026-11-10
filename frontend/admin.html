@@ -12,13 +12,13 @@
 <button type="button" class="btn" data-tab="overview">Overview</button>
 <button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
-<button type="button" class="btn" data-tab="strategies">Strategies</button>
+<button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
 <section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
 <section id="clients" class="tab panel">
 <h2>Invite a client or tester</h2>
-<div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a one-use activation link (24 hours). After activation, issue a reusable personal sign-in link (90 days) if desired. Anyone possessing an active link can enter that client's account. Use <strong>Reset password</strong> if they forget it. Public signup remains disabled.</div>
+<div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a one-use activation link (24 hours). After activation, issue a reusable personal sign-in link (90 days) if desired. Anyone possessing an active link can enter that client's account. Use <strong>Reset password</strong> if they forget it. Public signup is open for free memberships.</div>
 <div class="form"><input id="publicTesterUrl" type="url" placeholder="Public ngrok HTTPS URL (optional)" aria-label="Public tester URL" style="min-width:min(100%,380px)"></div>
 <p class="hint">If you are administering from localhost, paste your ngrok HTTPS forwarding URL above so copied invitations contain the correct remote login link. Otherwise, the current website address is used.</p>
 <div class="form">
@@ -49,13 +49,23 @@
 <div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Plan</th><th>Payment</th><th>Status</th><th>Review</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
 <p id="purchaseNotice" class="hint"></p><label for="manualActivationLink">Email unavailable? Private activation link for manual sending</label><input id="manualActivationLink" readonly style="width:min(100%,740px)">
 </section>
+<section id="promotions" class="tab panel hidden">
+<h2>VIP promotions and promo codes</h2><p class="hint">Blank code means automatic discount. Code-filled means coupon-only. Disable an offer to restore the normal price.</p>
+<form id="promoForm" class="form">
+<label>Plan <select id="promoPlan"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="annual">Yearly</option><option value="lifetime">Lifetime</option></select></label>
+<label>Promo price UGX <input id="promoPrice" type="number" min="1" max="99999999" placeholder="5000" required></label>
+<label>Code (optional) <input id="promoCode" maxlength="32" placeholder="WEEKLY5K"></label>
+<label>Start (optional) <input id="promoStarts" type="datetime-local"></label>
+<label>End (optional) <input id="promoEnds" type="datetime-local"></label>
+<button class="btn primary" type="submit">Create promotion</button></form>
+<h3>Promotions</h3><div style="overflow:auto"><table><thead><tr><th>Plan</th><th>Code</th><th>Price</th><th>Window</th><th>Status</th><th>Action</th></tr></thead><tbody id="promoRows"></tbody></table></div></section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
 <section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],me:null},issued=null;
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],me:null},issued=null;
 function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
 async function api(url,options){
  const response=await fetch(url,{credentials:'same-origin',...options});
@@ -140,7 +150,7 @@ function renderPurchases(){
   if(p.status==='pending'){
    actions.append(button('Approve verified','primary',()=>reviewPurchase(p.id,true)));
    actions.append(button('Reject','danger',()=>reviewPurchase(p.id,false)));
-  }else if(p.status==='approved'&&p.email_status!=='sent'){
+  }else if(p.status==='approved'&&p.email_status!=='sent'&&p.email_status!=='not_needed'){
    actions.append(button('Retry activation email','',()=>retryPurchaseEmail(p.id)));
   }
   tr.append(actions);$('purchaseRows').append(tr);
@@ -163,6 +173,7 @@ async function reviewPurchase(id,approve){
   });
   $('manualActivationLink').value=response.activation_link||'';
   $('purchaseNotice').textContent=response.status==='rejected'?'Request rejected.':
+   response.existing_account?'Existing free member upgraded to VIP; same login remains active.':
    response.email_sent?'Account created and activation email sent.':
    'Account created, but email was NOT sent: '+(response.email_notice||'SMTP not configured.')+
    (response.activation_link?' Copy the private activation link and send it manually.':' Set the HTTPS public base URL.');
@@ -180,6 +191,32 @@ async function retryPurchaseEmail(id){
   await load();
  }catch(error){feedback(error.message,true)}
 }
+function renderPromotions(){
+ $('promoRows').replaceChildren();
+ for(const p of state.promotions){
+  const tr=document.createElement('tr');
+  tr.append(td(p.plan_code),td(p.code||'Automatic'),td('UGX '+Number(p.price_ugx).toLocaleString()),
+            td((p.starts_at?fmt(p.starts_at):'Now')+' → '+(p.ends_at?fmt(p.ends_at):'Until disabled')),
+            td(p.enabled?'Enabled':'Disabled'));
+  const act=td('');
+  act.append(button(p.enabled?'Disable':'Enable',p.enabled?'danger':'primary',async()=>{
+   try{await api('/api/admin/promotions/'+p.id+'/enabled',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!p.enabled})});feedback('Promotion updated.');await load()}
+   catch(e){feedback(e.message,true)}
+  }));
+  tr.append(act);$('promoRows').append(tr);
+ }
+}
+$('promoForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ try{
+  const data={plan_code:$('promoPlan').value,price_ugx:Number($('promoPrice').value),
+   code:$('promoCode').value.trim().toUpperCase(),
+   starts_at:$('promoStarts').value?new Date($('promoStarts').value).toISOString():null,
+   ends_at:$('promoEnds').value?new Date($('promoEnds').value).toISOString():null};
+  await api('/api/admin/promotions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  feedback('Promotion created; standard prices unchanged.');$('promoForm').reset();await load();
+ }catch(e){feedback(e.message,true)}
+});
 function renderStrategies(){
  const q=$('strategySearch').value.toLowerCase();$('strategyList').replaceChildren();
  for(const s of state.strategies.filter(x=>JSON.stringify(x).toLowerCase().includes(q))){
@@ -198,14 +235,14 @@ async function load(){
   if(me.account.must_change_password){location.assign('/password-setup');return}
   if(me.account.role!=='admin'){location.assign('/client');return}
   state.me=me.account;
-  const [clients,requests,strategies,plans,purchases]=await Promise.all([
-   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests')
+  const [clients,requests,strategies,plans,purchases,promotions]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions')
   ]);
-  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderStrategies();
+  renderStats();renderClients();renderRequests();renderPurchases();renderPromotions();renderStrategies();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){
@@ -342,7 +379,7 @@ async function revoke(id){
 }
 async function review(id,approve){
  try{await api('/api/admin/subscription-requests/'+id+'/review',{
-  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approve}),
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approve,verified}),
  });feedback('Request reviewed.');await load()}
  catch(error){feedback(error.message,true)}
 }
