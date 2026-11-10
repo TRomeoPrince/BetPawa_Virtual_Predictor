@@ -22,12 +22,13 @@ button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.
 <p><strong>Every plan:</strong> Morning · 5 matchdays | Afternoon · 5 matchdays | Evening · 5 matchdays — 15 matchdays per day.</p>
 <div class="grid"><section class="card"><h2>1. Choose and pay</h2>
 <label for="plan">Subscription plan</label><select id="plan"></select><div id="cost" class="details"></div>
+<label for="promo">Promo code (optional)</label><input id="promo" maxlength="32" placeholder="Enter promo code"><div id="promoStatus" class="hint" role="status"></div>
 <label for="method">Payment method / network</label><select id="method"></select><div id="details" class="details"></div>
 <p class="hint">Use the exact listed network for crypto transfers. Networks and wrapped assets are not interchangeable. Confirm the token amount with the administrator before sending crypto, because exchange rates and network fees vary. Transfers may be irreversible.</p>
 </section><section class="card"><h2>2. Submit payment proof</h2>
 <form id="purchaseForm">
-<label for="email">Email address for account activation</label><input id="email" type="email" required maxlength="260" autocomplete="email">
-<label for="username">Preferred username</label><input id="username" pattern="[A-Za-z0-9_.-]{3,40}" minlength="3" maxlength="40" required>
+<label for="email">Email (existing members: account email)</label><input id="email" type="email" required maxlength="260" autocomplete="email">
+<label for="username">Username (existing members: current username)</label><input id="username" pattern="[A-Za-z0-9_.-]{3,40}" minlength="3" maxlength="40" required>
 <label for="display">Display name</label><input id="display" maxlength="100">
 <label for="txref">Payment transaction reference / blockchain hash</label><input id="txref" minlength="5" maxlength="160" required>
 <label for="proof">Payment proof (JPG, PNG, WebP, PDF — 2 MB max)</label><input id="proof" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" required>
@@ -55,6 +56,7 @@ function render(){
 function refresh(){
  const plan=catalog.plans.find(p=>p.code===$('plan').value);
  $('cost').textContent=plan?plan.label+' · '+money(plan.price_ugx):'No plans have a configured price yet.';
+ refreshQuote();
  const method=catalog.methods.find(m=>m.code===$('method').value);if(!method)return;
  $('details').replaceChildren();
  const title=document.createElement('strong');title.textContent=method.label;
@@ -63,10 +65,32 @@ function refresh(){
  description.textContent=method.account?'Receiving name: '+method.name:'Only send this asset on the specified network.';
  $('details').append(title,address,description);
 }
+async function refreshQuote(){
+ const plan=$('plan').value, code=$('promo').value.trim();
+ if(!plan)return;
+ try{
+  const res=await fetch('/api/purchase/quote?plan_code='+encodeURIComponent(plan)+'&promo_code='+encodeURIComponent(code),{cache:'no-store'});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw Error(data.detail||'Unable to apply code.');
+  $('cost').textContent=(data.discount_ugx?'Regular '+money(data.regular_ugx)+' · Pay ':'Pay ')+money(data.price_ugx);
+  $('promoStatus').textContent=data.discount_ugx?'Discount: '+money(data.discount_ugx)+' off'+(data.promo_code?' using '+data.promo_code:' (automatic promotion)'):'No active promotion for this selection.';
+ }catch(e){$('promoStatus').textContent=e.message;$('cost').textContent='Promo code cannot be used. Correct it before paying.'}
+}
+$('promo').addEventListener('change',refreshQuote);
 $('plan').addEventListener('change',refresh);$('method').addEventListener('change',refresh);
 (async()=>{try{
  const response=await fetch('/api/purchase/catalog',{cache:'no-store'});if(!response.ok)throw Error('Unable to load plans.');
  catalog=await response.json();render();
+ const selected=new URLSearchParams(location.search).get('plan');
+ if(selected&&catalog.plans.some(p=>p.code===selected)){$('plan').value=selected;refresh()}
+ try{
+  const r=await fetch('/api/account/contact',{credentials:'same-origin'});
+  if(r.ok){const a=await r.json();$('username').value=a.username;$('username').readOnly=true;
+   $('display').value=a.display_name||a.username;
+   if(a.email){$('email').value=a.email;$('email').readOnly=true}
+   $('status').textContent='Signed in as @'+a.username+'. Verified payment upgrades this account.'}
+ }catch(e){}
+
  }catch(error){$('status').textContent=error.message;$('status').className='error'}})();
 $('purchaseForm').addEventListener('submit',async event=>{
  event.preventDefault();const status=$('status');status.textContent='';status.className='';
@@ -80,13 +104,13 @@ $('purchaseForm').addEventListener('submit',async event=>{
   });
   const body={email:$('email').value,username:$('username').value,display_name:$('display').value,
    plan_code:$('plan').value,payment_method:$('method').value,transaction_ref:$('txref').value,
-   age_confirmed:$('age').checked,proof_base64};
+   age_confirmed:$('age').checked,proof_base64,promo_code:$('promo').value.trim()};
   const response=await fetch('/api/purchase/requests',{method:'POST',
-   headers:{'Content-Type':'application/json'},credentials:'omit',body:JSON.stringify(body)});
+   headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)});
   const data=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(data.detail||'Unable to submit request.');
   $('purchaseForm').hidden=true;
-  status.textContent='Request '+data.reference+' received. Payment review is pending. If verified, you will receive an account activation link at your email address.';
+  status.textContent='Payment request '+data.reference+' received. VIP is granted only after verification. Existing members retain their account; new buyers receive an activation link.';
  }catch(error){status.textContent=error.message;status.className='error'}
  finally{button.disabled=false;button.textContent='Submit payment proof'}
 });
