@@ -4,7 +4,7 @@ This implementation is intentionally **not a payment gateway**. A receipt or tra
 
 ## Before accepting purchases
 
-Purchase requests are **disabled by default**. The page shows the plans and payment methods but will not accept submissions until the operator explicitly sets `PREDICTOR_PURCHASE_ENABLED=true` after testing and checking applicable requirements.
+Purchase requests are **open by default**. The page accepts payment claims as soon as the updated server restarts. To temporarily close submissions, set `PREDICTOR_PURCHASE_ENABLED=false` on the server before launch. Setting it to `true` explicitly also enables submissions. This is manual review only: receiving a claim does not grant VIP access.
 
 Before approval, enter the current HTTPS ngrok origin under Admin → Payment Requests → Current HTTPS website URL. This provides a private activation-link fallback when SMTP is unavailable.
 
@@ -12,12 +12,12 @@ Before approval, enter the current HTTPS ngrok origin under Admin → Payment Re
 
 - Open /purchase. Select an approved plan: Daily UGX 5,000, Weekly UGX 20,000, Monthly UGX 60,000, Yearly UGX 500,000, or Lifetime UGX 1,000,000. All plans include three sessions of five matchdays each per day (15 matchdays daily).
 - Select MTN or the exact coin/network, then transfer payment. Wallet addresses and the MTN number come from the owner's supplied instructions.
-- Enter email, preferred username, transaction reference and upload PNG/JPG/WebP/PDF proof (2 MB limit).
+- Enter email and username, then submit the transaction reference or an attached PNG/JPG/WebP/PDF receipt (2 MB limit). Customers can send either form of evidence, or both. Both blank is rejected. Matching transaction references and identical receipt files are blocked from reuse.
 - The request remains pending until manual verification. No automatic proof acceptance or subscription grant happens.
 
 ## Admin flow
 
-- Open /admin > Payment Requests. Download the proof; cross-check your actual MTN statement or blockchain explorer. Confirm correct amount, coin, chain, recipient, settlement/finality, and that it hasn't already been used.
+- Open /admin > Payment Requests. Review the submitted reference and/or download the proof when attached; cross-check your actual MTN statement or blockchain explorer. Confirm correct amount, coin, chain, recipient, settlement/finality, and that it hasn't already been used.
 - Select Approve verified only after settlement is confirmed. The system creates one account and a one-use 24-hour activation link.
 - If SMTP is configured and working, the activation link is emailed. Otherwise the system reports **email not sent** and shows an admin-only copyable HTTPS link. The admin may click Retry activation email, which rotates the link.
 - Reject unconfirmed or mismatched payments. Approval is not idempotently repeatable: a reviewed request cannot be approved again.
@@ -52,4 +52,5 @@ Port 587 uses STARTTLS; port 465 uses implicit TLS. Do not commit credentials in
 - The 25+ checkbox is not identity verification.
 - Proof files and payment details contain personal information: database files, backups and admin account access must be protected; determine a retention/deletion policy.
 - Crypto network variations and wrapped assets must be verified with the receiving wallet/provider; do not assume a matching address means that all assets are supported.
+- A transfer reference or screenshot on its own is not evidence of settlement. Operators must verify the full amount, correct destination and network using independent provider records.
 - No automated Stripe/Flutterwave, MTN or crypto transaction confirmation is claimed. No email is claimed sent unless SMTP returns success.
