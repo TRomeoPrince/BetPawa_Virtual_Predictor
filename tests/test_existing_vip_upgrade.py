@@ -63,9 +63,11 @@ class ExistingAccountUpgradeTests(unittest.TestCase):
             "approve": True, "verified": False,
         })
         self.assertEqual(denied.status_code, 400)
-        approved = self.admin.post("/api/admin/payment-requests/1/review", json={
-            "approve": True, "verified": True,
-        })
+        # No public domain or ngrok URL is needed to upgrade an existing member.
+        with patch.dict(os.environ, {"PREDICTOR_PUBLIC_BASE_URL": ""}):
+            approved = self.admin.post("/api/admin/payment-requests/1/review", json={
+                "approve": True, "verified": True,
+            })
         self.assertEqual(approved.status_code, 200, approved.text)
         self.assertTrue(approved.json()["existing_account"])
         self.assertEqual(approved.json()["client_account_id"], account_id)

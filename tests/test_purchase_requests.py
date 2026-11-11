@@ -219,6 +219,28 @@ class PurchaseRequestTests(unittest.TestCase):
         self.assertEqual(access.list_clients(),[])
         self.assertEqual(self.http.get("/api/admin/payment-requests").json()["requests"][0]["status"],"pending")
 
+    def test_new_customer_still_requires_https_activation_url(self):
+        self.http.post("/api/auth/logout")
+        self.assertEqual(self.http.post("/api/purchase/requests",json=self.payload()).status_code,200)
+        self.http.post("/api/auth/login",json={
+            "username":"admin","password":"ChangedAdminPassword2026!"
+        })
+        with patch.dict(os.environ,{"PREDICTOR_PUBLIC_BASE_URL":""}):
+            refused=self.http.post("/api/admin/payment-requests/1/review",json={
+                "approve":True,"verified":True
+            })
+        self.assertEqual(refused.status_code,400)
+        self.assertIn("HTTPS",refused.json()["detail"])
+        self.assertEqual(self.http.get("/api/admin/payment-requests").json()["requests"][0]["status"],"pending")
+        self.assertEqual(access.list_clients(),[])
+        accepted=self.http.post("/api/admin/payment-requests/1/review",json={
+            "approve":True,"verified":True,
+            "public_base_url":"https://public.example.org"
+        })
+        self.assertEqual(accepted.status_code,200,accepted.text)
+        self.assertIn("https://public.example.org/activate#",accepted.json()["activation_link"])
+
+
     def test_rejected_request_never_creates_account(self):
         self.http.post("/api/auth/logout")
         self.http.post("/api/purchase/requests",json=self.payload())

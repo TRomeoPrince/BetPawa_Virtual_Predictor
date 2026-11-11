@@ -11,6 +11,13 @@ FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 @unittest.skipUnless(shutil.which("node"), "Node.js not installed")
 class FrontendSyntaxTests(unittest.TestCase):
+    def test_admin_review_callbacks_have_explicit_verification(self):
+        source=(FRONTEND / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("async function review(id,approve){\n let verified=false;",source)
+        self.assertIn("body:JSON.stringify({approve,verified})",source)
+        self.assertIn("purchase.buyer_account_id==null",source)
+
+
     def test_inline_scripts_parse(self):
         for page in sorted(FRONTEND.glob("*.html")):
             scripts = re.findall(
