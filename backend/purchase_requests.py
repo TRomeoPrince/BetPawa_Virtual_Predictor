@@ -111,7 +111,7 @@ def prices():
     return result
 
 def purchase_enabled():
-    return os.getenv("PREDICTOR_PURCHASE_ENABLED","true").strip().lower() in ("1","true","yes","on")
+    return os.getenv("PREDICTOR_PURCHASE_ENABLED", "false" if os.getenv("RAILWAY_PROJECT_ID") else "true").strip().lower() in ("1","true","yes","on")
 
 
 def catalog():
