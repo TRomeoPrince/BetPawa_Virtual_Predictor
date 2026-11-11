@@ -25,16 +25,16 @@ button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.
 <label for="promo">Promo code (optional)</label><input id="promo" maxlength="32" placeholder="Enter promo code"><div id="promoStatus" class="hint" role="status"></div>
 <label for="method">Payment method / network</label><select id="method"></select><div id="details" class="details"></div>
 <p class="hint">Use the exact listed network for crypto transfers. Networks and wrapped assets are not interchangeable. Confirm the token amount with the administrator before sending crypto, because exchange rates and network fees vary. Transfers may be irreversible.</p>
-</section><section class="card"><h2>2. Submit payment proof</h2>
+</section><section class="card"><h2>2. Request verification</h2>
 <form id="purchaseForm">
 <label for="email">Email (existing members: account email)</label><input id="email" type="email" required maxlength="260" autocomplete="email">
 <label for="username">Username (existing members: current username)</label><input id="username" pattern="[A-Za-z0-9_.-]{3,40}" minlength="3" maxlength="40" required>
 <label for="display">Display name</label><input id="display" maxlength="100">
-<label for="txref">Payment transaction reference / blockchain hash</label><input id="txref" minlength="5" maxlength="160" required>
-<label for="proof">Payment proof (JPG, PNG, WebP, PDF — 2 MB max)</label><input id="proof" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" required>
+<label for="txref">Payment transaction reference / blockchain hash</label><input id="txref" minlength="5" maxlength="160">
+<label for="proof">Payment proof (JPG, PNG, WebP, PDF — 2 MB max)</label><input id="proof" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
 <label class="check"><input id="age" type="checkbox" required><span>I confirm I am 25 or older, my payment details are accurate and predictions do not guarantee outcomes.</span></label>
 <p class="note">A submitted receipt does not automatically grant access. The administrator must confirm the actual incoming payment. Do not upload passwords or identity documents.</p>
-<button id="submit" type="submit">Submit payment proof</button><p id="status" role="status"></p></form></section></div></main>
+<button id="submit" type="submit">Request payment verification</button><p id="status" role="status"></p></form></section></div></main>
 <script>
 const $=id=>document.getElementById(id);let catalog={plans:[],methods:[]};
 function money(n){return typeof n==='number'?'UGX '+n.toLocaleString('en-UG'):'Price unavailable'}
@@ -95,15 +95,21 @@ $('plan').addEventListener('change',refresh);$('method').addEventListener('chang
 $('purchaseForm').addEventListener('submit',async event=>{
  event.preventDefault();const status=$('status');status.textContent='';status.className='';
  const file=$('proof').files[0];
- if(!file||file.size>2000000){status.textContent='Choose a file smaller than 2 MB.';status.className='error';return}
+ const transactionRef=$('txref').value.trim();
+ if(file&&(file.size<50||file.size>2000000)){
+  status.textContent='Choose a valid proof file under 2 MB.';status.className='error';return;
+ }
+ if(!transactionRef&&!file){
+  status.textContent='Enter your payment confirmation details.';status.className='error';return;
+ }
  const button=$('submit');button.disabled=true;button.textContent='Submitting…';
  try{
-  const proof_base64=await new Promise((resolve,reject)=>{
+  const proof_base64=file?await new Promise((resolve,reject)=>{
    const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');
    reader.onerror=()=>reject(Error('Unable to read payment proof.'));reader.readAsDataURL(file);
-  });
+  }):'';
   const body={email:$('email').value,username:$('username').value,display_name:$('display').value,
-   plan_code:$('plan').value,payment_method:$('method').value,transaction_ref:$('txref').value,
+   plan_code:$('plan').value,payment_method:$('method').value,transaction_ref:transactionRef,
    age_confirmed:$('age').checked,proof_base64,promo_code:$('promo').value.trim()};
   const response=await fetch('/api/purchase/requests',{method:'POST',
    headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)});
@@ -112,6 +118,6 @@ $('purchaseForm').addEventListener('submit',async event=>{
   $('purchaseForm').hidden=true;
   status.textContent='Payment request '+data.reference+' received. VIP is granted only after verification. Existing members retain their account; new buyers receive an activation link.';
  }catch(error){status.textContent=error.message;status.className='error'}
- finally{button.disabled=false;button.textContent='Submit payment proof'}
+ finally{button.disabled=false;button.textContent='Request payment verification'}
 });
 </script></body></html>

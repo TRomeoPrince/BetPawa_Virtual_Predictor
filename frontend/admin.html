@@ -153,11 +153,11 @@ function renderPurchases(){
   tr.append(
    td(p.display_name+' (@'+p.requested_username+') · '+p.email),
    td(p.plan_code+' · '+(p.expected_ugx===null?'No price':'UGX '+p.expected_ugx)),
-   td(p.payment_method+' · '+p.transaction_ref),
+   td(p.payment_method+' · '+(p.transaction_ref||'Receipt attached')),
    td(p.status.toUpperCase()+' · Email: '+p.email_status)
   );
   const actions=td('');
-  actions.append(button('Download proof','',()=>window.open('/api/admin/payment-requests/'+p.id+'/proof','_blank','noopener')));
+  if(p.proof_size>0)actions.append(button('Download proof','',()=>window.open('/api/admin/payment-requests/'+p.id+'/proof','_blank','noopener')));
   if(p.status==='pending'){
    actions.append(button('Approve verified','primary',()=>reviewPurchase(p.id,true)));
    actions.append(button('Reject','danger',()=>reviewPurchase(p.id,false)));
