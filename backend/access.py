@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,8 @@ PLAN_DEFINITIONS = {
     "monthly": {"label": "Monthly", "days": 30, "public": True},
     "quarterly": {"label": "3 Months", "days": 90, "public": True},
     "half_year": {"label": "6 Months", "days": 180, "public": True},
-    "annual": {"label": "Annual", "days": 365, "public": True},
+    "annual": {"label": "Yearly", "days": 365, "public": True},
+    "lifetime": {"label": "Lifetime", "days": None, "public": True},
 }
 
 
@@ -151,11 +153,12 @@ def _account_with_subscription(con, row) -> dict[str, Any] | None:
     }
 
     expires = _parse(subscription.get("expires_at"))
+    is_lifetime = subscription.get("plan_code") == "lifetime"
     active = (
         account.get("status") == "active"
         and subscription.get("status") == "active"
-        and expires is not None
-        and expires > _now()
+        and ((is_lifetime and subscription.get("expires_at") is None)
+             or (expires is not None and expires > _now()))
     )
     if account.get("role") == "admin" and account.get("status") == "active":
         active = True
@@ -169,7 +172,7 @@ def _account_with_subscription(con, row) -> dict[str, Any] | None:
     subscription.update({
         "is_active": active,
         "remaining_seconds": remaining_seconds,
-        "plan_label": plan["label"] if plan else (plan_code or "No plan"),
+        "plan_label": plan["label"] if plan else ("Custom expiry" if plan_code == "custom_date" else (plan_code or "No plan")),
     })
     account["subscription"] = subscription
     account["must_change_password"] = bool(account.get("must_change_password"))
@@ -268,17 +271,60 @@ def delete_session(raw_token: str | None):
 
 
 def change_password(account_id: int, current_password: str, new_password: str):
+    """Complete first-login setup or rotate a password; invalidate old sessions."""
     con = connect()
-    row = con.execute("SELECT password_hash FROM accounts WHERE id=?", (account_id,)).fetchone()
-    if not row or not verify_password(current_password, row["password_hash"]):
+    try:
+        row = con.execute(
+            "SELECT password_hash, role FROM accounts WHERE id=? AND status='active'",
+            (account_id,),
+        ).fetchone()
+        if not row or not verify_password(current_password, row["password_hash"]):
+            raise ValueError("Current password is incorrect.")
+        minimum = 12 if row["role"] == "admin" else 8
+        if not minimum <= len(new_password) <= 128:
+            raise ValueError(f"New password must be {minimum} to 128 characters long.")
+        if hmac.compare_digest(current_password, new_password):
+            raise ValueError("Choose a different password from your temporary one.")
+        con.execute(
+            "UPDATE accounts SET password_hash=?, must_change_password=0 WHERE id=?",
+            (hash_password(new_password), account_id),
+        )
+        con.execute("DELETE FROM sessions WHERE account_id=?", (account_id,))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (account_id, account_id, "CHANGE_PASSWORD", None, _iso(_now())),
+        )
+        con.commit()
+    finally:
         con.close()
-        raise ValueError("Current password is incorrect.")
-    con.execute(
-        "UPDATE accounts SET password_hash=?, must_change_password=0 WHERE id=?",
-        (hash_password(new_password), account_id),
-    )
-    con.commit()
-    con.close()
+
+
+def reset_client_password(account_id: int, admin_id: int) -> str:
+    """Admin issues a new one-time temporary password, never stored in plaintext."""
+    temp_password = secrets.token_urlsafe(18)
+    con = connect()
+    try:
+        row = con.execute(
+            "SELECT id FROM accounts WHERE id=? AND role='client'",
+            (account_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Client not found.")
+        con.execute(
+            "UPDATE accounts SET password_hash=?, must_change_password=1 WHERE id=?",
+            (hash_password(temp_password), account_id),
+        )
+        con.execute("DELETE FROM sessions WHERE account_id=?", (account_id,))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (admin_id, account_id, "RESET_CLIENT_PASSWORD", None, _iso(_now())),
+        )
+        con.commit()
+    finally:
+        con.close()
+    return temp_password
 
 
 def create_client(
@@ -286,25 +332,46 @@ def create_client(
     display_name: str,
     plan_code: str | None = None,
     created_by: int | None = None,
+    chosen_password: str | None = None,
+    expires_at: str | None = None,
 ) -> tuple[dict[str, Any], str]:
     username = username.strip()
     display_name = display_name.strip() or username
-    if len(username) < 3:
-        raise ValueError("Username must be at least 3 characters.")
-    temp_password = secrets.token_urlsafe(9)
+    # Only the explicitly named shared trial account may contain a space.
+    if username != "PUBLIC TRIAL" and not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}", username):
+        raise ValueError("Username must be 3–40 characters: letters, numbers, dots, underscores or hyphens (or PUBLIC TRIAL).")
+    if chosen_password is not None:
+        if username != "PUBLIC TRIAL":
+            raise ValueError("Admin-set passwords are available only for PUBLIC TRIAL.")
+        if not 12 <= len(chosen_password) <= 128:
+            raise ValueError("Public trial password must contain 12 to 128 characters.")
+    if username == "PUBLIC TRIAL" and chosen_password is None:
+        raise ValueError("Set a password for PUBLIC TRIAL.")
+    if len(display_name) > 100:
+        raise ValueError("Display name must be 100 characters or less.")
+    if plan_code and plan_code not in PLAN_DEFINITIONS:
+        raise ValueError("Unknown subscription plan.")
+    # Validate before inserting an account.
+    if expires_at is not None:
+        _validate_expiry(expires_at)
+    temp_password = chosen_password if chosen_password is not None else secrets.token_urlsafe(18)
     now = _iso(_now())
     con = connect()
     try:
+        if con.execute(
+            "SELECT 1 FROM accounts WHERE lower(username)=lower(?) LIMIT 1", (username,),
+        ).fetchone():
+            raise ValueError("That username already exists.")
         cur = con.execute(
             """
             INSERT INTO accounts
               (user_key, username, display_name, password_hash, role, status,
                must_change_password, created_at)
-            VALUES (?, ?, ?, ?, 'client', 'active', 1, ?)
+            VALUES (?, ?, ?, ?, 'client', 'active', ?, ?)
             """,
             (
                 secrets.token_hex(16), username, display_name,
-                hash_password(temp_password), now,
+                hash_password(temp_password), 0 if chosen_password is not None else 1, now,
             ),
         )
         account_id = int(cur.lastrowid)
@@ -319,13 +386,66 @@ def create_client(
         con.commit()
     except sqlite3.IntegrityError:
         con.rollback()
-        con.close()
         raise ValueError("That username already exists.")
+    finally:
+        con.close()
 
-    con.close()
-    if plan_code:
+    if expires_at is not None:
+        set_subscription_expiry(account_id, expires_at, plan_code or "custom_date",
+                                actor_account_id=created_by)
+    elif plan_code:
         grant_subscription(account_id, plan_code, actor_account_id=created_by)
     return get_account(account_id), temp_password
+
+
+def delete_client(account_id: int, admin_id: int) -> None:
+    """Permanently delete only one client and all account-scoped private data."""
+    from . import db, picks
+    # Ensure optional journal and predictor tables exist before transaction.
+    jcon = picks.connect_journal()
+    jcon.close()
+    dcon = db.connect()
+    dcon.close()
+    from . import access_links, growth, purchase_requests
+    lcon = access_links.connect()
+    lcon.close()
+    gcon = growth.connect()
+    gcon.close()
+    pcon = purchase_requests.connect()
+    pcon.close()
+    con = connect()
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        row = con.execute(
+            "SELECT user_key FROM accounts WHERE id=? AND role='client'",
+            (account_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Client not found.")
+        for table in ("user_prediction_batches", "user_predictions",
+                      "prediction_supports", "client_bet_journal"):
+            con.execute(f"DELETE FROM {table} WHERE user_id=?", (row["user_key"],))
+        con.execute("UPDATE referral_profiles SET referred_by=NULL WHERE referred_by=?", (account_id,))
+        con.execute("DELETE FROM referral_profiles WHERE account_id=?", (account_id,))
+        con.execute("UPDATE purchase_requests SET buyer_account_id=NULL WHERE buyer_account_id=?", (account_id,))
+        con.execute("UPDATE purchase_requests SET client_account_id=NULL WHERE client_account_id=?", (account_id,))
+        for table in ("sessions", "subscriptions", "subscription_requests",
+                      "client_access_links"):
+            con.execute(f"DELETE FROM {table} WHERE account_id=?", (account_id,))
+        con.execute("UPDATE access_audit SET actor_account_id=NULL WHERE actor_account_id=?", (account_id,))
+        con.execute("UPDATE access_audit SET target_account_id=NULL,details=NULL WHERE target_account_id=?", (account_id,))
+        con.execute("DELETE FROM accounts WHERE id=?", (account_id,))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,NULL,'DELETE_CLIENT',NULL,?)",
+            (admin_id, _iso(_now())),
+        )
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
 
 
 def get_account(account_id: int) -> dict[str, Any] | None:
@@ -346,6 +466,58 @@ def list_clients() -> list[dict[str, Any]]:
     return [x for x in out if x]
 
 
+def _validate_expiry(value: str) -> datetime:
+    try:
+        dt = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise ValueError("Enter a valid expiry date with a timezone.")
+    if dt.tzinfo is None or dt.utcoffset() is None:
+        raise ValueError("Expiry date must include a timezone offset.")
+    dt = dt.astimezone(timezone.utc)
+    now = _now()
+    if dt <= now:
+        raise ValueError("Expiry date must be in the future.")
+    if dt > now + timedelta(days=3650):
+        raise ValueError("Expiry date cannot be more than 10 years ahead.")
+    return dt
+
+
+def set_subscription_expiry(
+    account_id: int,
+    expires_at: str,
+    plan_code: str = "custom_date",
+    actor_account_id: int | None = None,
+):
+    """Set a precise absolute expiry, replacing—not extending—the current one."""
+    expires = _validate_expiry(expires_at)
+    if plan_code != "custom_date" and plan_code not in PLAN_DEFINITIONS:
+        raise ValueError("Unknown subscription plan.")
+    now = _now()
+    con = connect()
+    try:
+        row = con.execute("SELECT role FROM accounts WHERE id=?", (account_id,)).fetchone()
+        if not row or row["role"] != "client":
+            raise ValueError("Client not found.")
+        con.execute("""
+            INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
+            VALUES(?,?,?,?, 'active', ?)
+            ON CONFLICT(account_id) DO UPDATE SET
+              plan_code=excluded.plan_code,
+              starts_at=excluded.starts_at,
+              expires_at=excluded.expires_at,
+              status='active',
+              updated_at=excluded.updated_at
+        """, (account_id, plan_code, _iso(now), _iso(expires), _iso(now)))
+        con.execute(
+            "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (actor_account_id, account_id, "SET_SUBSCRIPTION_EXPIRY", _iso(expires), _iso(now)),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
 def grant_subscription(
     account_id: int,
     plan_code: str,
@@ -361,7 +533,7 @@ def grant_subscription(
         plan = PLAN_DEFINITIONS.get(plan_code)
         if not plan:
             raise ValueError("Unknown subscription plan.")
-        days = int(plan["days"])
+        days = int(plan["days"]) if plan["days"] is not None else None
         label = plan["label"]
 
     con = connect()
@@ -373,8 +545,8 @@ def grant_subscription(
     row = con.execute("SELECT expires_at FROM subscriptions WHERE account_id=?", (account_id,)).fetchone()
     current_expiry = _parse(row["expires_at"]) if row else None
     now = _now()
-    starts = current_expiry if current_expiry and current_expiry > now else now
-    expires = starts + timedelta(days=days)
+    starts = current_expiry if days is not None and current_expiry and current_expiry > now else now
+    expires = starts + timedelta(days=days) if days is not None else None
     con.execute(
         """
         INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
@@ -386,7 +558,7 @@ def grant_subscription(
           status='active',
           updated_at=excluded.updated_at
         """,
-        (account_id, plan_code, _iso(starts), _iso(expires), _iso(now)),
+        (account_id, plan_code, _iso(starts), _iso(expires) if expires else None, _iso(now)),
     )
     con.execute(
         "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) VALUES(?,?,?,?,?)",
@@ -431,6 +603,22 @@ def request_subscription(account_id: int, plan_code: str) -> dict[str, Any]:
     req = con.execute("SELECT * FROM subscription_requests WHERE id=?", (cur.lastrowid,)).fetchone()
     con.close()
     return dict(req)
+
+
+def list_account_subscription_requests(account_id: int) -> list[dict[str, Any]]:
+    """Return only the signed-in account's recent requests."""
+    con = connect()
+    rows = con.execute(
+        """
+        SELECT id, plan_code, status, requested_at, reviewed_at
+        FROM subscription_requests
+        WHERE account_id=?
+        ORDER BY id DESC LIMIT 5
+        """,
+        (account_id,),
+    ).fetchall()
+    con.close()
+    return [dict(row) for row in rows]
 
 
 def list_subscription_requests() -> list[dict[str, Any]]:

@@ -20,4 +20,4 @@ COPY . .
 RUN mkdir -p /var/data
 
 EXPOSE 10000
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-10000}"]
+CMD ["sh", "-c", "python -m backend.deployment_preflight && exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-10000}"]

@@ -1,18 +1,475 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin · BetPawa Predictor</title>
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f5f9f1"><title>Admin Console · BetPawa Predictor</title>
 <style>
-:root{--bg:#071019;--panel:#101a25;--panel2:#0b141e;--line:#243446;--txt:#f7f9fc;--muted:#9db0c3;--accent:#b8ef4c;--green:#63e29a;--amber:#ffd166;--red:#ff8181}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1250px;margin:auto;padding:24px 18px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.brand{font-size:32px;font-weight:950}.btn{border:1px solid var(--line);background:#172536;color:var(--txt);border-radius:10px;padding:9px 12px;font-weight:850;cursor:pointer}.btn.primary{background:var(--accent);color:#11180a;border-color:var(--accent)}.btn.danger{background:#2a1417;color:var(--red)}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tabs button.active{background:var(--accent);color:#11180a}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:14px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:14px}.stat b{font-size:24px;display:block}.muted{color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{color:var(--muted)}input,select{background:#0b141e;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px}.form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.pill{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900}.good{background:#102619;color:var(--green)}.bad{background:#2a1417;color:var(--red)}.pending{background:#2b250e;color:var(--amber)}.hidden{display:none}.strategy{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:13px;margin:8px 0}.strategy h4{margin:0 0 5px}.code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);font-size:12px}@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:520px){.grid{grid-template-columns:1fr}}
-</style></head><body><main class="wrap"><div class="top"><div><div class="brand">Admin Console</div><div class="muted">Private strategies, clients and subscriptions</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" onclick="logout()">Sign out</button></div></div>
-<div class="tabs"><button class="btn active" data-tab="overview">Overview</button><button class="btn" data-tab="clients">Clients</button><button class="btn" data-tab="requests">Requests</button><button class="btn" data-tab="strategies">Strategies</button><button class="btn" data-tab="security">Security</button></div>
-<section id="overview" class="tab panel"><div id="stats" class="grid"></div></section><section id="clients" class="tab panel hidden"><h3>Create client</h3><div class="form"><input id="newUser" placeholder="Username"><input id="newName" placeholder="Display name"><select id="newPlan"><option value="">No plan</option></select><button class="btn primary" onclick="createClient()">Create client</button></div><div id="tempPass" class="muted"></div><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Status</th><th>Grant/extend</th></tr></thead><tbody id="clientRows"></tbody></table></div></section>
-<section id="requests" class="tab panel hidden"><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
-<section id="strategies" class="tab panel hidden"><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID..." oninput="renderStrategies()"></div><div id="strategyList"></div></section>
-<section id="security" class="tab panel hidden"><h3>Admin password</h3><div class="form"><input id="currentPassword" type="password" placeholder="Current password"><input id="newPassword" type="password" placeholder="New password"><button class="btn primary" onclick="changePassword()">Change</button></div></section>
-</main><script>
-let state={clients:[],requests:[],strategies:[],plans:[],me:null};async function api(url,opt){const r=await fetch(url,opt);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||'Request failed');return d}document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));document.querySelector('#'+b.dataset.tab).classList.remove('hidden')});const fmt=d=>d?new Date(d).toLocaleString():'—';
-async function load(){try{const me=await api('/api/auth/me');if(me.account.role!=='admin'){location.href='/client';return}state.me=me.account;const [c,r,s,p]=await Promise.all([api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans')]);state.clients=c.clients;state.requests=r.requests;state.strategies=s.strategies;state.plans=p.plans;newPlan.innerHTML='<option value="">No plan</option>'+state.plans.map(x=>'<option value="'+x.code+'">'+x.label+'</option>').join('');stats.innerHTML='<div class="stat"><b>'+c.clients.length+'</b><span class="muted">Clients</span></div><div class="stat"><b>'+c.clients.filter(x=>x.subscription.is_active).length+'</b><span class="muted">Active subscriptions</span></div><div class="stat"><b>'+r.requests.filter(x=>x.status==='pending').length+'</b><span class="muted">Pending requests</span></div><div class="stat"><b>'+s.strategies.length+'</b><span class="muted">Private strategies</span></div>';renderClients();renderRequests();renderStrategies()}catch(e){location.href='/login'}}
-function renderClients(){clientRows.innerHTML=state.clients.map(c=>'<tr><td><b>'+c.display_name+'</b><br><span class="muted">@'+c.username+'</span></td><td>'+c.subscription.plan_label+'</td><td>'+fmt(c.subscription.expires_at)+'</td><td><span class="pill '+(c.subscription.is_active?'good':'bad')+'">'+(c.subscription.is_active?'ACTIVE':'INACTIVE')+'</span></td><td><select id="plan-'+c.id+'">'+state.plans.map(p=>'<option value="'+p.code+'">'+p.label+'</option>').join('')+'<option value="custom">Custom</option></select> <input id="days-'+c.id+'" style="width:85px" type="number" min="1" placeholder="days"> <button class="btn primary" onclick="grant('+c.id+')">Grant</button> <button class="btn danger" onclick="revoke('+c.id+')">Revoke</button></td></tr>').join('')}
-function renderRequests(){requestRows.innerHTML=state.requests.map(r=>'<tr><td>'+r.display_name+'<br><span class="muted">@'+r.username+'</span></td><td>'+fmt(r.requested_at)+'</td><td>'+r.plan_code+'</td><td><span class="pill '+(r.status==='pending'?'pending':r.status==='approved'?'good':'bad')+'">'+r.status.toUpperCase()+'</span></td><td>'+(r.status==='pending'?'<button class="btn primary" onclick="review('+r.id+',true)">Approve</button> <button class="btn danger" onclick="review('+r.id+',false)">Reject</button>':'')+'</td></tr>').join('')}
-function renderStrategies(){const q=(strategySearch.value||'').toLowerCase();strategyList.innerHTML=state.strategies.filter(s=>JSON.stringify(s).toLowerCase().includes(q)).map(s=>'<div class="strategy"><h4>'+s.strategy_name+' <span class="pill good">'+s.strategy_family+'</span></h4><div class="code">'+s.rule_id+'</div><div>'+s.league+' · '+s.market+' · '+(s.win_rate*100).toFixed(2)+'% ('+s.wins+'/'+s.tests+')</div><div class="muted">Trigger: '+s.trigger+'</div><div class="muted">Baseline '+(s.baseline*100).toFixed(2)+'% · Edge '+s.edge_pp+'pp · Positive seasons '+(s.positive_seasons||'—')+'</div></div>').join('')}
-async function createClient(){try{const d=await api('/api/admin/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:newUser.value,display_name:newName.value,plan_code:newPlan.value||null})});tempPass.textContent='Temporary password for '+d.account.username+': '+d.temporary_password+' — copy it now.';await load()}catch(e){alert(e.message)}}async function grant(id){const plan=document.querySelector('#plan-'+id).value;const days=Number(document.querySelector('#days-'+id).value||0);try{await api('/api/admin/clients/'+id+'/subscription',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_code:plan,custom_days:plan==='custom'?days:null})});await load()}catch(e){alert(e.message)}}async function revoke(id){if(!confirm('Revoke this subscription?'))return;await api('/api/admin/clients/'+id+'/subscription/revoke',{method:'POST'});await load()}async function review(id,approve){await api('/api/admin/subscription-requests/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approve})});await load()}async function changePassword(){try{await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:currentPassword.value,new_password:newPassword.value})});alert('Password changed.');currentPassword.value='';newPassword.value=''}catch(e){alert(e.message)}}async function logout(){await fetch('/api/auth/logout',{method:'POST'});location.href='/login'}load();
+:root{--bg:#f5f9f1;--panel:#fff;--soft:#f0f7ed;--line:#d5e5d3;--ink:#173c2b;--muted:#63796d;--green:#17694c;--red:#a62e41}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1230px;margin:auto;padding:26px 20px 65px}.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px}.brand{font-size:30px;font-weight:950;letter-spacing:-.045em}.muted{color:var(--muted);line-height:1.6}.btn{display:inline-block;border:1px solid var(--line);background:#f2f8ef;color:var(--ink);border-radius:10px;padding:10px 13px;font-weight:850;cursor:pointer;font-size:13px;text-decoration:none}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.btn.danger{background:#fff0f0;color:var(--red)}.btn:disabled{opacity:.55;cursor:wait}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}.tabs button.active{background:var(--green);color:#fff}.panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:23px;margin-top:14px;box-shadow:0 10px 30px #163b2810}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px}.stat b{font-size:27px;display:block}.stat span{font-size:13px;color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{color:var(--muted)}input,select{background:#fff;color:var(--ink);border:1px solid #c9ddca;border-radius:9px;padding:11px;font:inherit;font-size:14px}.form{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0 20px}.form input{min-width:170px}.pill{display:inline-block;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900}.good{background:#e1f3e3;color:var(--green)}.bad{background:#ffe5e5;color:var(--red)}.pending{background:#fff0d2;color:#9c670c}.hidden{display:none!important}.strategy{background:var(--soft);border:1px solid var(--line);border-radius:13px;padding:15px;margin:9px 0}.strategy h4{margin:0 0 7px}.code{font-family:ui-monospace,Consolas,monospace;color:var(--green);font-size:12px}.guide{background:#e9f5e4;border:1px solid #c5dfc2;border-radius:14px;padding:16px 19px;line-height:1.7;margin:15px 0}.credentialBox{border:2px solid #a4cba2;background:#f5fcf1;border-radius:17px;padding:20px;margin:18px 0 25px}.credentialBox h3{margin:0 0 7px}.credentialBox label{display:block;font-size:12px;font-weight:850;margin:14px 0 5px}.credentialBox input{width:min(480px,100%);background:#fff;font-family:ui-monospace,Consolas,monospace;font-size:15px}.credentialActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.hint{font-size:12px;color:var(--muted);line-height:1.7}.actionsRow{display:flex;gap:6px;flex-wrap:wrap}.status{min-height:19px;color:var(--green);font-size:13px;font-weight:750;margin:12px 0}.status.error{color:var(--red)}:focus-visible{outline:3px solid #91d5aa;outline-offset:3px}@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:530px){.grid{grid-template-columns:1fr}.wrap{padding:18px 12px}.panel{padding:16px}.brand{font-size:25px}.form input,.form select,.form button{width:100%}}
+</style></head><body>
+<main class="wrap">
+<header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
+<nav class="tabs" aria-label="Admin sections">
+<button type="button" class="btn" data-tab="overview">Overview</button>
+<button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
+<button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
+<button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
+<button type="button" class="btn" data-tab="security">Security</button>
+</nav>
+<section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
+<section id="clients" class="tab panel">
+<h2>Invite a client or tester</h2>
+<div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a one-use activation link (24 hours). After activation, issue a reusable personal sign-in link (90 days) if desired. Anyone possessing an active link can enter that client's account. Use <strong>Reset password</strong> if they forget it. Public signup is open for free memberships.</div>
+<div class="form"><input id="publicTesterUrl" type="url" placeholder="Public ngrok HTTPS URL (optional)" aria-label="Public tester URL" style="min-width:min(100%,380px)"></div>
+<p class="hint">If you are administering from localhost, paste your ngrok HTTPS forwarding URL above so copied invitations contain the correct remote login link. Otherwise, the current website address is used.</p>
+<div class="form">
+<input id="newUser" placeholder="Username (e.g., tester01)" autocomplete="off" aria-label="Username">
+<input id="newName" placeholder="Display name" autocomplete="off" aria-label="Display name">
+<select id="newPlan" aria-label="Subscription plan"><option value="">No plan</option></select>
+<input id="newPassword" type="password" placeholder="PUBLIC TRIAL password (12+)" autocomplete="new-password" aria-label="Public trial password" minlength="12" maxlength="128">
+<input id="newExpiry" type="datetime-local" aria-label="Custom expiry date and time" title="Absolute expiry (your computer's local timezone)">
+<button class="btn primary" type="button" id="createClientButton">Create client</button>
+<p class="hint">For a shared public trial, use username <strong>PUBLIC TRIAL</strong>, choose your own strong password and set the exact expiry date/time. Other clients retain the normal temporary-password and activation-link flow. Date/time uses your computer's timezone (EAT in Uganda).</p>
+</div>
+<div id="tempPass" class="credentialBox hidden" role="status" aria-live="polite">
+<h3 id="credentialsHeading">Client invitation created</h3>
+<p class="hint">You can send the full invitation with credentials, or copy the direct link separately. Keep both private.</p>
+<label for="issuedUsername">Username</label><input id="issuedUsername" readonly>
+<label for="issuedPassword">Temporary password (one-time display)</label><input id="issuedPassword" readonly>
+<label for="issuedLink">Direct activation or sign-in link</label><input id="issuedLink" readonly>
+<div class="credentialActions"><button type="button" class="btn primary" id="copyInvitation">Copy full invitation</button><button type="button" class="btn" id="copyDirectLink">Copy direct link</button><button type="button" class="btn" id="copyPassword">Copy password</button><button type="button" class="btn" id="closeCredentials">Done</button></div>
+<p id="copyStatus" class="hint"></p>
+</div>
+<h3>Manage clients</h3>
+<div style="overflow:auto"><table><thead><tr><th>Client</th><th>Plan</th><th>Expires</th><th>Access</th><th>Client links</th><th>Grant / revoke</th><th>Delete</th></tr></thead><tbody id="clientRows"></tbody></table></div>
+</section>
+<section id="requests" class="tab panel hidden"><h2>Subscription requests</h2><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
+<section id="purchases" class="tab panel hidden"><h2>Customer payment requests</h2>
+<p class="hint">Check your actual receiving MTN account or wallet before approving. A screenshot alone does not establish settlement. Email delivery requires SMTP configuration.</p>
+<label for="purchasePublicUrl">Public HTTPS website URL (needed for new customer activation links)</label><input id="purchasePublicUrl" type="url" placeholder="https://your-domain.ngrok-free.dev" style="width:min(100%,560px)" title="Used to build activation links even when SMTP is unavailable">
+<div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Plan</th><th>Payment</th><th>Status</th><th>Review</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
+<p id="purchaseNotice" class="hint"></p><label for="manualActivationLink">Email unavailable? Private activation link for manual sending</label><input id="manualActivationLink" readonly style="width:min(100%,740px)">
+</section>
+<section id="free-releases" class="tab panel hidden">
+<h2>Public Free access</h2>
+<p class="hint">You control every release. No free matchdays are published automatically or daily. Each release allows up to five upcoming matchdays from the EPL and Dutch virtual leagues, using the existing predictor. Public users see only whether access is currently open, not your timetable.</p>
+<div class="form">
+<label>Schedule a release (your device's local timezone) <input type="datetime-local" id="freeStart" aria-label="Free release start time"></label>
+<button id="scheduleFree" type="button" class="btn primary">Schedule free release</button>
+<button id="openFreeNow" type="button" class="btn">Open free access now</button>
+</div>
+<p class="hint">An enabled release opens at the chosen time and closes automatically after its five estimated matchdays. You can disable it early or delete it. Start times may be unpredictable and do not recur.</p>
+<div style="overflow:auto"><table><thead><tr><th>Start (EAT)</th><th>End (EAT)</th><th>Status</th><th>Controls</th></tr></thead><tbody id="freeReleaseRows"></tbody></table></div>
+</section>
+<section id="promotions" class="tab panel hidden">
+<h2>VIP promotions and promo codes</h2><p class="hint">Blank code means automatic discount. Code-filled means coupon-only. Disable an offer to restore the normal price.</p>
+<form id="promoForm" class="form">
+<label>Plan <select id="promoPlan"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="annual">Yearly</option><option value="lifetime">Lifetime</option></select></label>
+<label>Promo price UGX <input id="promoPrice" type="number" min="1" max="99999999" placeholder="5000" required></label>
+<label>Code (optional) <input id="promoCode" maxlength="32" placeholder="WEEKLY5K"></label>
+<label>Start (optional) <input id="promoStarts" type="datetime-local"></label>
+<label>End (optional) <input id="promoEnds" type="datetime-local"></label>
+<button class="btn primary" type="submit">Create promotion</button></form>
+<h3>Promotions</h3><div style="overflow:auto"><table><thead><tr><th>Plan</th><th>Code</th><th>Price</th><th>Window</th><th>Status</th><th>Action</th></tr></thead><tbody id="promoRows"></tbody></table></div></section>
+<section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
+<section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],me:null},issued=null;
+function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
+async function api(url,options){
+ const response=await fetch(url,{credentials:'same-origin',...options});
+ const data=await response.json().catch(()=>({}));
+ if(response.status===401){location.assign('/login');throw new Error('Please sign in.')}
+ if(response.status===403&&String(data.detail||'').includes('Password setup')){location.assign('/password-setup');throw new Error('Password setup required.')}
+ if(!response.ok)throw new Error(data.detail||'Request failed.');
+ return data;
+}
+function fmt(value){return value?new Date(value).toLocaleString():'—'}
+function td(text){const e=document.createElement('td');e.textContent=text;return e}
+function button(text,kind,callback){
+ const e=document.createElement('button');e.type='button';e.className='btn '+(kind||'');e.textContent=text;e.addEventListener('click',callback);return e;
+}
+function showTab(name){
+ document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+ document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('hidden',el.id!==name));
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function renderStats(){
+ const counts=[['Clients',state.clients.length],['Active subscriptions',state.clients.filter(x=>x.subscription.is_active).length],['Pending requests',state.requests.filter(x=>x.status==='pending').length],['Private strategies',state.strategies.length]];
+ $('stats').replaceChildren();
+ for(const [label,value] of counts){
+  const card=document.createElement('div');card.className='stat';
+  const b=document.createElement('b');b.textContent=value;
+  const span=document.createElement('span');span.textContent=label;card.append(b,span);$('stats').append(card);
+ }
+}
+function renderClients(){
+ $('clientRows').replaceChildren();
+ for(const c of state.clients){
+  const tr=document.createElement('tr');
+  const person=td('');const name=document.createElement('b');name.textContent=c.display_name;
+  const user=document.createElement('div');user.className='muted';user.textContent='@'+c.username;person.append(name,user);
+  tr.append(person,td(c.subscription.plan_label),td(fmt(c.subscription.expires_at)));
+  const access=td('');const pill=document.createElement('span');
+  pill.className='pill '+(c.subscription.is_active?'good':'bad');
+  pill.textContent=c.subscription.is_active?'ACTIVE':'INACTIVE';access.append(pill);tr.append(access);
+  const password=td('');const label=document.createElement('div');label.className='muted';
+  label.textContent=c.must_change_password?'Activation pending':'Account activated';
+  password.append(label,button('Reset password','',()=>resetClient(c.id,c.username)));
+   password.append(button(c.must_change_password?'New activation link':'Generate / rotate personal link','',()=>issueLink(c.id,c.username,c.must_change_password?'activation':'login')));
+   password.append(button('Revoke personal link','danger',()=>revokeLink(c.id,c.username)));tr.append(password);
+  const actions=td('');actions.className='actionsRow';
+  const plan=document.createElement('select');plan.id='plan-'+c.id;
+  for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;plan.append(opt)}
+  const custom=document.createElement('option');custom.value='custom';custom.textContent='Custom days';plan.append(custom);
+  const days=document.createElement('input');days.id='days-'+c.id;days.style.width='86px';days.type='number';days.min='1';days.placeholder='days';
+  const setDate=document.createElement('input');setDate.id='expiry-'+c.id;setDate.type='datetime-local';setDate.title='Set exact expiry (local timezone)';
+   setDate.style.maxWidth='210px';
+   actions.append(plan,days,button('Grant','primary',()=>grant(c.id)),setDate,
+                  button('Set expiry','',()=>setExpiry(c.id)),
+                  button('Revoke','danger',()=>revoke(c.id)));
+  tr.append(actions);
+   const deletion=td('');
+   deletion.append(button('Delete client','danger',()=>deleteClient(c.id,c.username)));
+   tr.append(deletion);$('clientRows').append(tr);
+ }
+}
+function renderRequests(){
+ $('requestRows').replaceChildren();
+ for(const r of state.requests){
+  const tr=document.createElement('tr');
+  tr.append(td(r.display_name+' (@'+r.username+')'),td(fmt(r.requested_at)),td(r.plan_code),td(r.status.toUpperCase()));
+  const actions=td('');
+  if(r.status==='pending')actions.append(button('Approve','primary',()=>review(r.id,true)),document.createTextNode(' '),button('Reject','danger',()=>review(r.id,false)));
+  tr.append(actions);$('requestRows').append(tr);
+ }
+}
+function renderPurchases(){
+ $('purchaseRows').replaceChildren();
+ for(const p of state.purchases){
+  const tr=document.createElement('tr');
+  tr.append(
+   td(p.display_name+' (@'+p.requested_username+') · '+p.email),
+   td(p.plan_code+' · '+(p.expected_ugx===null?'No price':'UGX '+p.expected_ugx)),
+   td(p.payment_method+' · '+(p.transaction_ref||'Receipt attached')),
+   td(p.status.toUpperCase()+' · Email: '+p.email_status)
+  );
+  const actions=td('');
+  if(p.proof_size>0)actions.append(button('Download proof','',()=>window.open('/api/admin/payment-requests/'+p.id+'/proof','_blank','noopener')));
+  if(p.status==='pending'){
+   actions.append(button('Approve verified','primary',()=>reviewPurchase(p.id,true)));
+   actions.append(button('Reject','danger',()=>reviewPurchase(p.id,false)));
+  }else if(p.status==='approved'&&p.email_status!=='sent'&&p.email_status!=='not_needed'){
+   actions.append(button('Retry activation email','',()=>retryPurchaseEmail(p.id)));
+  }
+  tr.append(actions);$('purchaseRows').append(tr);
+ }
+}
+async function reviewPurchase(id,approve){
+ let verified=false,reason='';
+ if(approve){
+  const purchase=state.purchases.find(p=>p.id===id);
+  if(!purchase){feedback('Refresh Payment Requests before reviewing.',true);return}
+  if(purchase.buyer_account_id==null&&!$('purchasePublicUrl').value.trim().startsWith('https://')){
+    feedback('For a new customer, enter the current public HTTPS website URL to create their activation link.',true);
+    return;
+  }
+  verified=confirm('Have you INDEPENDENTLY verified that the full payment reached your MTN account or cryptocurrency wallet?\n\nOnly approve after checking settlement.');
+  if(!verified)return;
+ }else{
+  if(!confirm('Reject this payment request?'))return;
+  reason=prompt('Rejection reason (optional):')||'Payment not verified';
+ }
+ try{
+  const response=await api('/api/admin/payment-requests/'+id+'/review',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({approve,verified,reason,public_base_url:$('purchasePublicUrl').value.trim()}),
+  });
+  $('manualActivationLink').value=response.activation_link||'';
+  $('purchaseNotice').textContent=response.status==='rejected'?'Request rejected.':
+   response.existing_account?'Existing free member upgraded to VIP; same login remains active.':
+   response.email_sent?'Account created and activation email sent.':
+   'Account created, but email was NOT sent: '+(response.email_notice||'SMTP not configured.')+
+   (response.activation_link?' Copy the private activation link and send it manually.':' Set the HTTPS public base URL.');
+  await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function retryPurchaseEmail(id){
+ try{
+  const response=await api('/api/admin/payment-requests/'+id+'/resend',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({public_base_url:$('purchasePublicUrl').value.trim()})});
+  $('manualActivationLink').value=response.activation_link||'';
+  $('purchaseNotice').textContent=response.email_sent?'Activation email sent.':
+    'Email unavailable: '+response.notice+(response.activation_link?' Copy the fallback activation link.':'');
+  await load();
+ }catch(error){feedback(error.message,true)}
+}
+function freeDate(value){
+ if(!value)return '—';
+ return new Date(value).toLocaleString('en-UG',{timeZone:'Africa/Kampala',dateStyle:'medium',timeStyle:'short'})+' EAT';
+}
+function renderFreeReleases(){
+ $('freeReleaseRows').replaceChildren();
+ if(!state.freeReleases.length){
+  const tr=document.createElement('tr'),cell=td('No releases scheduled. Free access is currently closed.');
+  cell.colSpan=4;tr.append(cell);$('freeReleaseRows').append(tr);return;
+ }
+ for(const release of state.freeReleases){
+  const tr=document.createElement('tr');
+  tr.append(td(freeDate(release.starts_at)),td(freeDate(release.ends_at)),td(release.state.toUpperCase()));
+  const actions=td('');
+  actions.append(button(release.enabled?'Disable':'Enable',release.enabled?'danger':'primary',async()=>{
+   try{
+    await api('/api/admin/free-releases/'+release.id+'/enabled',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({enabled:!release.enabled})
+    });
+    feedback('Free release updated.');await load();
+   }catch(e){feedback(e.message,true)}
+  }));
+  actions.append(document.createTextNode(' '),button('Delete','danger',async()=>{
+   if(!confirm('Permanently delete this Free release?'))return;
+   try{await api('/api/admin/free-releases/'+release.id,{method:'DELETE'});feedback('Release deleted.');await load()}
+   catch(e){feedback(e.message,true)}
+  }));
+  tr.append(actions);$('freeReleaseRows').append(tr);
+ }
+}
+async function createFreeRelease(startIso=null){
+ try{
+  const response=await api('/api/admin/free-releases',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({starts_at:startIso,enabled:true})
+  });
+  feedback('Free release #'+response.id+' configured.');$('freeStart').value='';await load();
+ }catch(e){feedback(e.message,true)}
+}
+$('openFreeNow').addEventListener('click',()=>{
+ if(confirm('Open a one-time Free release of five upcoming matchdays now?'))createFreeRelease();
+});
+$('scheduleFree').addEventListener('click',()=>{
+ const entered=$('freeStart').value;
+ if(!entered){feedback('Choose a start date and time first.',true);return}
+ const dt=new Date(entered);
+ if(isNaN(dt.valueOf())){feedback('Choose a valid start date and time.',true);return}
+ createFreeRelease(dt.toISOString());
+});
+function renderPromotions(){
+ $('promoRows').replaceChildren();
+ for(const p of state.promotions){
+  const tr=document.createElement('tr');
+  tr.append(td(p.plan_code),td(p.code||'Automatic'),td('UGX '+Number(p.price_ugx).toLocaleString()),
+            td((p.starts_at?fmt(p.starts_at):'Now')+' → '+(p.ends_at?fmt(p.ends_at):'Until disabled')),
+            td(p.enabled?'Enabled':'Disabled'));
+  const act=td('');
+  act.append(button(p.enabled?'Disable':'Enable',p.enabled?'danger':'primary',async()=>{
+   try{await api('/api/admin/promotions/'+p.id+'/enabled',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!p.enabled})});feedback('Promotion updated.');await load()}
+   catch(e){feedback(e.message,true)}
+  }));
+  tr.append(act);$('promoRows').append(tr);
+ }
+}
+$('promoForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ try{
+  const data={plan_code:$('promoPlan').value,price_ugx:Number($('promoPrice').value),
+   code:$('promoCode').value.trim().toUpperCase(),
+   starts_at:$('promoStarts').value?new Date($('promoStarts').value).toISOString():null,
+   ends_at:$('promoEnds').value?new Date($('promoEnds').value).toISOString():null};
+  await api('/api/admin/promotions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  feedback('Promotion created; standard prices unchanged.');$('promoForm').reset();await load();
+ }catch(e){feedback(e.message,true)}
+});
+function renderStrategies(){
+ const q=$('strategySearch').value.toLowerCase();$('strategyList').replaceChildren();
+ for(const s of state.strategies.filter(x=>JSON.stringify(x).toLowerCase().includes(q))){
+  const card=document.createElement('div');card.className='strategy';
+  const heading=document.createElement('h4');heading.textContent=s.strategy_name+' · '+s.strategy_family;
+  const code=document.createElement('div');code.className='code';code.textContent=s.rule_id;
+  const summary=document.createElement('div');summary.textContent=s.league+' · '+s.market+' · '+(s.win_rate*100).toFixed(2)+'% ('+s.wins+'/'+s.tests+')';
+  const trigger=document.createElement('div');trigger.className='muted';trigger.textContent='Trigger: '+s.trigger;
+  const detail=document.createElement('div');detail.className='muted';detail.textContent='Baseline '+(s.baseline*100).toFixed(2)+'% · Edge '+s.edge_pp+'pp · Positive seasons '+(s.positive_seasons||'—');
+  card.append(heading,code,summary,trigger,detail);$('strategyList').append(card);
+ }
+}
+async function load(){
+ try{
+  const me=await api('/api/auth/me');
+  if(me.account.must_change_password){location.assign('/password-setup');return}
+  if(me.account.role!=='admin'){location.assign('/client');return}
+  state.me=me.account;
+  const [clients,requests,strategies,plans,purchases,promotions,freeReleases]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions'),api('/api/admin/free-releases')
+  ]);
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;state.freeReleases=freeReleases.releases;
+  $('newPlan').replaceChildren();
+  const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
+  for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderPromotions();renderStrategies();
+ }catch(error){feedback(error.message,true)}
+}
+function publicOrigin(){
+ const entered=$('publicTesterUrl').value.trim();
+ if(!entered)return location.origin;
+ const url=new URL(entered);
+ if(url.protocol!=='https:'||url.username||url.password)throw Error('Enter a valid HTTPS public tester URL.');
+ return url.origin;
+}
+function showCredentials(username,kind,token,password=''){
+ issued={username,kind,token,password};
+ $('issuedUsername').value=username;$('issuedPassword').value=password;
+ $('issuedLink').value=token?publicOrigin()+(kind==='login'?'/access#':'/activate#')+encodeURIComponent(token):'';
+ $('credentialsHeading').textContent=kind==='login'?'Personal sign-in link':kind==='public'?'Public trial login credentials':kind==='reset'?'Replacement activation link':'Client invitation created';
+ $('copyStatus').textContent=kind==='public'?'PUBLIC TRIAL uses a shared login; client selections and journal are shared.':'Keep this private link secret. Copy it now; it will not be shown again.';
+ $('tempPass').classList.remove('hidden');
+ $('tempPass').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeCredentials(){
+ issued=null;$('issuedUsername').value='';$('issuedPassword').value='';$('issuedLink').value='';
+ $('tempPass').classList.add('hidden');$('copyStatus').textContent='';
+}
+async function copyText(value){
+ if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(value);return}
+ throw new Error('Automatic copy unavailable. Select and copy the visible link manually.');
+}
+async function copyInvitation(){
+ if(!issued)return;
+ const origin=publicOrigin();
+ const message=issued.kind==='login'
+  ?'BetPawa Predictor — personal direct sign-in\nDirect login: '+$('issuedLink').value+'\nUsername: '+issued.username+'\nKeep your link private. Adults aged 25+ only.'
+  :issued.kind==='public'
+  ?'BetPawa Predictor — public trial access\nLogin: '+origin+'/login\nUsername: '+issued.username+'\nPassword: '+issued.password+'\nAccess expires on the administrator-set date. Adults aged 25+ only.'
+  :'BetPawa Predictor — private tester access\nLogin: '+origin+'/login\nUsername: '+issued.username+'\nTemporary password: '+(issued.password||'(use direct activation link)')+'\nDirect activation link: '+$('issuedLink').value+'\nFirst login: create your own password. Keep these details private. Adults aged 25+ only.';
+ try{await copyText(message);$('copyStatus').textContent='Full invitation copied.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Clipboard unavailable; copy the fields manually.'}
+}
+async function copyDirectLink(){
+ if(!issued)return;
+ if(!issued.token){$('copyStatus').textContent='This shared trial uses username/password login. Issue a personal link from the client row if needed.';return}
+ try{await copyText($('issuedLink').value);$('copyStatus').textContent='Direct link copied. Send privately.'}
+ catch(error){$('issuedLink').focus();$('issuedLink').select();$('copyStatus').textContent='Select and copy the link manually.'}
+}
+async function copyPassword(){
+ if(!issued||!issued.password){$('copyStatus').textContent='No new temporary password was generated for this link.';return}
+ try{await copyText(issued.password);$('copyStatus').textContent='Temporary password copied.'}
+ catch(error){$('issuedPassword').focus();$('issuedPassword').select();$('copyStatus').textContent='Select and copy the temporary password manually.'}
+}
+async function issueLink(id,username,kind){
+ try{
+  const res=await api('/api/admin/clients/'+id+'/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind})});
+  showCredentials(username,kind,res.token);
+  feedback('New private link generated. The previous link of this kind no longer works.');
+ }catch(error){feedback(error.message,true)}
+}
+async function revokeLink(id,username){
+ if(!confirm('Revoke personal sign-in link for @'+username+'?'))return;
+ try{
+  await api('/api/admin/clients/'+id+'/links/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'login'})});
+  feedback('Personal link revoked.');
+ }catch(error){feedback(error.message,true)}
+}
+async function deleteClient(id,username){
+ if(!confirm('Permanently delete @'+username+' and their saved picks, journal, subscription and login links? This cannot be undone.'))return;
+ try{
+  await api('/api/admin/clients/'+id,{method:'DELETE'});
+  if(issued&&issued.username===username)closeCredentials();
+  await load();feedback('Deleted @'+username+' and their account data.');
+ }catch(error){feedback(error.message,true)}
+}
+function expiryIso(value){
+ if(!value)return null;
+ const date=new Date(value);
+ if(!Number.isFinite(date.getTime()))throw Error('Choose a valid expiry date and time.');
+ return date.toISOString();
+}
+async function setExpiry(id){
+ try{
+  const value=$('expiry-'+id).value;
+  if(!value){feedback('Select a date and time first.',true);return}
+  await api('/api/admin/clients/'+id+'/subscription/expiry',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({expires_at:expiryIso(value)}),
+  });
+  feedback('Exact expiry date saved (not added to existing days).');await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function createClient(){
+ const username=$('newUser').value.trim(),display_name=$('newName').value.trim();
+ if(username.length<3){feedback('Username must be at least 3 characters.',true);$('newUser').focus();return}
+ $('createClientButton').disabled=true;
+ try{
+  const result=await api('/api/admin/clients',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({username,display_name,plan_code:$('newPlan').value||null,
+       chosen_password:username==='PUBLIC TRIAL'?$('newPassword').value:null,
+       expires_at:expiryIso($('newExpiry').value)}),
+  });
+  if(result.activation_token){
+    showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  }else{
+    // PUBLIC TRIAL: password supplied by admin, account ready for ordinary login.
+    showCredentials(result.account.username,'public',null,result.temporary_password);
+  }
+  $('newUser').value='';$('newName').value='';$('newPassword').value='';$('newExpiry').value='';
+  feedback(result.activation_token?'Client created. Copy the invitation or direct activation link.':'Public trial created. Share its login credentials privately or publish only after security review.');
+  await load();
+ }catch(error){feedback(error.message,true)}
+ finally{$('createClientButton').disabled=false}
+}
+async function resetClient(id,username){
+ if(!confirm('Reset password for @'+username+'? Their current password and all existing sessions will stop working.'))return;
+ try{
+  const result=await api('/api/admin/clients/'+id+'/reset-password',{method:'POST'});
+  showCredentials(result.account.username,'activation',result.activation_token,result.temporary_password);
+  feedback('New credentials and activation link ready. Share privately.');
+  await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function grant(id){
+ const plan=$('plan-'+id).value,days=Number($('days-'+id).value||0);
+ try{
+  await api('/api/admin/clients/'+id+'/subscription',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({plan_code:plan,custom_days:plan==='custom'?days:null}),
+  });
+  feedback('Subscription updated.');await load();
+ }catch(error){feedback(error.message,true)}
+}
+async function revoke(id){
+ if(!confirm('Revoke this subscription?'))return;
+ try{await api('/api/admin/clients/'+id+'/subscription/revoke',{method:'POST'});feedback('Subscription revoked.');await load()}
+ catch(error){feedback(error.message,true)}
+}
+async function review(id,approve){
+ let verified=false;
+ if(approve){
+  verified=confirm('Have you independently verified that the customer paid for this subscription?\n\nThis older subscription request has no payment evidence attached. Only approve after checking your actual receiving account.');
+  if(!verified)return;
+ }else if(!confirm('Reject this subscription request?'))return;
+ try{await api('/api/admin/subscription-requests/'+id+'/review',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approve,verified}),
+ });feedback(approve?'Verified subscription approved.':'Subscription request rejected.');await load()}
+ catch(error){feedback(error.message,true)}
+}
+$('createClientButton').addEventListener('click',createClient);
+$('copyInvitation').addEventListener('click',copyInvitation);
+$('copyDirectLink').addEventListener('click',copyDirectLink);
+$('copyPassword').addEventListener('click',copyPassword);
+$('closeCredentials').addEventListener('click',closeCredentials);
+$('strategySearch').addEventListener('input',renderStrategies);
+$('securityForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ try{
+  await api('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({current_password:$('currentPassword').value,new_password:$('newPassword').value}),
+  });
+  alert('Password changed. Sign in again with your new password.');
+  location.assign('/login');
+ }catch(error){feedback(error.message,true)}
+});
+$('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
+load();
 </script></body></html>

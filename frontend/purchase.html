@@ -1,0 +1,123 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#f5f9f0"><title>Purchase access · BetPawa Predictor</title>
+<style>
+:root{--ink:#173c2b;--muted:#5c7769;--green:#17694c;--line:#d8e6d7;--bg:#f5f9f0}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0,#e3f2cb,transparent 35%),var(--bg);color:var(--ink);font:15px system-ui,Segoe UI,sans-serif}
+header{padding:20px max(20px,calc((100vw - 1080px)/2));background:#ffffffbb;border-bottom:1px solid var(--line)}
+header a{font-size:19px;font-weight:900;text-decoration:none;color:var(--green)}
+main{max-width:1080px;margin:35px auto 90px;padding:0 20px}h1{font-size:clamp(32px,5vw,52px);letter-spacing:-.04em;margin:0 0 12px}
+h2{margin:0 0 10px}p{color:var(--muted);line-height:1.6}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:25px;box-shadow:0 12px 38px #183e2610}
+label{display:block;font-weight:750;font-size:13px;margin:15px 0 7px}select,input{width:100%;padding:13px;border-radius:11px;border:1px solid #bfd6bd;font:inherit;background:#fff}
+button{border:0;padding:14px 20px;color:#fff;background:var(--green);border-radius:12px;font:inherit;font-weight:850;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.error{color:#ac3340;font-weight:700}
+.details{background:#f3f9ed;border:1px solid #d0e5c8;border-radius:14px;padding:15px;margin-top:17px;overflow-wrap:anywhere}
+.address{padding:12px;margin:10px 0;background:white;border:1px dashed #b0cfad;border-radius:9px;font-family:ui-monospace,Consolas,monospace;user-select:all;overflow-wrap:anywhere}
+.check{display:flex;gap:10px;align-items:flex-start;font-weight:500;line-height:1.5}.check input{width:auto;margin-top:4px}
+.note{border-left:4px solid #80ad67;padding-left:15px;margin:20px 0}@media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:19px}}
+</style></head><body>
+<header><a href="/">BP · BetPawa Predictor</a></header><main><h1>Purchase your access</h1>
+<p>Choose a plan, transfer the payment to the exact account displayed, and submit proof. Accounts are created only after independent payment verification.</p>
+<p><strong>Every plan:</strong> Morning · 5 matchdays | Afternoon · 5 matchdays | Evening · 5 matchdays — 15 matchdays per day.</p>
+<div class="grid"><section class="card"><h2>1. Choose and pay</h2>
+<label for="plan">Subscription plan</label><select id="plan"></select><div id="cost" class="details"></div>
+<label for="promo">Promo code (optional)</label><input id="promo" maxlength="32" placeholder="Enter promo code"><div id="promoStatus" class="hint" role="status"></div>
+<label for="method">Payment method / network</label><select id="method"></select><div id="details" class="details"></div>
+<p class="hint">Use the exact listed network for crypto transfers. Networks and wrapped assets are not interchangeable. Confirm the token amount with the administrator before sending crypto, because exchange rates and network fees vary. Transfers may be irreversible.</p>
+</section><section class="card"><h2>2. Request verification</h2>
+<form id="purchaseForm">
+<label for="email">Email (existing members: account email)</label><input id="email" type="email" required maxlength="260" autocomplete="email">
+<label for="username">Username (existing members: current username)</label><input id="username" pattern="[A-Za-z0-9_.-]{3,40}" minlength="3" maxlength="40" required>
+<label for="display">Display name</label><input id="display" maxlength="100">
+<label for="txref">Payment transaction reference / blockchain hash</label><input id="txref" minlength="5" maxlength="160">
+<label for="proof">Payment proof (JPG, PNG, WebP, PDF — 2 MB max)</label><input id="proof" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
+<label class="check"><input id="age" type="checkbox" required><span>I confirm I am 25 or older, my payment details are accurate and predictions do not guarantee outcomes.</span></label>
+<p class="note">A submitted receipt does not automatically grant access. The administrator must confirm the actual incoming payment. Do not upload passwords or identity documents.</p>
+<button id="submit" type="submit">Request payment verification</button><p id="status" role="status"></p></form></section></div></main>
+<script>
+const $=id=>document.getElementById(id);let catalog={plans:[],methods:[]};
+function money(n){return typeof n==='number'?'UGX '+n.toLocaleString('en-UG'):'Price unavailable'}
+function render(){
+ $('plan').replaceChildren();
+ $('submit').disabled=!catalog.accepting_requests;
+ if(!catalog.accepting_requests){
+  $('status').textContent='Checkout preview only. Do not send payment yet; purchase requests are not open.';
+  $('status').className='error';
+  $('submit').textContent='Purchases not open yet';
+ }
+ for(const p of catalog.plans){const opt=document.createElement('option');opt.value=p.code;
+  opt.textContent=p.label+' · '+money(p.price_ugx);opt.disabled=p.price_ugx===null;$('plan').append(opt)}
+ const available=catalog.plans.find(p=>p.price_ugx!==null);if(available)$('plan').value=available.code;
+ $('method').replaceChildren();
+ for(const method of catalog.methods){const opt=document.createElement('option');opt.value=method.code;opt.textContent=method.label;$('method').append(opt)}
+ refresh();
+}
+function refresh(){
+ const plan=catalog.plans.find(p=>p.code===$('plan').value);
+ $('cost').textContent=plan?plan.label+' · '+money(plan.price_ugx):'No plans have a configured price yet.';
+ refreshQuote();
+ const method=catalog.methods.find(m=>m.code===$('method').value);if(!method)return;
+ $('details').replaceChildren();
+ const title=document.createElement('strong');title.textContent=method.label;
+ const address=document.createElement('div');address.className='address';address.textContent=method.account||method.address;
+ const description=document.createElement('div');description.className='hint';
+ description.textContent=method.account?'Receiving name: '+method.name:'Only send this asset on the specified network.';
+ $('details').append(title,address,description);
+}
+async function refreshQuote(){
+ const plan=$('plan').value, code=$('promo').value.trim();
+ if(!plan)return;
+ try{
+  const res=await fetch('/api/purchase/quote?plan_code='+encodeURIComponent(plan)+'&promo_code='+encodeURIComponent(code),{cache:'no-store'});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw Error(data.detail||'Unable to apply code.');
+  $('cost').textContent=(data.discount_ugx?'Regular '+money(data.regular_ugx)+' · Pay ':'Pay ')+money(data.price_ugx);
+  $('promoStatus').textContent=data.discount_ugx?'Discount: '+money(data.discount_ugx)+' off'+(data.promo_code?' using '+data.promo_code:' (automatic promotion)'):'No active promotion for this selection.';
+ }catch(e){$('promoStatus').textContent=e.message;$('cost').textContent='Promo code cannot be used. Correct it before paying.'}
+}
+$('promo').addEventListener('change',refreshQuote);
+$('plan').addEventListener('change',refresh);$('method').addEventListener('change',refresh);
+(async()=>{try{
+ const response=await fetch('/api/purchase/catalog',{cache:'no-store'});if(!response.ok)throw Error('Unable to load plans.');
+ catalog=await response.json();render();
+ const selected=new URLSearchParams(location.search).get('plan');
+ if(selected&&catalog.plans.some(p=>p.code===selected)){$('plan').value=selected;refresh()}
+ try{
+  const r=await fetch('/api/account/contact',{credentials:'same-origin'});
+  if(r.ok){const a=await r.json();$('username').value=a.username;$('username').readOnly=true;
+   $('display').value=a.display_name||a.username;
+   if(a.email){$('email').value=a.email;$('email').readOnly=true}
+   $('status').textContent='Signed in as @'+a.username+'. Verified payment upgrades this account.'}
+ }catch(e){}
+
+ }catch(error){$('status').textContent=error.message;$('status').className='error'}})();
+$('purchaseForm').addEventListener('submit',async event=>{
+ event.preventDefault();const status=$('status');status.textContent='';status.className='';
+ const file=$('proof').files[0];
+ const transactionRef=$('txref').value.trim();
+ if(file&&(file.size<50||file.size>2000000)){
+  status.textContent='Choose a valid proof file under 2 MB.';status.className='error';return;
+ }
+ if(!transactionRef&&!file){
+  status.textContent='Enter your payment confirmation details.';status.className='error';return;
+ }
+ const button=$('submit');button.disabled=true;button.textContent='Submitting…';
+ try{
+  const proof_base64=file?await new Promise((resolve,reject)=>{
+   const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');
+   reader.onerror=()=>reject(Error('Unable to read payment proof.'));reader.readAsDataURL(file);
+  }):'';
+  const body={email:$('email').value,username:$('username').value,display_name:$('display').value,
+   plan_code:$('plan').value,payment_method:$('method').value,transaction_ref:transactionRef,
+   age_confirmed:$('age').checked,proof_base64,promo_code:$('promo').value.trim()};
+  const response=await fetch('/api/purchase/requests',{method:'POST',
+   headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data.detail||'Unable to submit request.');
+  $('purchaseForm').hidden=true;
+  status.textContent='Payment request '+data.reference+' received. VIP is granted only after verification. Existing members retain their account; new buyers receive an activation link.';
+ }catch(error){status.textContent=error.message;status.className='error'}
+ finally{button.disabled=false;button.textContent='Request payment verification'}
+});
+</script></body></html>

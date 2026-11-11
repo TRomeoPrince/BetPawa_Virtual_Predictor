@@ -4,15 +4,17 @@ import os
 import re
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
+from . import picks, access_links, purchase_requests, growth, free_access
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
-from .time_windows import time_priority, TIME_WINDOW_HISTORY
+from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
 from .private_rules import (
     RULES, ORIGINAL_RULE_META, NEW_STRATEGIES,
     PATTERN2_STRATEGIES, PATTERN2_LEGACY_KEYS,
@@ -23,10 +25,14 @@ from .access import (
     authenticate,
     change_password,
     create_client,
+    delete_client,
+    set_subscription_expiry,
     create_session,
     delete_session,
     ensure_bootstrap_admin,
     grant_subscription,
+    get_account,
+    list_account_subscription_requests,
     list_clients,
     list_subscription_requests,
     public_account,
@@ -34,6 +40,7 @@ from .access import (
     request_subscription,
     review_subscription_request,
     revoke_subscription,
+    reset_client_password,
 )
 from .db import (
     get_user_history,
@@ -47,7 +54,9 @@ FRONTEND = ROOT / "frontend" / "index.html"
 MARKET_PAGE = ROOT / "frontend" / "market.html"
 LOGIN_PAGE = ROOT / "frontend" / "login.html"
 CLIENT_PAGE = ROOT / "frontend" / "client.html"
+PICKS_PAGE = ROOT / "frontend" / "picks.html"
 ADMIN_PAGE = ROOT / "frontend" / "admin.html"
+PASSWORD_SETUP_PAGE = ROOT / "frontend" / "password-setup.html"
 COOKIE_NAME = "bp_predictor_user"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
@@ -81,10 +90,12 @@ def _session_account(request: Request):
     return account_from_session(request.cookies.get(SESSION_COOKIE))
 
 
-def _require_account(request: Request):
+def _require_account(request: Request, allow_password_setup: bool = False):
     account = _session_account(request)
     if not account:
         raise HTTPException(401, "Please sign in.")
+    if account.get("must_change_password") and not allow_password_setup:
+        raise HTTPException(403, "Password setup required. Open /password-setup.")
     return account
 
 
@@ -93,6 +104,33 @@ def _require_active_access(request: Request):
     if account.get("role") != "admin" and not account.get("subscription", {}).get("is_active"):
         raise HTTPException(403, "An active subscription is required.")
     return account
+
+
+def _is_vip(account):
+    return account.get("role") == "admin" or bool(account.get("subscription", {}).get("is_active"))
+
+
+def _free_round_allowed(context, now=None):
+    """Only administrator-enabled, scheduled rounds may be publicly previewed."""
+    return free_access.allowed_round(context, now)
+
+
+def _free_market_result(public_result):
+    """Only EPL and Dutch picks, never VIP history, other fixtures or rule metadata."""
+    allowed = {"ENGLISH", "EPL", "DUTCH", "NETHERLANDS"}
+    fixtures = public_result.get("next_target") or {}
+    return {
+        "ok": True, "free": True,
+        "season": public_result.get("season"),
+        "next_matchday": public_result.get("next_matchday"),
+        "latest_completed_matchday": public_result.get("latest_completed_matchday"),
+        "next_round_id": public_result.get("next_round_id"),
+        "next_target": {k: v for k, v in fixtures.items() if k.upper() in allowed},
+        "predictions": [p for p in public_result.get("predictions", [])
+                        if str(p.get("league", "")).upper() in allowed],
+        "trackers": [], "personal": {},
+        "free_release": True,
+    }
 
 
 def _require_admin(request: Request):
@@ -124,9 +162,7 @@ def _user_id(request: Request, response: Response) -> str:
 def _public_support(support: dict) -> dict:
     allowed = {
         "historical_win_rate", "wins", "tests", "baseline", "edge_pp",
-        "positive_seasons", "source_matchday", "target_matchday",
-        "selected_teams", "target_fixture", "live_alignment", "recent_wins",
-        "recent_tests", "time_status", "time_alignment", "time_alignment_window",
+        "positive_seasons", "time_status", "time_alignment", "time_alignment_window",
         "time_alignment_note", "time_historical_wins", "time_historical_tests",
         "time_historical_rate", "time_historical_windows",
     }
@@ -140,6 +176,7 @@ def _public_prediction(item: dict) -> dict:
     for key in (
         "strategy_families", "strategy_family_label", "strategy_family",
         "rule_id", "strategy_id", "strategy_name", "trigger_explanation",
+        "selected_team", "selected_teams", "target_position", "source_fixtures",
     ):
         out.pop(key, None)
     out["time_supports"] = [
@@ -158,13 +195,47 @@ def _public_prediction(item: dict) -> dict:
     return out
 
 
+def _public_history(history: dict) -> dict:
+    """Never expose internal strategy IDs or source triggers in client history."""
+    out = dict(history)
+    for key in ("by_rule_internal", "by_rule_time_internal", "by_family_market"):
+        out.pop(key, None)
+
+    def clean_batch(batch):
+        if not isinstance(batch, dict):
+            return batch
+        return {
+            **batch,
+            "predictions": [
+                _public_prediction(p) for p in (batch.get("predictions") or [])
+            ],
+        }
+
+    for key in (
+        "last_batch", "last_completed_batch", "last_selected_batch",
+        "last_completed_selected_batch",
+    ):
+        out[key] = clean_batch(out.get(key))
+    out["recent_batches"] = [
+        clean_batch(b) for b in (out.get("recent_batches") or [])
+    ]
+    out["selected_results"] = [
+        _public_prediction(p) for p in (out.get("selected_results") or [])
+    ]
+    return out
+
+
 def _public_result(result: dict) -> dict:
     out = dict(result)
     out["predictions"] = [_public_prediction(p) for p in (result.get("predictions") or [])]
     out["trackers"] = []
-    out.pop("by_rule_internal", None)
-    out.pop("by_rule_time_internal", None)
-    out.pop("by_family_market", None)
+    for key in (
+        "by_rule_internal", "by_rule_time_internal", "by_family_market",
+        "leagues", "multi_market_strategy_count", "pattern2_strategy_count",
+    ):
+        out.pop(key, None)
+    if isinstance(out.get("personal"), dict):
+        out["personal"] = _public_history(out["personal"])
     return out
 
 
@@ -248,25 +319,101 @@ class SelectionUpdate(BaseModel):
     selected: bool
 
 
+class SignupRequest(BaseModel):
+    username: str
+    display_name: str = ""
+    email: str
+    password: str
+    age_confirmed: bool = False
+    referral_code: str = ""
+
+
+class PromotionBody(BaseModel):
+    plan_code: str
+    price_ugx: int
+    code: str = ""
+    starts_at: str | None = None
+    ends_at: str | None = None
+    enabled: bool = True
+
+
+class PromotionToggle(BaseModel):
+    enabled: bool
+
+
+class FreeReleaseBody(BaseModel):
+    starts_at: str | None = None
+    enabled: bool = True
+
+
+class FreeReleaseToggle(BaseModel):
+    enabled: bool
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str
+    age_confirmed: bool = False
 
 
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+    age_confirmed: bool = False
+
+
+class LinkToken(BaseModel):
+    token: str
+
+
+class LinkActivation(BaseModel):
+    token: str
+    new_password: str
+    age_confirmed: bool = False
+
+
+class LinkIssue(BaseModel):
+    kind: str
+
+
+class PurchaseRequestBody(BaseModel):
+    email: str
+    username: str
+    display_name: str = ""
+    plan_code: str
+    payment_method: str
+    transaction_ref: str = ""
+    proof_base64: str = ""
+    age_confirmed: bool = False
+    promo_code: str = ""
+
+
+class PurchaseDecision(BaseModel):
+    approve: bool
+    verified: bool = False
+    reason: str = ""
+    public_base_url: str | None = None
+
+
+class PurchaseResend(BaseModel):
+    public_base_url: str | None = None
 
 
 class ClientCreate(BaseModel):
     username: str
     display_name: str = ""
     plan_code: str | None = None
+    chosen_password: str | None = None
+    expires_at: str | None = None
 
 
 class SubscriptionGrant(BaseModel):
     plan_code: str
     custom_days: int | None = None
+
+
+class SubscriptionExpiry(BaseModel):
+    expires_at: str
 
 
 class SubscriptionRequestBody(BaseModel):
@@ -275,6 +422,19 @@ class SubscriptionRequestBody(BaseModel):
 
 class RequestReview(BaseModel):
     approve: bool
+    verified: bool = False
+
+
+class BetJournalBody(BaseModel):
+    bet_date: str
+    league: str = ""
+    fixture: str
+    category: str
+    selection: str
+    stake_ugx: int
+    decimal_odds: float
+    outcome: str = "PENDING"
+    notes: str = ""
 
 
 def _frontend_response(path: Path):
@@ -289,19 +449,61 @@ def _frontend_response(path: Path):
 
 
 @app.get("/")
-def home(request: Request):
-    account = _session_account(request)
-    if not account:
-        return RedirectResponse("/login", status_code=302)
-    return RedirectResponse("/admin" if account.get("role") == "admin" else "/client", status_code=302)
+def home():
+    """Public marketing page; private dashboards remain behind authentication."""
+    return _frontend_response(FRONTEND)
+
+
+@app.get("/activate")
+def activation_page():
+    return _frontend_response(ROOT / "frontend" / "activate.html")
+
+
+@app.get("/access")
+def link_login_page():
+    return _frontend_response(ROOT / "frontend" / "access-link.html")
+
+
+@app.get("/purchase")
+def purchase_page():
+    return _frontend_response(ROOT / "frontend" / "purchase.html")
+
+
+@app.get("/signup")
+def signup_page(request: Request):
+    if _session_account(request):
+        return RedirectResponse("/client", status_code=302)
+    return _frontend_response(ROOT / "frontend" / "signup.html")
+
+
+@app.get("/r/{code}")
+def referral_redirect(code: str):
+    if not growth.track_visit(code):
+        raise HTTPException(404, "Referral link not found.")
+    return RedirectResponse("/signup?ref=" + code.strip().upper(), status_code=302)
 
 
 @app.get("/login")
 def login_page(request: Request):
     account = _session_account(request)
     if account:
-        return RedirectResponse("/admin" if account.get("role") == "admin" else "/client", status_code=302)
+        destination = ("/password-setup" if account.get("must_change_password")
+                       else "/admin" if account.get("role") == "admin" else "/client")
+        return RedirectResponse(destination, status_code=302)
     return _frontend_response(LOGIN_PAGE)
+
+
+@app.get("/password-setup")
+def password_setup_page(request: Request):
+    account = _session_account(request)
+    if not account:
+        return RedirectResponse("/login", status_code=302)
+    if not account.get("must_change_password"):
+        return RedirectResponse(
+            "/admin" if account.get("role") == "admin" else "/client",
+            status_code=302,
+        )
+    return _frontend_response(PASSWORD_SETUP_PAGE)
 
 
 @app.get("/client")
@@ -309,6 +511,8 @@ def client_dashboard(request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
     return _frontend_response(CLIENT_PAGE)
 
 
@@ -317,9 +521,21 @@ def admin_dashboard(request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
     if account.get("role") != "admin":
         return RedirectResponse("/client", status_code=302)
     return _frontend_response(ADMIN_PAGE)
+
+
+@app.get("/client/picks")
+def client_picks_page(request: Request):
+    account = _session_account(request)
+    if not account:
+        return RedirectResponse("/login", status_code=302)
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
+    return _frontend_response(PICKS_PAGE)
 
 
 @app.get("/client/{category}")
@@ -329,7 +545,9 @@ def client_market_page(category: str, request: Request):
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
-    if account.get("role") != "admin" and not account.get("subscription", {}).get("is_active"):
+    if account.get("must_change_password"):
+        return RedirectResponse("/password-setup", status_code=302)
+    if not _is_vip(account) and not account.get("email"):
         return RedirectResponse("/client", status_code=302)
     return _frontend_response(MARKET_PAGE)
 
@@ -343,11 +561,72 @@ def legacy_market_redirect(request: Request):
     return RedirectResponse(f"/client/{category}", status_code=302)
 
 
+def _link_session(request: Request, response: Response, account):
+    delete_session(request.cookies.get(SESSION_COOKIE))
+    response.set_cookie(
+        SESSION_COOKIE,create_session(int(account["id"])),max_age=60*60*24*30,
+        httponly=True,samesite="lax",secure=request.url.scheme=="https",
+    )
+    response.headers["Cache-Control"]="no-store"
+    return {"ok":True,"account":public_account(account)}
+
+
+@app.post("/api/auth/link-login")
+def api_link_login(payload: LinkToken, request: Request, response: Response):
+    account=access_links.redeem_login(payload.token)
+    if not account:
+        raise HTTPException(401,"Link invalid, revoked, expired or subscription inactive.")
+    return _link_session(request,response,account)
+
+
+@app.post("/api/auth/link-activate")
+def api_link_activate(payload: LinkActivation,request: Request,response: Response):
+    try:
+        account=access_links.activate(payload.token,payload.new_password,payload.age_confirmed)
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return _link_session(request,response,account)
+
+
+@app.post("/api/auth/signup")
+def api_signup(payload: SignupRequest, request: Request, response: Response):
+    if os.getenv("PREDICTOR_SIGNUP_ENABLED", "false" if os.getenv("RAILWAY_PROJECT_ID") else "true").lower() not in ("1", "true", "yes", "on"):
+        raise HTTPException(503, "Registration is temporarily closed.")
+    try:
+        account = growth.signup(payload.username, payload.display_name, payload.email,
+                                payload.password, payload.age_confirmed, payload.referral_code)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    token = create_session(int(account["id"]))
+    response.set_cookie(SESSION_COOKIE, token, max_age=60*60*24*30,
+                        httponly=True, samesite="lax", secure=request.url.scheme == "https")
+    response.headers["Cache-Control"] = "no-store"
+    return {"ok": True, "account": public_account(account), "membership": "free"}
+
+
+@app.get("/api/account/contact")
+def api_account_contact(request: Request):
+    account = _require_account(request)
+    return {"username": account["username"], "display_name": account["display_name"],
+            "email": account.get("email")}
+
+
+@app.get("/api/referrals/me")
+def api_my_referrals(request: Request):
+    account = _require_account(request)
+    if account["role"] == "admin":
+        raise HTTPException(403, "Referrals are for members.")
+    origin = (os.getenv("PREDICTOR_PUBLIC_BASE_URL") or str(request.base_url)).rstrip("/")
+    return growth.referral_stats(int(account["id"]), origin)
+
+
 @app.post("/api/auth/login")
 def api_login(payload: LoginRequest, request: Request, response: Response):
     account = authenticate(payload.username, payload.password)
     if not account:
         raise HTTPException(401, "Invalid username or password.")
+    if account.get("username") == "PUBLIC TRIAL" and not payload.age_confirmed:
+        raise HTTPException(403, "Confirm you are at least 25 years old to enter the public trial.")
     token = create_session(int(account["id"]))
     response.set_cookie(
         SESSION_COOKIE,
@@ -369,23 +648,271 @@ def api_logout(request: Request, response: Response):
 
 @app.get("/api/auth/me")
 def api_me(request: Request):
-    account = _require_account(request)
+    account = _require_account(request, allow_password_setup=True)
     return {"account": public_account(account)}
 
 
 @app.post("/api/auth/change-password")
 def api_change_password(payload: PasswordChange, request: Request):
-    account = _require_account(request)
+    account = _require_account(request, allow_password_setup=True)
+    if account.get("username") == "PUBLIC TRIAL":
+        raise HTTPException(403, "Public trial password is managed by the administrator.")
+    if (account.get("must_change_password") and account.get("role") == "client"
+            and not payload.age_confirmed):
+        raise HTTPException(400, "You must confirm you are at least 25 years old.")
     try:
         change_password(int(account["id"]), payload.current_password, payload.new_password)
+        if account.get("role")=="client":
+            access_links.invalidate(int(account["id"]))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "requires_login": True}
+
+
+@app.get("/api/purchase/quote")
+def api_purchase_quote(plan_code: str, response: Response, promo_code: str = ""):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return growth.quote(plan_code, promo_code)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/free-access/status")
+def api_free_access_status(request: Request):
+    """Only availability is exposed; upcoming release details stay admin-private."""
+    account = _require_account(request)
+    response = {"vip": _is_vip(account)}
+    if response["vip"]:
+        response["open"] = True
+    else:
+        response["open"] = bool(account.get("email")) and free_access.active_release() is not None
+    return response
+
+
+@app.get("/api/admin/free-releases")
+def api_admin_free_releases(request: Request):
+    _require_admin(request)
+    return {"releases": free_access.list_releases()}
+
+
+@app.post("/api/admin/free-releases")
+def api_admin_create_free_release(payload: FreeReleaseBody, request: Request):
+    admin = _require_admin(request)
+    try:
+        release_id = free_access.create_release(payload.starts_at, int(admin["id"]), payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "id": release_id}
+
+
+@app.post("/api/admin/free-releases/{release_id}/enabled")
+def api_admin_toggle_free_release(release_id: int, payload: FreeReleaseToggle, request: Request):
+    _require_admin(request)
+    try:
+        free_access.set_enabled(release_id, payload.enabled)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True}
 
 
+@app.delete("/api/admin/free-releases/{release_id}")
+def api_admin_delete_free_release(release_id: int, request: Request):
+    _require_admin(request)
+    try:
+        free_access.delete_release(release_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
+
+
+@app.get("/api/admin/promotions")
+def api_admin_promotions(request: Request):
+    _require_admin(request)
+    return {"promotions": growth.list_promotions()}
+
+
+@app.post("/api/admin/promotions")
+def api_create_promotion(payload: PromotionBody, request: Request):
+    _require_admin(request)
+    try:
+        promo_id = growth.create_promotion(payload.plan_code, payload.price_ugx, payload.code,
+                                          payload.starts_at, payload.ends_at, payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "id": promo_id}
+
+
+@app.post("/api/admin/promotions/{promotion_id}/enabled")
+def api_toggle_promotion(promotion_id: int, payload: PromotionToggle, request: Request):
+    _require_admin(request)
+    try:
+        growth.set_promotion_enabled(promotion_id, payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
+
+
+@app.get("/api/purchase/catalog")
+def api_purchase_catalog(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return purchase_requests.catalog()
+
+
+@app.post("/api/purchase/requests")
+def api_submit_purchase(payload: PurchaseRequestBody, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    if not purchase_requests.purchase_enabled():
+        raise HTTPException(503, "Purchases are not accepting requests yet.")
+    actor = _session_account(request)
+    buyer_id = int(actor["id"]) if actor and actor.get("role") == "client" else None
+    try:
+        reference = purchase_requests.submit(
+            payload.email, payload.username, payload.display_name,
+            payload.plan_code, payload.payment_method, payload.transaction_ref,
+            payload.proof_base64, payload.age_confirmed,
+            account_id=buyer_id, promo_code=payload.promo_code,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "reference": reference, "status": "pending",
+            "message": "Payment request received. Access is NOT active until manually verified and approved."}
+
+
+@app.get("/api/admin/payment-requests")
+def api_admin_payment_requests(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    return {"requests": purchase_requests.pending()}
+
+
+@app.get("/api/admin/payment-requests/{request_id}/proof")
+def api_admin_payment_proof(request_id: int, request: Request):
+    _require_admin(request)
+    found = purchase_requests.proof(request_id)
+    if not found:
+        raise HTTPException(404, "Proof not found.")
+    data, mime = found
+    ext = {"image/png":"png", "image/jpeg":"jpg", "image/webp":"webp", "application/pdf":"pdf"}[mime]
+    return FileResponseBytes(
+        data, media_type="application/octet-stream",
+        headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff",
+                 "Content-Disposition":f'attachment; filename="payment-proof-{request_id}.{ext}"'},
+    )
+
+
+def _purchase_public_origin(admin_supplied: str | None) -> str:
+    from urllib.parse import urlparse
+    origin = (admin_supplied or os.getenv("PREDICTOR_PUBLIC_BASE_URL","")).strip().rstrip("/")
+    try:
+        parsed = urlparse(origin)
+        valid_port = parsed.port in (None,443)
+    except ValueError:
+        valid_port = False
+        parsed = None
+    if (not parsed or parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.path or parsed.query or parsed.fragment or not valid_port):
+        raise HTTPException(400,"Configure a valid HTTPS public website origin before approving.")
+    return origin
+
+
+@app.post("/api/admin/payment-requests/{request_id}/review")
+def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    base = None
+    if payload.approve:
+        try:
+            needs_origin = purchase_requests.needs_activation_origin(request_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        if needs_origin:
+            # Validate before reserving; avoid leaving bad requests in "processing".
+            base = _purchase_public_origin(payload.public_base_url)
+    try:
+        purchase = purchase_requests.approve_or_reject(
+            request_id, int(admin["id"]), payload.approve, payload.verified, payload.reason
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if not payload.approve:
+        return {"ok": True, "status": "rejected"}
+    # A pending reservation prevents duplicate account creation on repeated approvals.
+    if purchase.get("buyer_account_id") is not None:
+        try:
+            account_id = int(purchase["buyer_account_id"])
+            current = get_account(account_id)
+            if not current or current["role"] != "client" or current["status"] != "active" or current["username"].lower() != purchase["requested_username"].lower():
+                raise ValueError("The original buyer account is no longer available.")
+            purchase_requests.activate_existing_verified(request_id, account_id, purchase["plan_code"], int(admin["id"]))
+            growth.mark_vip_conversion(account_id)
+        except Exception:
+            purchase_requests.reset_processing(request_id)
+            raise
+        return {"ok": True, "status": "approved", "existing_account": True,
+                "email_sent": False, "activation_link": None, "client_account_id": account_id}
+    try:
+        account, _temp = create_client(
+            purchase["requested_username"],purchase["display_name"],
+            plan_code=purchase["plan_code"],created_by=int(admin["id"]),
+        )
+        purchase_requests.mark_approved(request_id, int(account["id"]))
+        growth.mark_vip_conversion(int(account["id"]))
+    except Exception:
+        purchase_requests.reset_processing(request_id)
+        raise
+    invitation = access_links.issue(int(account["id"]), "activation", int(admin["id"]))
+    link = base + "/activate#" + invitation["token"]
+    sent = False
+    error = None
+    try:
+        purchase_requests.email_activation(
+            purchase["email"], account["username"], invitation["token"], base
+        )
+        sent = True
+    except (Exception) as exc:
+        # SMTP failure must not undo a verified payment or pretend mail was sent.
+        error = str(exc)[:200]
+    purchase_requests.set_email_status(request_id, "sent" if sent else "pending")
+    return {"ok":True,"status":"approved", "email_sent":sent,
+            "email_notice":error, "activation_link":None if sent else link,
+            "client_account_id":account["id"]}
+
+
+@app.post("/api/admin/payment-requests/{request_id}/resend")
+def api_admin_resend_purchase(request_id: int, payload: PurchaseResend, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    row = purchase_requests.approved_account(request_id)
+    if not row:
+        raise HTTPException(404,"Approved request not found.")
+    account = get_account(int(row["client_account_id"]))
+    if not account or not account["must_change_password"]:
+        raise HTTPException(400,"Account already activated or removed.")
+    base = _purchase_public_origin(payload.public_base_url)
+    invitation = access_links.issue(int(account["id"]),"activation",int(admin["id"]))
+    link = base + "/activate#" + invitation["token"]
+    try:
+        purchase_requests.email_activation(row["email"],account["username"],invitation["token"],base)
+        purchase_requests.set_email_status(request_id,"sent")
+        return {"ok":True,"email_sent":True}
+    except Exception as exc:
+        purchase_requests.set_email_status(request_id,"pending")
+        return {"ok":True,"email_sent":False,"notice":str(exc)[:200],"activation_link":link}
+
+
 @app.get("/api/plans")
 def api_plans():
     return {"plans": public_plans()}
+
+
+@app.get("/api/client/subscription-requests")
+def api_client_subscription_requests(request: Request):
+    account = _require_account(request)
+    return {
+        "requests": list_account_subscription_requests(int(account["id"]))
+        if account.get("role") != "admin" else []
+    }
 
 
 @app.post("/api/client/subscription-request")
@@ -400,6 +927,74 @@ def api_subscription_request(payload: SubscriptionRequestBody, request: Request)
     return {"ok": True, "request": req}
 
 
+@app.get("/api/client/picks")
+def api_client_picks(
+    request: Request, category: str = "all", scope: str = "latest",
+    outcome: str = "all", limit: int = 50, offset: int = 0,
+):
+    account = _require_active_access(request)
+    try:
+        return picks.get_picks(
+            account["user_key"], category=category, scope=scope,
+            outcome=outcome, limit=limit, offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/client/picks/refresh")
+def api_client_picks_refresh(request: Request):
+    account = _require_active_access(request)
+    try:
+        context = feed.prediction_context()
+        graded = grade_user_predictions(account["user_key"], context["completed_rounds_for_grading"])
+        return {"graded_now": graded}
+    except Exception as exc:
+        print("Picks refresh error:", repr(exc))
+        raise HTTPException(502, "Results refresh temporarily unavailable.")
+
+
+@app.get("/api/client/bet-journal")
+def api_client_bet_journal(
+    request: Request, category: str = "all", outcome: str = "all",
+    limit: int = 50, offset: int = 0,
+):
+    account = _require_account(request)
+    try:
+        return picks.get_journal(
+            account["user_key"], category=category, outcome=outcome,
+            limit=limit, offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/client/bet-journal")
+def api_client_create_bet(payload: BetJournalBody, request: Request):
+    account = _require_account(request)
+    try:
+        return {"bet": picks.create_bet(account["user_key"], payload.model_dump())}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.put("/api/client/bet-journal/{bet_id}")
+def api_client_update_bet(bet_id: int, payload: BetJournalBody, request: Request):
+    account = _require_account(request)
+    try:
+        return {"bet": picks.update_bet(account["user_key"], bet_id, payload.model_dump())}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.delete("/api/client/bet-journal/{bet_id}")
+def api_client_delete_bet(bet_id: int, request: Request):
+    account = _require_account(request)
+    if not picks.delete_bet(account["user_key"], bet_id):
+        raise HTTPException(404, "Bet record not found.")
+    return {"ok": True}
+
+
 @app.get("/api/admin/clients")
 def api_admin_clients(request: Request):
     _require_admin(request)
@@ -407,22 +1002,78 @@ def api_admin_clients(request: Request):
 
 
 @app.post("/api/admin/clients")
-def api_admin_create_client(payload: ClientCreate, request: Request):
+def api_admin_create_client(payload: ClientCreate, request: Request, response: Response):
     admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
     try:
         account, temporary_password = create_client(
             payload.username,
             payload.display_name,
             payload.plan_code,
             created_by=int(admin["id"]),
+            chosen_password=payload.chosen_password,
+            expires_at=payload.expires_at,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    # A shared PUBLIC TRIAL account has a preset password and is already activated.
+    # No activation link is issued for such an account.
+    invitation = (access_links.issue(int(account["id"]), "activation", int(admin["id"]))
+                  if account["must_change_password"] else None)
     return {
-        "ok": True,
-        "account": public_account(account),
+        "ok": True, "account": public_account(account),
         "temporary_password": temporary_password,
+        "activation_token": invitation["token"] if invitation else None,
+        "activation_expires_at": invitation["expires_at"] if invitation else None,
     }
+
+
+@app.post("/api/admin/clients/{account_id}/reset-password")
+def api_admin_reset_client_password(account_id: int, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        temp_password = reset_client_password(account_id, int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    access_links.invalidate(account_id)
+    invitation=access_links.issue(account_id,"activation",int(admin["id"]))
+    return {
+        "ok": True, "account": public_account(get_account(account_id)),
+        "temporary_password": temp_password,
+        "activation_token": invitation["token"],"activation_expires_at":invitation["expires_at"],
+    }
+
+
+@app.delete("/api/admin/clients/{account_id}")
+def api_admin_delete_client(account_id: int, request: Request, response: Response):
+    admin = _require_admin(request)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        delete_client(account_id, int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
+
+
+@app.post("/api/admin/clients/{account_id}/links")
+def admin_issue_link(account_id:int,payload:LinkIssue,request:Request,response:Response):
+    admin=_require_admin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        return {"ok":True,"kind":payload.kind,**access_links.issue(account_id,payload.kind,int(admin["id"]))}
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+
+
+@app.post("/api/admin/clients/{account_id}/links/revoke")
+def admin_revoke_link(account_id:int,payload:LinkIssue,request:Request):
+    admin=_require_admin(request)
+    try:
+        access_links.revoke(account_id,payload.kind,int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True}
 
 
 @app.post("/api/admin/clients/{account_id}/subscription")
@@ -437,6 +1088,21 @@ def api_admin_grant_subscription(
             account_id,
             payload.plan_code,
             custom_days=payload.custom_days,
+            actor_account_id=int(admin["id"]),
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
+
+
+@app.post("/api/admin/clients/{account_id}/subscription/expiry")
+def api_admin_set_subscription_expiry(
+    account_id: int, payload: SubscriptionExpiry, request: Request,
+):
+    admin = _require_admin(request)
+    try:
+        set_subscription_expiry(
+            account_id, payload.expires_at,
             actor_account_id=int(admin["id"]),
         )
     except ValueError as exc:
@@ -464,6 +1130,8 @@ def api_admin_review_subscription(
     request: Request,
 ):
     admin = _require_admin(request)
+    if payload.approve and not payload.verified:
+        raise HTTPException(400, "Verify the received payment independently before approval.")
     try:
         review_subscription_request(request_id, payload.approve, int(admin["id"]))
     except ValueError as exc:
@@ -491,25 +1159,36 @@ def status():
 def predict_category(category: str, request: Request, response: Response):
     if category not in {"overs", "unders", "btts", "wins"}:
         raise HTTPException(404, "Unknown market page.")
-    account = _require_active_access(request)
+    account = _require_account(request)
+    is_free = not _is_vip(account)
     user_id = account["user_key"]
     started = time.perf_counter()
+    if is_free and not account.get("email"):
+        raise HTTPException(403, "An active subscription is required.")
+    if is_free and free_access.active_release() is None:
+        raise HTTPException(403, "No public predictions have been released at the moment.")
     try:
         context = feed.prediction_context()
-        graded_now = grade_user_predictions(user_id, context["completed_rounds_for_grading"])
+        if is_free and not _free_round_allowed(context):
+            raise HTTPException(403, "This matchday is not part of an active public release.")
+        graded_now = grade_user_predictions(user_id, context["completed_rounds_for_grading"]) if not is_free else 0
         result = build_prediction(context)
         category_result = {
             **result,
+            "next_target": context.get("next_target") or {},
             "predictions": [
                 p for p in result.get("predictions", [])
                 if _market_category(p.get("expected")) == category
             ],
             "trackers": [],
         }
+        # A free response is filtered before returning; VIP history is never included.
+        if is_free:
+            return _free_market_result(_public_result(category_result))
+        save_user_prediction_batch(user_id, category_result)
+        history = get_user_history(user_id, category=category)
         public_result = _public_result(category_result)
-        save_user_prediction_batch(user_id, public_result)
-        history = get_user_history(user_id)
-        public_result["personal"] = history
+        public_result["personal"] = _public_history(history)
         public_result["performance"] = {
             "seconds": round(time.perf_counter() - started, 3),
             "round_cache_hits": context.get("round_cache_hits", 0),
@@ -529,7 +1208,7 @@ def predict_category(category: str, request: Request, response: Response):
 def update_selection(payload: SelectionUpdate, request: Request, response: Response):
     account = _require_active_access(request)
     user_id = account["user_key"]
-    set_prediction_selected(
+    updated = set_prediction_selected(
         user_id,
         payload.season,
         payload.matchday,
@@ -539,6 +1218,11 @@ def update_selection(payload: SelectionUpdate, request: Request, response: Respo
         payload.expected,
         payload.selected,
     )
+    if not updated:
+        raise HTTPException(
+            409, "This pick cannot be changed. Only pending selections "
+                 "in your latest checked matchday are editable."
+        )
     return {"ok": True}
 
 
@@ -548,7 +1232,7 @@ def history_category(category: str, request: Request, response: Response):
         raise HTTPException(404, "Unknown market page.")
     account = _require_active_access(request)
     user_id = account["user_key"]
-    return get_user_history(user_id, category=category)
+    return _public_history(get_user_history(user_id, category=category))
 
 
 @app.post("/api/history/{category}/refresh")
@@ -561,7 +1245,7 @@ def refresh_history(category: str, request: Request, response: Response):
     try:
         context = feed.prediction_context()
         graded = grade_user_predictions(user_id, context["completed_rounds_for_grading"])
-        history = get_user_history(user_id, category=category)
+        history = _public_history(get_user_history(user_id, category=category))
         history["refresh"] = {
             "graded_now": graded,
             "seconds": round(time.perf_counter() - started, 3),
@@ -578,7 +1262,7 @@ def refresh_history(category: str, request: Request, response: Response):
 def predictions(request: Request, response: Response):
     account = _require_active_access(request)
     user_id = account["user_key"]
-    return get_user_history(user_id)
+    return _public_history(get_user_history(user_id))
 
 
 @app.get("/api/diagnose")

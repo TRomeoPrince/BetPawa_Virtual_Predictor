@@ -272,17 +272,31 @@ def set_prediction_selected(
     expected: str,
     selected: bool,
 ) -> bool:
-    """Persist one browser user's choice without changing the prediction itself."""
+    """Only modify a pending pick in the latest checked matchday.
+
+    Prevent backfilling winners after results are known or rewriting graded
+    historical selection records. Returns False when a pick is not editable.
+    """
     con = connect()
     cur = con.execute("""
       UPDATE user_predictions
       SET selected=?
       WHERE user_id=? AND season=? AND matchday=? AND league=?
         AND target_home=? AND target_away=? AND expected=?
+        AND outcome='PENDING'
+        AND EXISTS (
+          SELECT 1 FROM user_prediction_batches b
+          WHERE b.user_id=user_predictions.user_id
+            AND b.season=user_predictions.season
+            AND b.matchday=user_predictions.matchday
+            AND b.id=(
+              SELECT MAX(id) FROM user_prediction_batches WHERE user_id=?
+            )
+        )
     """, (
         1 if selected else 0,
         str(user_id), str(season), str(matchday), str(league),
-        str(target_home), str(target_away), str(expected),
+        str(target_home), str(target_away), str(expected), str(user_id),
     ))
     con.commit()
     changed = cur.rowcount > 0
@@ -425,8 +439,24 @@ def grade_user_predictions(user_id: str, completed_rounds: list[dict[str, Any]])
     return graded
 
 
-def _batch_predictions(con, user_id: str, season: str, matchday: str):
-    rows = con.execute("""
+_CATEGORY_SQL = {
+    "overs": "UPPER(expected) LIKE '%OVER%'",
+    "unders": "UPPER(expected) LIKE '%UNDER%'",
+    "btts": "UPPER(expected) LIKE '%BTTS%'",
+    "wins": "(UPPER(expected) LIKE '%HOME WIN%' OR UPPER(expected) LIKE '%AWAY WIN%')",
+}
+
+
+def _category_sql(category: str | None) -> str:
+    if category is None:
+        return "1=1"
+    if category not in _CATEGORY_SQL:
+        raise ValueError("Unknown prediction category.")
+    return _CATEGORY_SQL[category]
+
+
+def _batch_predictions(con, user_id: str, season: str, matchday: str, category: str | None = None):
+    rows = con.execute(f"""
       SELECT league, selected_team, target_position, target_home, target_away,
              confidence, alignment, recent_wins, recent_tests, expected,
              outcome, ht_home, ht_away, ft_home, ft_away, graded_at, created_at,
@@ -434,7 +464,7 @@ def _batch_predictions(con, user_id: str, season: str, matchday: str):
              time_source, timezone, utc_offset, time_status,
              time_historical_wins, time_historical_tests, time_historical_rate
       FROM user_predictions
-      WHERE user_id=? AND season=? AND matchday=?
+      WHERE user_id=? AND season=? AND matchday=? AND ({_category_sql(category)})
       ORDER BY confidence DESC, league, id
     """, (user_id, season, matchday)).fetchall()
     out = []
@@ -449,30 +479,46 @@ def _batch_predictions(con, user_id: str, season: str, matchday: str):
     return out
 
 
-def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
+def get_user_history(user_id: str, limit_batches: int = 6, category: str | None = None) -> dict[str, Any]:
     con = connect()
 
-    totals = con.execute("""
+    filter_sql = _category_sql(category)
+    totals = con.execute(f"""
       SELECT
         COUNT(*) AS total,
         SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
         SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
         SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending
-      FROM user_predictions WHERE user_id=?
+      FROM user_predictions WHERE user_id=? AND ({filter_sql})
     """, (user_id,)).fetchone()
 
-    batch_rows = con.execute("""
-      SELECT season, matchday, target_round_id, candidate_count, checked_at
-      FROM user_prediction_batches
-      WHERE user_id=?
-      ORDER BY id DESC
+    selected_totals = con.execute(f"""
+      SELECT
+        SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
+        SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
+        SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending
+      FROM user_predictions WHERE user_id=? AND selected=1 AND ({filter_sql})
+    """, (user_id,)).fetchone()
+
+    batch_rows = con.execute(f"""
+      SELECT b.season, b.matchday, b.target_round_id, b.candidate_count, b.checked_at
+      FROM user_prediction_batches b
+      WHERE b.user_id=?
+        AND (? IS NULL OR EXISTS (
+          SELECT 1 FROM user_predictions
+          WHERE user_id=b.user_id AND season=b.season AND matchday=b.matchday
+            AND ({filter_sql})
+        ))
+      ORDER BY b.id DESC
       LIMIT ?
-    """, (user_id, max(1, min(limit_batches, 20)))).fetchall()
+    """, (user_id, category, max(1, min(limit_batches, 20)))).fetchall()
 
     batches = []
     for b in batch_rows:
         item = dict(b)
-        preds = _batch_predictions(con, user_id, item["season"], item["matchday"])
+        preds = _batch_predictions(con, user_id, item["season"], item["matchday"], category)
+        if category is not None:
+            item["candidate_count"] = len(preds)
         wins = sum(p["outcome"] == "WON" for p in preds)
         losses = sum(p["outcome"] == "LOST" for p in preds)
         pending = sum(p["outcome"] == "PENDING" for p in preds)
@@ -487,13 +533,13 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         })
         batches.append(item)
 
-    market_rows = con.execute("""
+    market_rows = con.execute(f"""
       SELECT expected,
              SUM(CASE WHEN outcome='WON' THEN 1 ELSE 0 END) AS wins,
              SUM(CASE WHEN outcome='LOST' THEN 1 ELSE 0 END) AS losses,
              SUM(CASE WHEN outcome='PENDING' THEN 1 ELSE 0 END) AS pending
       FROM user_predictions
-      WHERE user_id=?
+      WHERE user_id=? AND ({filter_sql})
       GROUP BY expected
       ORDER BY expected
     """, (user_id,)).fetchall()
@@ -601,6 +647,34 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
     losses = int(totals["losses"] or 0)
     pending = int(totals["pending"] or 0)
     graded = wins + losses
+    sw = int(selected_totals["wins"] or 0)
+    sl = int(selected_totals["losses"] or 0)
+    sp = int(selected_totals["pending"] or 0)
+    sg = sw + sl
+
+    selected_results = [
+        p for b in batches for p in b["predictions"]
+        if p.get("selected") and p.get("outcome") in ("WON", "LOST")
+    ][:20]
+    selected_batches = [
+        b for b in batches if any(p.get("selected") for p in b["predictions"])
+    ]
+    last_completed_selected_batch = next((
+        b for b in selected_batches
+        if all(p.get("outcome") != "PENDING" for p in b["predictions"] if p.get("selected"))
+    ), None)
+
+    history = []
+    for b in batches:
+        chosen = [p for p in b["predictions"] if p.get("selected")]
+        bw = sum(p["outcome"] == "WON" for p in chosen)
+        bl = sum(p["outcome"] == "LOST" for p in chosen)
+        bp = sum(p["outcome"] == "PENDING" for p in chosen)
+        history.append({
+            "matchday": b["matchday"], "season": b["season"],
+            "wins": bw, "losses": bl, "pending": bp,
+            "win_rate": bw / (bw + bl) if bw + bl else None,
+        })
 
     last_completed_batch = next(
         (
@@ -622,6 +696,14 @@ def get_user_history(user_id: str, limit_batches: int = 6) -> dict[str, Any]:
         },
         "last_batch": batches[0] if batches else None,
         "last_completed_batch": last_completed_batch,
+        "selected_overall": {
+            "wins": sw, "losses": sl, "pending": sp, "graded": sg,
+            "win_rate": sw / sg if sg else None,
+        },
+        "selected_results": selected_results,
+        "last_selected_batch": selected_batches[0] if selected_batches else None,
+        "last_completed_selected_batch": last_completed_selected_batch,
+        "history": history,
         "by_market": by_market,
         "by_family_market": by_family_market,
         "by_rule_internal": by_rule_internal,
