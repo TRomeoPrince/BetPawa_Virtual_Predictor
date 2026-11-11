@@ -42,13 +42,13 @@ async function api(url,options){
 function showFeedback(id,message,error=false){const el=$(id);el.textContent=message;el.className='feedback '+(error?'error':'success')}
 function showAccount(){
   const sub=account.subscription||{},admin=account.role==='admin';
-  $('welcome').textContent='Welcome, '+(account.display_name||account.username)+'. '+(admin||sub.is_active?'Your VIP markets are ready.':'Free EPL/Dutch predictions unlock from 10:00–10:25 PM EAT.');
+  $('welcome').textContent='Welcome, '+(account.display_name||account.username)+'. '+(admin||sub.is_active?'Your VIP markets are ready.':'Public previews are released periodically. Check back for availability.');
   $('picksHub').hidden=!(admin||sub.is_active);
   $('preview').hidden=!admin;$('adminLink').hidden=!admin;
   $('planTitle').textContent=admin?'Administrator preview':(sub.is_active?sub.plan_label:'Free membership');
   $('subPill').textContent=admin?'ADMIN':(sub.is_active?'VIP':'FREE');
   $('subPill').className='pill '+(admin||sub.is_active?'active':'inactive');
-  $('subText').textContent=admin?'You can preview every client market.':(sub.is_active?(sub.expires_at?'VIP expires '+formatDate(sub.expires_at):'Lifetime VIP access'):'Five free EPL/Dutch virtual matchdays daily from 10:00 to 10:25 PM EAT. Upgrade to VIP for more rounds.');
+  $('subText').textContent=admin?'You can preview every client market.':(sub.is_active?(sub.expires_at?'VIP expires '+formatDate(sub.expires_at):'Lifetime VIP access'):'Public previews will appear when released. Upgrade to VIP for full access.');
   $('passNotice').textContent=account.must_change_password?'Your account is using a temporary password. Please change it now.':'';
 }
 async function loadPicksPreview(){
@@ -109,7 +109,7 @@ async function load(){
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
     renderPlans((plans.plans||[]).filter(p=>['daily','weekly','monthly','annual','lifetime'].includes(p.code)));
-    if(account.role!=='admin')loadReferrals();
+    if(account.role!=='admin'){loadReferrals(); if(!(account.subscription||{}).is_active)refreshFreeAccess();}
   }catch(error){if(!account)showFeedback('requestMessage',error.message,true);else showFeedback('requestMessage','Unable to load all account details: '+error.message,true)}
 }
 async function requestPlan(code){
@@ -119,6 +119,16 @@ async function requestPlan(code){
     showFeedback('requestMessage','Request sent. The administrator will review it.');
     await load();
   }catch(error){showFeedback('requestMessage',error.message,true)}
+}
+async function refreshFreeAccess(){
+ try{
+  const availability=await api('/api/free-access/status');
+  if(!(account.subscription||{}).is_active){
+   $('subText').textContent=availability.open
+     ?'Public predictions are currently available. Open a market to view this release.'
+     :'Public predictions are not currently released. Check back later or request VIP access.';
+  }
+ }catch(e){$('subText').textContent='Public access status could not be checked. Try again later.'}
 }
 async function loadReferrals(){
  try{

@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from backend import access, db, growth
+from backend import access, db, growth, free_access
 from backend.time_windows import EAT
 
 
@@ -73,6 +73,8 @@ class FreeMembershipTests(unittest.TestCase):
         self.assertEqual(growth.quote("weekly")["price_ugx"], 20000)
         when = datetime(2026, 10, 18, 22, 0, tzinfo=EAT)
         example = {"season": 139225, "next_matchday": 14}
+        self.assertFalse(self.main._free_round_allowed(example, when))
+        free_access.create_release(when - timedelta(minutes=5))
         self.assertTrue(self.main._free_round_allowed(example, when))
         self.assertFalse(self.main._free_round_allowed(example, when + timedelta(minutes=25)))
         free = self.main._free_market_result({
