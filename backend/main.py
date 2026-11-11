@@ -590,7 +590,7 @@ def api_link_activate(payload: LinkActivation,request: Request,response: Respons
 
 @app.post("/api/auth/signup")
 def api_signup(payload: SignupRequest, request: Request, response: Response):
-    if os.getenv("PREDICTOR_SIGNUP_ENABLED", "true").lower() not in ("1", "true", "yes", "on"):
+    if os.getenv("PREDICTOR_SIGNUP_ENABLED", "false" if os.getenv("RAILWAY_PROJECT_ID") else "true").lower() not in ("1", "true", "yes", "on"):
         raise HTTPException(503, "Registration is temporarily closed.")
     try:
         account = growth.signup(payload.username, payload.display_name, payload.email,
