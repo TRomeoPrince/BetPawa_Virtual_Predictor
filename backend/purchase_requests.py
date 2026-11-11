@@ -236,6 +236,21 @@ def proof(request_id):
         return (bytes(row["proof_blob"]),row["proof_mime"]) if row and row["proof_blob"] else None
     finally:con.close()
 
+def needs_activation_origin(request_id):
+    """A public HTTPS activation link is needed only when creating a new account."""
+    con=connect()
+    try:
+        row=con.execute(
+            "SELECT buyer_account_id FROM purchase_requests WHERE id=? AND status='pending'",
+            (request_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Pending request not found.")
+        return row["buyer_account_id"] is None
+    finally:
+        con.close()
+
+
 def approve_or_reject(request_id,admin_id,approve,verified=False,reason=""):
     """Reserve pending request once. Only a manually confirmed payment can grant access."""
     con=connect()
