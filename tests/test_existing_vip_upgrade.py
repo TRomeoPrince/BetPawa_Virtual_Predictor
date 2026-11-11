@@ -34,7 +34,7 @@ class ExistingAccountUpgradeTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def purchase(self, reference):
-        proof = b"\x89PNG\r\n\x1a\n" + b"sample-content" * 10
+        proof = b"\x89PNG\r\n\x1a\n" + b"sample-content" * 10 + reference.encode("utf-8")
         return self.buyer.post("/api/purchase/requests", json={
             "email": "buyer@example.com", "username": "buyer",
             "display_name": "Buyer", "plan_code": "weekly",

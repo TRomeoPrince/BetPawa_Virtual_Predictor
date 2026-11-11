@@ -137,6 +137,75 @@ class PurchaseRequestTests(unittest.TestCase):
             self.assertEqual(self.http.post("/api/purchase/requests",json=self.payload()).status_code,503)
             self.assertEqual(access.list_clients(),[])
 
+    def test_transaction_reference_only_submission_and_manual_approval(self):
+        self.http.post("/api/auth/logout")
+        payload=self.payload("refonly","MOMOREF78965")
+        payload.pop("proof_base64")
+        response=self.http.post("/api/purchase/requests",json=payload)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(access.list_clients(),[])
+        self.http.post("/api/auth/login",json={
+            "username":"admin","password":"ChangedAdminPassword2026!"
+        })
+        pending=self.http.get("/api/admin/payment-requests").json()["requests"]
+        self.assertEqual(len(pending),1)
+        self.assertEqual(pending[0]["proof_size"],0)
+        self.assertEqual(pending[0]["transaction_ref"],"MOMOREF78965")
+        self.assertEqual(self.http.get("/api/admin/payment-requests/1/proof").status_code,404)
+        refused=self.http.post("/api/admin/payment-requests/1/review",json={
+            "approve":True,"verified":False
+        })
+        self.assertEqual(refused.status_code,400)
+        self.assertEqual(access.list_clients(),[])
+        approved=self.http.post("/api/admin/payment-requests/1/review",json={
+            "approve":True,"verified":True
+        })
+        self.assertEqual(approved.status_code,200,approved.text)
+        self.assertEqual(len(access.list_clients()),1)
+
+    def test_attachment_only_submission_and_duplicate_detection(self):
+        self.http.post("/api/auth/logout")
+        payload=self.payload("fileonly","REF_IGNORE")
+        payload.pop("transaction_ref")
+        response=self.http.post("/api/purchase/requests",json=payload)
+        self.assertEqual(response.status_code,200,response.text)
+        replay=self.payload("fileagain","REF_IGNORE2")
+        replay.pop("transaction_ref")
+        self.assertEqual(self.http.post("/api/purchase/requests",json=replay).status_code,400)
+        other=self.payload("different","REF_IGNORE3")
+        other["transaction_ref"]=""
+        other["proof_base64"]=base64.b64encode(
+            b"\x89PNG\r\n\x1a\n"+b"another-test-payment"*9
+        ).decode()
+        self.assertEqual(self.http.post("/api/purchase/requests",json=other).status_code,200)
+        self.assertEqual(access.list_clients(),[])
+        self.http.post("/api/auth/login",json={
+            "username":"admin","password":"ChangedAdminPassword2026!"
+        })
+        purchases=self.http.get("/api/admin/payment-requests").json()["requests"]
+        self.assertEqual(len(purchases),2)
+        evidence=purchases[1]
+        self.assertEqual(evidence["transaction_ref"],"")
+        self.assertGreater(evidence["proof_size"],50)
+        attachment=self.http.get("/api/admin/payment-requests/"+str(evidence["id"])+"/proof")
+        self.assertEqual(attachment.status_code,200)
+        self.assertEqual(attachment.headers["content-type"],"application/octet-stream")
+
+    def test_missing_both_evidence_rejected(self):
+        self.http.post("/api/auth/logout")
+        payload=self.payload("neither","NOT_USED")
+        payload.pop("transaction_ref")
+        payload.pop("proof_base64")
+        self.assertEqual(self.http.post("/api/purchase/requests",json=payload).status_code,400)
+        self.assertEqual(access.list_clients(),[])
+
+    def test_purchase_open_without_explicit_environment_override(self):
+        with patch.dict(os.environ,{},clear=False):
+            os.environ.pop("PREDICTOR_PURCHASE_ENABLED",None)
+            self.assertTrue(purchase_requests.purchase_enabled())
+            self.assertTrue(self.http.get("/api/purchase/catalog").json()["accepting_requests"])
+
+
     def test_approval_requires_public_https_origin(self):
         self.http.post("/api/auth/logout")
         self.assertEqual(self.http.post("/api/purchase/requests",json=self.payload()).status_code,200)
