@@ -272,16 +272,17 @@ def delete_session(raw_token: str | None):
 
 def change_password(account_id: int, current_password: str, new_password: str):
     """Complete first-login setup or rotate a password; invalidate old sessions."""
-    if not 12 <= len(new_password) <= 128:
-        raise ValueError("New password must be 12 to 128 characters long.")
     con = connect()
     try:
         row = con.execute(
-            "SELECT password_hash FROM accounts WHERE id=? AND status='active'",
+            "SELECT password_hash, role FROM accounts WHERE id=? AND status='active'",
             (account_id,),
         ).fetchone()
         if not row or not verify_password(current_password, row["password_hash"]):
             raise ValueError("Current password is incorrect.")
+        minimum = 12 if row["role"] == "admin" else 8
+        if not minimum <= len(new_password) <= 128:
+            raise ValueError(f"New password must be {minimum} to 128 characters long.")
         if hmac.compare_digest(current_password, new_password):
             raise ValueError("Choose a different password from your temporary one.")
         con.execute(
