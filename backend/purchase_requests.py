@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import os
 import re
 import secrets
@@ -73,9 +74,18 @@ def connect():
         )
     """)
     columns={r["name"] for r in con.execute("PRAGMA table_info(purchase_requests)")}
-    for name,kind in (("buyer_account_id","INTEGER"),("promo_code","TEXT"),("promotion_id","INTEGER")):
+    for name,kind in (("buyer_account_id","INTEGER"),("promo_code","TEXT"),("promotion_id","INTEGER"),("proof_sha256","TEXT")):
         if name not in columns:
             con.execute(f"ALTER TABLE purchase_requests ADD COLUMN {name} {kind}")
+    # Populate digest for older receipts so repeat submissions cannot reuse them.
+    for row in con.execute(
+        "SELECT id,proof_blob FROM purchase_requests WHERE proof_sha256 IS NULL AND LENGTH(proof_blob)>0"
+    ).fetchall():
+        con.execute(
+            "UPDATE purchase_requests SET proof_sha256=? WHERE id=?",
+            (hashlib.sha256(bytes(row["proof_blob"])).hexdigest(), row["id"]),
+        )
+    con.execute("CREATE INDEX IF NOT EXISTS purchase_proof_digest_idx ON purchase_requests(proof_sha256)")
     con.execute("CREATE INDEX IF NOT EXISTS purchase_status_idx ON purchase_requests(status,submitted_at)")
     con.commit()
     return con
@@ -101,7 +111,7 @@ def prices():
     return result
 
 def purchase_enabled():
-    return os.getenv("PREDICTOR_PURCHASE_ENABLED","false").lower() in ("1","true","yes","on")
+    return os.getenv("PREDICTOR_PURCHASE_ENABLED","true").strip().lower() in ("1","true","yes","on")
 
 
 def catalog():
@@ -125,7 +135,8 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
     email=email.strip().lower()
     username=username.strip()
     display_name=display_name.strip() or username
-    txref=txref.strip()
+    txref=(txref or "").strip()
+    proof_b64=(proof_b64 or "").strip()
     if not re.fullmatch(r"[^@\s]{1,64}@[^@\s]{1,200}\.[^@\s]{2,}",email):
         raise ValueError("Enter a valid email address.")
     if not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}",username):
@@ -134,14 +145,24 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
     if plan not in PRICE_ENV or prices()[plan] is None:
         raise ValueError("That plan is not priced yet. Select another plan.")
     if method not in METHODS:raise ValueError("Unsupported payment method.")
-    if not 5<=len(txref)<=160:raise ValueError("Enter the transaction reference or hash (5–160 characters).")
-    if len(proof_b64)>2_800_000:raise ValueError("Proof exceeds the 2 MB limit.")
-    try:
-        data=base64.b64decode(proof_b64,validate=True)
-    except (binascii.Error,ValueError):
-        raise ValueError("Invalid proof attachment.")
-    if not 50<=len(data)<=MAX_PROOF_BYTES:raise ValueError("Attach a proof file up to 2 MB.")
-    mime=_mime(data)
+    if txref and not 5<=len(txref)<=160:
+        raise ValueError("Transaction reference must contain 5–160 characters.")
+    if not txref and not proof_b64:
+        raise ValueError("Enter valid payment confirmation details.")
+    if len(proof_b64)>2_800_000:
+        raise ValueError("Proof exceeds the 2 MB limit.")
+    data=b""
+    mime=""
+    digest=None
+    if proof_b64:
+        try:
+            data=base64.b64decode(proof_b64,validate=True)
+        except (binascii.Error,ValueError):
+            raise ValueError("Invalid proof attachment.")
+        if not 50<=len(data)<=MAX_PROOF_BYTES:
+            raise ValueError("Attach a proof file up to 2 MB.")
+        mime=_mime(data)
+        digest=hashlib.sha256(data).hexdigest()
     from . import growth
     offer=growth.quote(plan,promo_code)
     now=datetime.now(timezone.utc).isoformat()
@@ -169,19 +190,24 @@ def submit(email, username, display_name, plan, method, txref, proof_b64, age_co
             (username,),
         ).fetchone():
             raise ValueError("This username is already requested. Choose another.")
-        if con.execute(
+        if txref and con.execute(
             "SELECT 1 FROM purchase_requests WHERE payment_method=? AND transaction_ref=?",
             (method,txref),
         ).fetchone():
             raise ValueError("This transaction reference has already been submitted.")
+        if digest and con.execute(
+            "SELECT 1 FROM purchase_requests WHERE proof_sha256=?",
+            (digest,),
+        ).fetchone():
+            raise ValueError("This payment proof has already been submitted.")
         reference="BP-"+secrets.token_hex(6).upper()
         con.execute("""
             INSERT INTO purchase_requests
               (reference,email,requested_username,display_name,plan_code,expected_ugx,
-               payment_method,transaction_ref,proof_mime,proof_blob,submitted_at,buyer_account_id,promo_code,promotion_id)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               payment_method,transaction_ref,proof_mime,proof_blob,submitted_at,buyer_account_id,promo_code,promotion_id,proof_sha256)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,(reference,email,username,display_name,plan,offer["price_ugx"],method,txref,mime,data,now,
-             account_id,offer["promo_code"],offer["promotion_id"]))
+             account_id,offer["promo_code"],offer["promotion_id"],digest))
         con.commit()
         return reference
     finally:
@@ -207,7 +233,7 @@ def proof(request_id):
     con=connect()
     try:
         row=con.execute("SELECT proof_blob,proof_mime FROM purchase_requests WHERE id=?",(request_id,)).fetchone()
-        return (bytes(row["proof_blob"]),row["proof_mime"]) if row else None
+        return (bytes(row["proof_blob"]),row["proof_mime"]) if row and row["proof_blob"] else None
     finally:con.close()
 
 def approve_or_reject(request_id,admin_id,approve,verified=False,reason=""):

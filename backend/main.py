@@ -382,8 +382,8 @@ class PurchaseRequestBody(BaseModel):
     display_name: str = ""
     plan_code: str
     payment_method: str
-    transaction_ref: str
-    proof_base64: str
+    transaction_ref: str = ""
+    proof_base64: str = ""
     age_confirmed: bool = False
     promo_code: str = ""
 
@@ -776,7 +776,7 @@ def api_submit_purchase(payload: PurchaseRequestBody, request: Request, response
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True, "reference": reference, "status": "pending",
-            "message": "Payment proof received. Access is NOT active until manually verified and approved."}
+            "message": "Payment request received. Access is NOT active until manually verified and approved."}
 
 
 @app.get("/api/admin/payment-requests")
