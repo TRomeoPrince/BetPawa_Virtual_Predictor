@@ -12,7 +12,7 @@
 <button type="button" class="btn" data-tab="overview">Overview</button>
 <button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
-<button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
+<button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
 <section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
@@ -49,6 +49,17 @@
 <div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Plan</th><th>Payment</th><th>Status</th><th>Review</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
 <p id="purchaseNotice" class="hint"></p><label for="manualActivationLink">Email unavailable? Private activation link for manual sending</label><input id="manualActivationLink" readonly style="width:min(100%,740px)">
 </section>
+<section id="free-releases" class="tab panel hidden">
+<h2>Public Free access</h2>
+<p class="hint">You control every release. No free matchdays are published automatically or daily. Each release allows up to five upcoming matchdays from the EPL and Dutch virtual leagues, using the existing predictor. Public users see only whether access is currently open, not your timetable.</p>
+<div class="form">
+<label>Schedule a release (your device's local timezone) <input type="datetime-local" id="freeStart" aria-label="Free release start time"></label>
+<button id="scheduleFree" type="button" class="btn primary">Schedule free release</button>
+<button id="openFreeNow" type="button" class="btn">Open free access now</button>
+</div>
+<p class="hint">An enabled release opens at the chosen time and closes automatically after its five estimated matchdays. You can disable it early or delete it. Start times may be unpredictable and do not recur.</p>
+<div style="overflow:auto"><table><thead><tr><th>Start (EAT)</th><th>End (EAT)</th><th>Status</th><th>Controls</th></tr></thead><tbody id="freeReleaseRows"></tbody></table></div>
+</section>
 <section id="promotions" class="tab panel hidden">
 <h2>VIP promotions and promo codes</h2><p class="hint">Blank code means automatic discount. Code-filled means coupon-only. Disable an offer to restore the normal price.</p>
 <form id="promoForm" class="form">
@@ -65,7 +76,7 @@
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],me:null},issued=null;
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],me:null},issued=null;
 function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
 async function api(url,options){
  const response=await fetch(url,{credentials:'same-origin',...options});
@@ -191,6 +202,56 @@ async function retryPurchaseEmail(id){
   await load();
  }catch(error){feedback(error.message,true)}
 }
+function freeDate(value){
+ if(!value)return '—';
+ return new Date(value).toLocaleString('en-UG',{timeZone:'Africa/Kampala',dateStyle:'medium',timeStyle:'short'})+' EAT';
+}
+function renderFreeReleases(){
+ $('freeReleaseRows').replaceChildren();
+ if(!state.freeReleases.length){
+  const tr=document.createElement('tr'),cell=td('No releases scheduled. Free access is currently closed.');
+  cell.colSpan=4;tr.append(cell);$('freeReleaseRows').append(tr);return;
+ }
+ for(const release of state.freeReleases){
+  const tr=document.createElement('tr');
+  tr.append(td(freeDate(release.starts_at)),td(freeDate(release.ends_at)),td(release.state.toUpperCase()));
+  const actions=td('');
+  actions.append(button(release.enabled?'Disable':'Enable',release.enabled?'danger':'primary',async()=>{
+   try{
+    await api('/api/admin/free-releases/'+release.id+'/enabled',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({enabled:!release.enabled})
+    });
+    feedback('Free release updated.');await load();
+   }catch(e){feedback(e.message,true)}
+  }));
+  actions.append(document.createTextNode(' '),button('Delete','danger',async()=>{
+   if(!confirm('Permanently delete this Free release?'))return;
+   try{await api('/api/admin/free-releases/'+release.id,{method:'DELETE'});feedback('Release deleted.');await load()}
+   catch(e){feedback(e.message,true)}
+  }));
+  tr.append(actions);$('freeReleaseRows').append(tr);
+ }
+}
+async function createFreeRelease(startIso=null){
+ try{
+  const response=await api('/api/admin/free-releases',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({starts_at:startIso,enabled:true})
+  });
+  feedback('Free release #'+response.id+' configured.');$('freeStart').value='';await load();
+ }catch(e){feedback(e.message,true)}
+}
+$('openFreeNow').addEventListener('click',()=>{
+ if(confirm('Open a one-time Free release of five upcoming matchdays now?'))createFreeRelease();
+});
+$('scheduleFree').addEventListener('click',()=>{
+ const entered=$('freeStart').value;
+ if(!entered){feedback('Choose a start date and time first.',true);return}
+ const dt=new Date(entered);
+ if(isNaN(dt.valueOf())){feedback('Choose a valid start date and time.',true);return}
+ createFreeRelease(dt.toISOString());
+});
 function renderPromotions(){
  $('promoRows').replaceChildren();
  for(const p of state.promotions){
@@ -235,14 +296,14 @@ async function load(){
   if(me.account.must_change_password){location.assign('/password-setup');return}
   if(me.account.role!=='admin'){location.assign('/client');return}
   state.me=me.account;
-  const [clients,requests,strategies,plans,purchases,promotions]=await Promise.all([
-   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions')
+  const [clients,requests,strategies,plans,purchases,promotions,freeReleases]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions'),api('/api/admin/free-releases')
   ]);
-  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;state.freeReleases=freeReleases.releases;
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderPromotions();renderStrategies();
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderPromotions();renderStrategies();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){
