@@ -820,7 +820,15 @@ def _purchase_public_origin(admin_supplied: str | None) -> str:
 def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request: Request, response: Response):
     admin = _require_admin(request)
     response.headers["Cache-Control"] = "no-store"
-    base = _purchase_public_origin(payload.public_base_url) if payload.approve else None
+    base = None
+    if payload.approve:
+        try:
+            needs_origin = purchase_requests.needs_activation_origin(request_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        if needs_origin:
+            # Validate before reserving; avoid leaving bad requests in "processing".
+            base = _purchase_public_origin(payload.public_base_url)
     try:
         purchase = purchase_requests.approve_or_reject(
             request_id, int(admin["id"]), payload.approve, payload.verified, payload.reason
