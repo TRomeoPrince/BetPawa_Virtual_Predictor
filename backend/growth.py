@@ -79,8 +79,8 @@ def signup(username, display_name, email, password, age_confirmed, referral_code
         raise ValueError("Enter a valid email address.")
     if not 1 <= len(display_name) <= 100:
         raise ValueError("Display name must be at most 100 characters.")
-    if not 12 <= len(password) <= 128:
-        raise ValueError("Password must contain 12 to 128 characters.")
+    if not 8 <= len(password) <= 128:
+        raise ValueError("Password must contain 8 to 128 characters.")
     referral_code = (referral_code or "").strip().upper()
     if referral_code and not re.fullmatch(r"BP[A-F0-9]{10}", referral_code):
         raise ValueError("Invalid referral link.")

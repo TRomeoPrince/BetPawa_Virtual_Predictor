@@ -105,8 +105,8 @@ def redeem_login(token):
 def activate(token,new_password,age_confirmed):
     if not token or len(token)>256 or not age_confirmed:
         raise ValueError("Missing, expired or invalid invitation or age confirmation.")
-    if not 12<=len(new_password)<=128:
-        raise ValueError("New password must have 12 to 128 characters.")
+    if not 8<=len(new_password)<=128:
+        raise ValueError("New password must have 8 to 128 characters.")
     con=connect()
     try:
         con.execute("BEGIN IMMEDIATE")
