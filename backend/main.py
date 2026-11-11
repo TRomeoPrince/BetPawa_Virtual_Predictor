@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth
+from . import picks, access_links, purchase_requests, growth, free_access
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -111,15 +111,8 @@ def _is_vip(account):
 
 
 def _free_round_allowed(context, now=None):
-    """Five 5-minute target rounds starting at 22:00 EAT each day."""
-    now = now or datetime.now(EAT)
-    if now.hour != 22 or not 0 <= now.minute < 25:
-        return False
-    try:
-        target = estimate_target_datetime_eat(context["season"], context["next_matchday"])
-    except (ValueError, KeyError, TypeError, OverflowError):
-        return False
-    return target.date() == now.date() and target.hour == 22 and 0 <= target.minute < 25
+    """Only administrator-enabled, scheduled rounds may be publicly previewed."""
+    return free_access.allowed_round(context, now)
 
 
 def _free_market_result(public_result):
@@ -136,7 +129,7 @@ def _free_market_result(public_result):
         "predictions": [p for p in public_result.get("predictions", [])
                         if str(p.get("league", "")).upper() in allowed],
         "trackers": [], "personal": {},
-        "free_window": "22:00-22:25 EAT",
+        "free_release": True,
     }
 
 
@@ -345,6 +338,15 @@ class PromotionBody(BaseModel):
 
 
 class PromotionToggle(BaseModel):
+    enabled: bool
+
+
+class FreeReleaseBody(BaseModel):
+    starts_at: str | None = None
+    enabled: bool = True
+
+
+class FreeReleaseToggle(BaseModel):
     enabled: bool
 
 
@@ -674,6 +676,54 @@ def api_purchase_quote(plan_code: str, response: Response, promo_code: str = "")
         return growth.quote(plan_code, promo_code)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+
+@app.get("/api/free-access/status")
+def api_free_access_status(request: Request):
+    """Only availability is exposed; upcoming release details stay admin-private."""
+    account = _require_account(request)
+    response = {"vip": _is_vip(account)}
+    if response["vip"]:
+        response["open"] = True
+    else:
+        response["open"] = bool(account.get("email")) and free_access.active_release() is not None
+    return response
+
+
+@app.get("/api/admin/free-releases")
+def api_admin_free_releases(request: Request):
+    _require_admin(request)
+    return {"releases": free_access.list_releases()}
+
+
+@app.post("/api/admin/free-releases")
+def api_admin_create_free_release(payload: FreeReleaseBody, request: Request):
+    admin = _require_admin(request)
+    try:
+        release_id = free_access.create_release(payload.starts_at, int(admin["id"]), payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "id": release_id}
+
+
+@app.post("/api/admin/free-releases/{release_id}/enabled")
+def api_admin_toggle_free_release(release_id: int, payload: FreeReleaseToggle, request: Request):
+    _require_admin(request)
+    try:
+        free_access.set_enabled(release_id, payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
+
+
+@app.delete("/api/admin/free-releases/{release_id}")
+def api_admin_delete_free_release(release_id: int, request: Request):
+    _require_admin(request)
+    try:
+        free_access.delete_release(release_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
 
 
 @app.get("/api/admin/promotions")
@@ -1107,12 +1157,12 @@ def predict_category(category: str, request: Request, response: Response):
     started = time.perf_counter()
     if is_free and not account.get("email"):
         raise HTTPException(403, "An active subscription is required.")
-    if is_free and datetime.now(EAT).hour != 22:
-        raise HTTPException(403, "Free EPL/Dutch rounds open at 10:00 PM EAT for 25 minutes.")
+    if is_free and free_access.active_release() is None:
+        raise HTTPException(403, "No public predictions have been released at the moment.")
     try:
         context = feed.prediction_context()
         if is_free and not _free_round_allowed(context):
-            raise HTTPException(403, "Only the five 10 PM EAT EPL/Dutch matchdays are free.")
+            raise HTTPException(403, "This matchday is not part of an active public release.")
         graded_now = grade_user_predictions(user_id, context["completed_rounds_for_grading"]) if not is_free else 0
         result = build_prediction(context)
         category_result = {
