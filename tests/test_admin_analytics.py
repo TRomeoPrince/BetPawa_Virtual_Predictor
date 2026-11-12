@@ -113,6 +113,9 @@ class AdminAnalyticsTests(unittest.TestCase):
             con.execute("""
                 INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
                 VALUES(?,?,?,?,'active',?)
+                ON CONFLICT(account_id) DO UPDATE SET plan_code=excluded.plan_code,
+                    starts_at=excluded.starts_at,expires_at=excluded.expires_at,
+                    status='active',updated_at=excluded.updated_at
             """,(member,"daily",datetime.now(timezone.utc).isoformat(),
                  (datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),datetime.now(timezone.utc).isoformat()))
             con.commit()

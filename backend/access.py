@@ -539,6 +539,9 @@ def delete_client(account_id: int, admin_id: int) -> None:
         for table in ("user_prediction_batches", "user_predictions",
                       "prediction_supports", "client_bet_journal"):
             con.execute(f"DELETE FROM {table} WHERE user_id=?", (row["user_key"],))
+        # Purge private activity history on client deletion.
+        con.execute("DELETE FROM member_activity WHERE account_id=?",(account_id,))
+        con.execute("DELETE FROM member_daily_activity WHERE account_id=?",(account_id,))
         con.execute("UPDATE referral_profiles SET referred_by=NULL WHERE referred_by=?", (account_id,))
         con.execute("DELETE FROM referral_profiles WHERE account_id=?", (account_id,))
         con.execute("UPDATE purchase_requests SET buyer_account_id=NULL WHERE buyer_account_id=?", (account_id,))
