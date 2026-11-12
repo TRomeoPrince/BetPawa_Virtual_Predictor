@@ -73,7 +73,7 @@ class PatternPartnerTests(unittest.TestCase):
         self.assertIn("Found a pattern worth sharing?",home.text)
         self.assertIn('href="/partners"',home.text)
         self.assertEqual(self.guest.get("/partners").status_code,200)
-        self.assertIn("Lifetime VIP",self.guest.get("/partners").text)
+        self.assertIn("Predictor Coins",self.guest.get("/partners").text)
         self.assertEqual(self.guest.get("/api/admin/pattern-partners").status_code,401)
         bad=self.guest.post("/api/pattern-partners",headers={
             "Origin":"https://evil.example",
@@ -93,65 +93,78 @@ class PatternPartnerTests(unittest.TestCase):
         self.assertEqual(items[0]["email"],self.application["email"])
         self.assertEqual(self.guest.get("/api/admin/pattern-partners").status_code,401)
 
-    def test_accept_and_reward_only_after_manual_verification(self):
+    def test_accept_and_link_only_verified_deployed_rule(self):
+        from backend import main
+        rule=main._admin_strategy_catalog()[0]
         member_id=self.signup()
-        sent=self.guest.post("/api/pattern-partners",json=self.application)
-        self.assertEqual(sent.status_code,200,sent.text)
-        sid=sent.json()["reference"]
+        response=self.guest.post("/api/pattern-partners",json=self.application)
+        self.assertEqual(response.status_code,200,response.text)
+        sid=response.json()["reference"]
         self.login_admin()
-        self.assertEqual(self.member.get("/api/admin/pattern-partners").status_code,403)
-        rejected_credit=self.admin.post(f"/api/admin/pattern-partners/{sid}/reward",json={
-            "username":"contributor","contributor_verified":True,
-        })
-        self.assertEqual(rejected_credit.status_code,400)
-        wrong=self.admin.post(f"/api/admin/pattern-partners/{sid}/review",json={
-            "decision":"accept","verified_and_adopted":False,"note":"Tested but not adopted",
-        })
-        self.assertEqual(wrong.status_code,400)
-        adopted=self.admin.post(f"/api/admin/pattern-partners/{sid}/review",json={
-            "decision":"accept","verified_and_adopted":True,
-            "note":"Independent historical backtest verified and pattern incorporated",
-        })
-        self.assertEqual(adopted.status_code,200,adopted.text)
-        self.assertEqual(self.admin.post(f"/api/admin/pattern-partners/{sid}/reward",json={
-            "username":"contributor","contributor_verified":False,
-        }).status_code,400)
-        awarded=self.admin.post(f"/api/admin/pattern-partners/{sid}/reward",json={
-            "username":"contributor","contributor_verified":True,
-        })
-        self.assertEqual(awarded.status_code,200,awarded.text)
-        self.assertEqual(awarded.json()["account_id"],member_id)
-        self.assertEqual(self.member.get("/api/auth/me").json()["account"]["subscription"]["plan_code"],"lifetime")
-        self.assertTrue(self.member.get("/api/auth/me").json()["account"]["subscription"]["is_active"])
-        self.assertEqual(self.admin.post(f"/api/admin/pattern-partners/{sid}/reward",json={
-            "username":"contributor","contributor_verified":True,
-        }).status_code,400)
-        con=access.connect()
-        try:
+        payload={"username":"contributor","contributor_verified":True,
+                 "strategy_family":rule["strategy_family"],"rule_id":rule["rule_id"]}
+        self.assertEqual(self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/reward",json=payload
+        ).status_code,400)
+        self.assertEqual(self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/review",
+            json={"decision":"accept","verified_and_adopted":False,"note":"Not validated"},
+        ).status_code,400)
+        result=self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/review",
+            json={"decision":"accept","verified_and_adopted":True,
+                  "note":"Backtested and adopted independently"},
+        )
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual(self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/reward",
+            json={**payload,"contributor_verified":False},
+        ).status_code,400)
+        self.assertEqual(self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/reward",
+            json={**payload,"rule_id":"NOT_DEPLOYED"},
+        ).status_code,400)
+        accepted=self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/reward",json=payload,
+        )
+        self.assertEqual(accepted.status_code,200,accepted.text)
+        self.assertEqual(accepted.json()["account_id"],member_id)
+        self.assertEqual(accepted.json()["status"],"active")
+        self.assertFalse(self.member.get("/api/auth/me").json()["account"]["subscription"]["is_active"])
+        self.assertEqual(self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/reward",json=payload,
+        ).status_code,400)
+        with pattern_partners.connect() as con:
+            record=con.execute(
+                "SELECT contributor_account_id,rule_id FROM pattern_partner_attributions WHERE submission_id=?",
+                (sid,),
+            ).fetchone()
+            self.assertEqual(record["contributor_account_id"],member_id)
+            self.assertEqual(record["rule_id"],rule["rule_id"])
             self.assertEqual(con.execute(
                 "SELECT COUNT(*) FROM access_audit WHERE action='PATTERN_PARTNER_LIFETIME'"
-            ).fetchone()[0],1)
-            self.assertEqual(con.execute(
-                "SELECT status FROM pattern_partner_submissions WHERE id=?",(sid,)
-            ).fetchone()[0],"rewarded")
-        finally:con.close()
+            ).fetchone()[0],0)
 
-    def test_rejection_and_email_mismatch_no_vip(self):
+    def test_email_mismatch_no_reward(self):
+        from backend import main
+        rule=main._admin_strategy_catalog()[0]
         self.signup("different@example.org","different")
         sent=self.guest.post("/api/pattern-partners",json=self.application)
         self.assertEqual(sent.status_code,200,sent.text)
         sid=sent.json()["reference"]
         self.login_admin()
-        self.assertEqual(self.admin.post(f"/api/admin/pattern-partners/{sid}/review",json={
-            "decision":"accept","verified_and_adopted":True,
-            "note":"Validated and adopted for future predictor release",
-        }).status_code,200)
-        wrong=self.admin.post(f"/api/admin/pattern-partners/{sid}/reward",json={
-            "username":"different","contributor_verified":True,
-        })
-        self.assertEqual(wrong.status_code,400)
-        self.assertIn("email",wrong.json()["detail"])
-        self.assertEqual(pattern_partners.list_submissions()[0]["status"],"accepted")
+        self.assertEqual(self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/review",
+            json={"decision":"accept","verified_and_adopted":True,
+                  "note":"Independently validated and adopted"},
+        ).status_code,200)
+        response=self.admin.post(
+            f"/api/admin/pattern-partners/{sid}/reward",
+            json={"username":"different","contributor_verified":True,
+                  "strategy_family":rule["strategy_family"],"rule_id":rule["rule_id"]},
+        )
+        self.assertEqual(response.status_code,400)
+        self.assertIn("email",response.json()["detail"])
         self.assertFalse(self.member.get("/api/auth/me").json()["account"]["subscription"]["is_active"])
 
     def test_submission_rate_limit(self):

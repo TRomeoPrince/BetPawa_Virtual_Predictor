@@ -1,7 +1,8 @@
-"""Public pattern partner applications and auditable, manually approved Lifetime VIP rewards.
+"""Public submissions and audited, verified contributor-rule attribution.
 
-An application is NEVER a verified prediction, a subscription, or entitlement.
-Admin explicitly accepts/adopts a pattern before rewarding a verified member.
+A submission is never a prediction, payout, or subscription entitlement.
+Only validated and deployed rules can be linked to verified member accounts.
+Legacy Lifetime VIP grants remain untouched; no new VIP is awarded.
 """
 from __future__ import annotations
 
@@ -42,6 +43,18 @@ def connect():
     """)
     con.execute("CREATE INDEX IF NOT EXISTS partner_review_queue ON pattern_partner_submissions(status,id DESC)")
     con.execute("CREATE INDEX IF NOT EXISTS partner_email_time ON pattern_partner_submissions(email,submitted_at)")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS pattern_partner_attributions(
+            submission_id INTEGER PRIMARY KEY,
+            contributor_account_id INTEGER NOT NULL,
+            strategy_family TEXT NOT NULL,
+            rule_id TEXT NOT NULL,
+            approved_by INTEGER NOT NULL,
+            activated_at TEXT NOT NULL
+        )
+    """)
+    con.execute("CREATE INDEX IF NOT EXISTS partner_rule_attribution ON pattern_partner_attributions(strategy_family,rule_id)")
+    con.execute("CREATE INDEX IF NOT EXISTS partner_owner_attribution ON pattern_partner_attributions(contributor_account_id)")
     con.commit()
     return con
 
@@ -102,11 +115,13 @@ def list_submissions():
     con=connect()
     try:
         return [dict(x) for x in con.execute("""
-            SELECT id,applicant_name,email,username,league,market,pattern_details,
-                   evidence_url,submitted_at,status,review_note,reviewed_at,
-                   reviewed_by,rewarded_at,rewarded_account_id
-            FROM pattern_partner_submissions
-            ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'accepted' THEN 1 ELSE 2 END,id DESC
+            SELECT p.id,p.applicant_name,p.email,p.username,p.league,p.market,p.pattern_details,
+                   p.evidence_url,p.submitted_at,p.status,p.review_note,p.reviewed_at,
+                   p.reviewed_by,p.rewarded_at,p.rewarded_account_id,
+                   a.strategy_family AS attributed_family,a.rule_id AS attributed_rule
+            FROM pattern_partner_submissions p
+            LEFT JOIN pattern_partner_attributions a ON a.submission_id=p.id
+            ORDER BY CASE p.status WHEN 'pending' THEN 0 WHEN 'accepted' THEN 1 ELSE 2 END,p.id DESC
             LIMIT 200
         """).fetchall()]
     finally:
@@ -140,48 +155,52 @@ def review(submission_id, decision, admin_id, verified, review_note):
         con.close()
 
 
-def reward_lifetime(submission_id, admin_id, username, contributor_verified):
-    """Admin-issued one-time reward to a client with matching verified email.
+def activate_contributor(submission_id, admin_id, username, contributor_verified,
+                         strategy_family, rule_id, allowed_rules):
+    """Link one verified member to an approved, actually deployed private rule.
 
-    Grant subscription and mark rewarded atomically. No automatic rewards for
-    pending/rejected submissions or a mismatched customer's email.
+    This is not a subscription or cash grant. Coin rewards are separately
+    capped against paid subscriptions and deduplicated selected picks.
     """
     if not contributor_verified:
-        raise ValueError("Independently verify contributor ownership before rewarding.")
+        raise ValueError("Independently verify contributor ownership before activation.")
     username=(username or "").strip()
+    family=(strategy_family or "").strip()
+    rule=(rule_id or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9_.-]{3,40}",username):
         raise ValueError("Enter the contributor's existing member username.")
+    if not family or not rule or (family,rule) not in allowed_rules:
+        raise ValueError("Choose an existing deployed rule from the private strategy catalog.")
     con=connect()
     try:
         con.execute("BEGIN IMMEDIATE")
         item=con.execute("SELECT * FROM pattern_partner_submissions WHERE id=?",(submission_id,)).fetchone()
         if not item or item["status"]!="accepted":
-            raise ValueError("The pattern must be accepted and adopted, and not previously rewarded.")
+            raise ValueError("The pattern must be accepted and adopted, and not already activated.")
         account=con.execute(
             "SELECT id,role,status,email FROM accounts WHERE lower(username)=lower(?)",(username,)
         ).fetchone()
         if not account or account["role"]!="client" or account["status"]!="active":
-            raise ValueError("A registered, active client account is required for the Lifetime VIP reward.")
+            raise ValueError("An active registered member account is required.")
         if not account["email"] or account["email"].lower()!=item["email"]:
-            raise ValueError("The client account email does not match the pattern contributor. Verify identity before issuing the reward.")
+            raise ValueError("The account email must match the contributor's verified submission email.")
         now=_now()
         con.execute("""
-            INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
-            VALUES(?,'lifetime',?,NULL,'active',?)
-            ON CONFLICT(account_id) DO UPDATE SET
-                plan_code='lifetime',starts_at=excluded.starts_at,expires_at=NULL,
-                status='active',updated_at=excluded.updated_at
-        """,(int(account["id"]),now,now))
+            INSERT INTO pattern_partner_attributions(
+              submission_id,contributor_account_id,strategy_family,rule_id,approved_by,activated_at
+            ) VALUES(?,?,?,?,?,?)
+        """,(submission_id,int(account["id"]),family,rule,int(admin_id),now))
         con.execute("""
             UPDATE pattern_partner_submissions SET status='rewarded',
               rewarded_account_id=?,rewarded_at=? WHERE id=? AND status='accepted'
         """,(int(account["id"]),now,submission_id))
         con.execute("""
             INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at)
-            VALUES(?,?,'PATTERN_PARTNER_LIFETIME',?,?)
-        """,(admin_id,int(account["id"]),f"submission:{submission_id}",now))
+            VALUES(?,?,'PATTERN_CONTRIBUTOR_ACTIVATED',?,?)
+        """,(admin_id,int(account["id"]),f"submission:{submission_id};rule:{family}/{rule}",now))
         con.commit()
-        return {"status":"rewarded","account_id":int(account["id"])}
+        return {"status":"active","account_id":int(account["id"]),
+                "submission_id":int(submission_id),"strategy_family":family,"rule_id":rule}
     except Exception:
         con.rollback()
         raise

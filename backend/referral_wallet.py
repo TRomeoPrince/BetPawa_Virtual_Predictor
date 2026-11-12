@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from . import growth
 
 MONTH = timedelta(days=30)
+COINS_PER_UGX = 100  # Presentation denomination only; UGX ledger remains authoritative.
 
 
 def _iso():
@@ -85,6 +86,8 @@ def connect():
         )
     """)
     con.execute("CREATE INDEX IF NOT EXISTS referral_wallet_spends_owner ON referral_wallet_spends(account_id,id DESC)")
+    from . import contributor_rewards
+    contributor_rewards.ensure_tables(con)
     con.commit()
     return con
 
@@ -106,20 +109,38 @@ def _summary_in_transaction(con, account_id):
         "SELECT COALESCE(SUM(amount_ugx),0) FROM referral_wallet_spends WHERE account_id=?",
         (account_id,),
     ).fetchone()[0])
-    balance = int(entries["balance"]) - spent
+    contributor=con.execute("""
+        SELECT COALESCE(SUM(amount_ugx),0) AS net,
+               COALESCE(SUM(CASE WHEN entry_type='contributor_reward' THEN amount_ugx ELSE 0 END),0) AS earned,
+               COALESCE(SUM(CASE WHEN entry_type='contributor_reversal' THEN -amount_ugx ELSE 0 END),0) AS reversed
+        FROM contributor_reward_ledger WHERE contributor_account_id=?
+    """,(account_id,)).fetchone()
+    balance = int(entries["balance"]) + int(contributor["net"]) - spent
     return {
         "currency": "UGX",
-        "earned_ugx": int(entries["earned"]),
-        "reversed_ugx": int(entries["reversed"]),
+        "earned_ugx": int(entries["earned"]) + int(contributor["earned"]),
+        "referral_earned_ugx": int(entries["earned"]),
+        "contributor_earned_ugx": int(contributor["earned"]),
+        "contributor_reversed_ugx": int(contributor["reversed"]),
+        "reversed_ugx": int(entries["reversed"]) + int(contributor["reversed"]),
         "withdrawn_ugx": int(entries["withdrawn"]),
         "spent_on_vip_ugx": spent,
         "balance_ugx": balance,
         "reserved_ugx": reserved,
         "available_ugx": max(0, balance-reserved),
+        "coins_per_ugx": COINS_PER_UGX,
+        "balance_coins": balance * COINS_PER_UGX,
+        "available_coins": max(0, balance-reserved) * COINS_PER_UGX,
+        "reserved_coins": reserved * COINS_PER_UGX,
+        "withdrawn_coins": int(entries["withdrawn"]) * COINS_PER_UGX,
+        "spent_on_vip_coins": spent * COINS_PER_UGX,
     }
 
 
 def wallet(account_id, limit=50):
+    from . import contributor_rewards
+    if contributor_rewards.enabled():
+        contributor_rewards.settle_due(limit=100)
     con=connect()
     try:
         owner=con.execute("SELECT id,role,status FROM accounts WHERE id=?",(account_id,)).fetchone()
@@ -128,6 +149,7 @@ def wallet(account_id, limit=50):
         result = _summary_in_transaction(con,account_id)
         result["withdrawals_enabled"] = withdrawals_enabled()
         result["minimum_withdrawal_ugx"] = minimum_withdrawal()
+        result["minimum_withdrawal_coins"] = minimum_withdrawal() * COINS_PER_UGX
         result["entries"] = [
             dict(x) for x in con.execute("""
                 SELECT id, entry_type, amount_ugx, purchase_amount_ugx,
@@ -142,6 +164,12 @@ def wallet(account_id, limit=50):
                 WHERE account_id=? ORDER BY id DESC LIMIT ?
             """,(account_id,max(1,min(int(limit),100)))).fetchall()
         ]
+        result["entries"].extend(dict(x) for x in con.execute("""
+            SELECT id,entry_type,amount_ugx,created_at,purchase_request_id,note,
+                   NULL AS purchase_amount_ugx,500 AS commission_rate_bps
+            FROM contributor_reward_ledger WHERE contributor_account_id=?
+            ORDER BY id DESC LIMIT ?
+        """,(account_id,max(1,min(int(limit),100)))).fetchall())
         result["entries"].extend({
             "id":x["id"],"entry_type":"vip_wallet_purchase",
             "amount_ugx":-int(x["amount_ugx"]),"created_at":x["purchased_at"],
@@ -285,8 +313,10 @@ def admin_wallets():
     try:
         accounts=con.execute("""
             SELECT DISTINCT a.id,a.username FROM accounts a
-            JOIN referral_wallet_ledger l ON l.referrer_account_id=a.id
-            WHERE a.role='client' ORDER BY a.username LIMIT 300
+            WHERE a.role='client' AND (
+                EXISTS(SELECT 1 FROM referral_wallet_ledger l WHERE l.referrer_account_id=a.id)
+                OR EXISTS(SELECT 1 FROM contributor_reward_ledger c WHERE c.contributor_account_id=a.id)
+            ) ORDER BY a.username LIMIT 300
         """).fetchall()
         return [{**dict(x),**_summary_in_transaction(con,int(x["id"]))} for x in accounts]
     finally:
@@ -371,6 +401,13 @@ def reverse_commission(purchase_id,admin_id,reason,confirmed):
             INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at)
             VALUES(?,?,'REFERRAL_COMMISSION_REVERSED',?,?)
         """,(admin_id,original["referrer_account_id"],f"payment:{purchase_id}",_iso()))
+        from . import contributor_rewards
+        found=con.execute(
+            "SELECT 1 FROM contributor_reward_periods WHERE purchase_request_id=?",
+            (purchase_id,),
+        ).fetchone()
+        if found:
+            contributor_rewards.reverse_purchase(con,purchase_id,admin_id,reason)
         con.commit()
     except Exception:
         con.rollback()
@@ -382,7 +419,9 @@ def reverse_commission(purchase_id,admin_id,reason,confirmed):
 def detach_deleted_client(con,account_id):
     """Keep financial events for audit; prevent deleting unpaid referral liabilities."""
     is_referrer=con.execute(
-        "SELECT 1 FROM referral_wallet_ledger WHERE referrer_account_id=? LIMIT 1",(account_id,)
+        """SELECT 1 FROM referral_wallet_ledger WHERE referrer_account_id=?
+           UNION SELECT 1 FROM contributor_reward_ledger WHERE contributor_account_id=?
+           LIMIT 1""",(account_id,account_id)
     ).fetchone()
     if is_referrer:
         summary=_summary_in_transaction(con,account_id)
@@ -392,6 +431,7 @@ def detach_deleted_client(con,account_id):
     con.execute("UPDATE referral_wallet_ledger SET referrer_account_id=NULL WHERE referrer_account_id=?",(account_id,))
     con.execute("UPDATE referral_withdrawals SET account_id=NULL,destination_details='' WHERE account_id=?",(account_id,))
     con.execute("UPDATE referral_wallet_spends SET account_id=NULL WHERE account_id=?",(account_id,))
+    con.execute("UPDATE contributor_reward_ledger SET contributor_account_id=NULL WHERE contributor_account_id=?",(account_id,))
 
 
 

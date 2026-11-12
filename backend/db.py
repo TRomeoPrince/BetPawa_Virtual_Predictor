@@ -73,6 +73,7 @@ def connect():
     _ensure_column(con, "user_predictions", "ht_away", "INTEGER")
     _ensure_column(con, "user_predictions", "supports_json", "TEXT")
     _ensure_column(con, "user_predictions", "selected", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(con, "user_predictions", "selected_at", "TEXT")
     _ensure_column(con, "user_predictions", "time_historical_rate", "REAL")
     _ensure_column(con, "user_predictions", "time_historical_tests", "INTEGER")
     _ensure_column(con, "user_predictions", "time_historical_wins", "INTEGER")
@@ -280,7 +281,7 @@ def set_prediction_selected(
     con = connect()
     cur = con.execute("""
       UPDATE user_predictions
-      SET selected=?
+      SET selected=?,selected_at=?
       WHERE user_id=? AND season=? AND matchday=? AND league=?
         AND target_home=? AND target_away=? AND expected=?
         AND outcome='PENDING'
@@ -294,7 +295,7 @@ def set_prediction_selected(
             )
         )
     """, (
-        1 if selected else 0,
+        1 if selected else 0, _utc_now() if selected else None,
         str(user_id), str(season), str(matchday), str(league),
         str(target_home), str(target_away), str(expected), str(user_id),
     ))

@@ -95,9 +95,19 @@
 <div style="overflow:auto"><table><thead><tr><th>Start (EAT)</th><th>End (EAT)</th><th>Markets</th><th>Est. rounds</th><th>Status</th><th>Controls</th></tr></thead><tbody id="freeReleaseRows"></tbody></table></div>
 </section>
 <section id="referral-wallets" class="tab panel hidden">
-<h2>Referral commissions &amp; withdrawals</h2>
+<h2>Predictor Coins, referrals &amp; withdrawals</h2>
 <p class="hint">20% of actual paid VIP amount during the referred customer's first 30 days after their first verified VIP purchase; 15% thereafter. Withdrawals require independent manual transfer. Nothing is paid automatically.</p>
 <div id="walletAdminSummary"></div>
+<h3>Contributor rewards (Predictor Coins)</h3>
+<p class="hint">Maximum 5% of each verified external VIP payment, shared across qualifying selected picks during that subscription. 100 PC = UGX 1. Coin value is always equal to the UGX wallet ledger. Periods settle after expiry; they cannot be paid twice.</p>
+<p id="contributorRewardStatus" class="hint" role="status">Loading contributor reward status…</p>
+<button class="btn primary" id="settleContributorRewards" type="button">Settle completed reward periods</button>
+<h4>Refund or chargeback without a referral commission</h4>
+<form id="reverseContributorForm" class="form">
+<label>Approved purchase ID <input type="number" min="1" step="1" id="contributorReversePurchaseId" required></label>
+<label>Verified refund reason <input type="text" minlength="5" maxlength="500" id="contributorReverseReason" required></label>
+<button class="btn danger" type="submit">Reverse contributor rewards and related commissions</button>
+</form>
 <h3>Referral wallets</h3>
 <div style="overflow:auto"><table><thead><tr><th>Member</th><th>Total earned</th><th>Current balance</th><th>Available</th><th>Withdrawn</th></tr></thead><tbody id="adminWalletRows"></tbody></table></div>
 <h3>Withdrawal requests</h3>
@@ -122,7 +132,7 @@
 <h3>Promotions</h3><div style="overflow:auto"><table><thead><tr><th>Plan</th><th>Code</th><th>Price</th><th>Window</th><th>Status</th><th>Action</th></tr></thead><tbody id="promoRows"></tbody></table></div></section>
 <section id="pattern-partners" class="tab panel hidden">
 <h2>Pattern Partners · Contributor applications</h2>
-<p class="hint">Review submitted patterns, independently test their rules and evidence, and accept only those you actually adopt. Lifetime VIP is granted separately after verifying that the member account email matches the contributor's submitted email.</p>
+<p class="hint">Review submitted patterns, independently test their rules and evidence, and accept only those you actually adopt. Once accepted, link the verified contributor to a deployed private strategy. Earnings will activate only when the capped Predictor Coins reward service is enabled. No Lifetime VIP is granted.</p>
 <div id="partnerReviewList" class="grid" aria-live="polite">Loading pattern applications…</div>
 </section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
@@ -495,6 +505,36 @@ $('promoForm').addEventListener('submit',async event=>{
   feedback('Promotion created; standard prices unchanged.');$('promoForm').reset();await load();
  }catch(e){feedback(e.message,true)}
 });
+async function loadContributorRewardStatus(){
+ try{
+  const status=await api('/api/admin/contributor-rewards/status');
+  $('contributorRewardStatus').textContent='Reward system: '+(status.enabled?'ENABLED':'DISABLED')+
+   ' · Due subscription periods: '+status.due_periods+
+   ' · Program rate: '+(status.rate_bps/100)+'% · '+status.coins_per_ugx+' PC per UGX';
+  $('settleContributorRewards').disabled=!status.enabled;
+ }catch(err){$('contributorRewardStatus').textContent='Reward status unavailable: '+err.message}
+}
+$('settleContributorRewards').addEventListener('click',async()=>{
+ const button=$('settleContributorRewards');button.disabled=true;
+ try{
+  const out=await api('/api/admin/contributor-rewards/settle',{method:'POST'});
+  feedback('Settled '+out.settled_periods+' periods; credited '+wholeUGX(out.credited_ugx)+' ('+out.credited_coins.toLocaleString()+' PC).');
+  await load();
+ }catch(err){feedback(err.message,true);await loadContributorRewardStatus()}
+ finally{button.disabled=false}
+});
+$('reverseContributorForm').addEventListener('submit',async(event)=>{
+ event.preventDefault();
+ const id=Number($('contributorReversePurchaseId').value);
+ const reason=$('contributorReverseReason').value.trim();
+ if(!confirm('Have you independently verified a real refund/chargeback? This will add reversing entries.'))return;
+ try{
+  await api('/api/admin/contributor-rewards/'+id+'/reverse',{method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({confirmed_refund:true,reason})});
+  feedback('Verified contributor rewards and related commissions reversed.');event.target.reset();await load();
+ }catch(err){feedback(err.message,true)}
+});
 function renderPatternPartners(){
  const list=$('partnerReviewList');list.replaceChildren();
  if(!state.partnerSubmissions.length){const empty=document.createElement('p');empty.textContent='No Pattern Partner submissions yet.';list.append(empty);return}
@@ -514,14 +554,14 @@ function renderPatternPartners(){
   const actions=document.createElement('div');actions.className='form';
   if(item.status==='pending'){
    actions.append(button('Accept validated pattern','primary',async()=>{
-    if(!confirm('Did you independently validate AND ADOPT this pattern? This step does not grant VIP until the contributor account is verified.'))return;
+    if(!confirm('Did you independently validate AND ADOPT this pattern? This step does not grant VIP or coins. Verify the contributor and link a deployed rule separately.'))return;
     const note=prompt('Enter testing results and adoption justification (at least 8 characters):');
     if(note===null)return;
     try{
      await api('/api/admin/pattern-partners/'+item.id+'/review',{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({decision:'accept',verified_and_adopted:true,note})});
-     feedback('Contribution accepted. Grant Lifetime VIP after account verification.');await load();
+     feedback('Contribution accepted. Verify the member and link a deployed strategy.');await load();
     }catch(e){feedback(e.message,true)}
    }),button('Reject','danger',async()=>{
     const note=prompt('Reason for rejecting this pattern:');if(note===null)return;
@@ -532,20 +572,26 @@ function renderPatternPartners(){
     }catch(e){feedback(e.message,true)}
    }));
   }else if(item.status==='accepted'){
-   actions.append(button('Grant Lifetime VIP','primary',async()=>{
-    const username=prompt('Enter the VERIFIED member username to receive Lifetime VIP:',item.username||'');
+   actions.append(button('Activate verified contributor','primary',async()=>{
+    const username=prompt('Enter the VERIFIED member username to associate with this strategy:',item.username||'');
     if(!username)return;
-    if(!confirm('Have you independently verified account ownership? The member account email must match the submitted contributor email. This action grants Lifetime VIP permanently.'))return;
+    const ruleId=prompt('Enter the exact deployed rule ID from Admin > Private strategy catalog:');
+    if(!ruleId)return;
+    const matches=state.strategies.filter(x=>x.rule_id===ruleId);
+    if(!matches.length){feedback('The rule ID does not exist in the deployed strategy catalog.',true);return}
+    const family=matches.length===1?matches[0].strategy_family:prompt('Enter strategy family exactly as shown in the catalog:');
+    if(!family || !matches.some(x=>x.strategy_family===family)){feedback('Rule family does not match the deployed catalog.',true);return}
+    if(!confirm('Verify the member email matches the submission and this adopted rule is genuinely based on their contribution. This links ownership only; it does NOT grant Lifetime VIP or pay coins automatically.'))return;
     try{
      const data=await api('/api/admin/pattern-partners/'+item.id+'/reward',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({username,contributor_verified:true})
+      body:JSON.stringify({username,contributor_verified:true,strategy_family:family,rule_id:ruleId})
      });
-     feedback('Lifetime VIP awarded. Account #'+data.account_id+' · Pattern #'+item.id);await load();
+     feedback('Contributor linked to deployed rule. Account #'+data.account_id+' · Pattern #'+item.id);await load();
     }catch(e){feedback(e.message,true)}
    }));
   }else if(item.status==='rewarded'){
-   const reward=document.createElement('p');reward.textContent='Lifetime VIP awarded to account #'+item.rewarded_account_id+' on '+item.rewarded_at;
+   const reward=document.createElement('p');reward.textContent=item.attributed_rule ? 'Contributor account #'+item.rewarded_account_id+' linked to '+item.attributed_family+'/'+item.attributed_rule+' on '+item.rewarded_at : 'Legacy Lifetime VIP grant to account #'+item.rewarded_account_id+' on '+item.rewarded_at;
    actions.append(reward);
   }
   card.append(actions);list.append(card);
@@ -576,7 +622,8 @@ async function load(){
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();renderPatternPartners();loadAnalytics();
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();renderPatternPartners();
+   await loadContributorRewardStatus();loadAnalytics();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){

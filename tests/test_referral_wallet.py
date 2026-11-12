@@ -320,5 +320,92 @@ class ReferralWalletTests(unittest.TestCase):
         self.assertEqual(self.owner.get("/api/referrals/wallet").json()["spent_on_vip_ugx"],1040000)
 
 
+    def test_contributor_pool_split_coins_idempotence_and_refund(self):
+        from backend import main, pattern_partners, contributor_rewards
+        with patch.dict(os.environ,{"PREDICTOR_CONTRIBUTOR_REWARDS_ENABLED":"true"}):
+            self.login_admin()
+            rule=main._admin_strategy_catalog()[0]
+            details=("A reproducible virtual football strategy with past-season "
+                     "trigger conditions, hit-rate evidence and holdout results.")
+            sent=self.owner.post("/api/pattern-partners",json={
+                "name":"Pattern Contributor","email":"owner@example.org",
+                "username":"owner","league":"epl","market":"overs",
+                "details":details,"age_confirmed":True,
+            })
+            self.assertEqual(sent.status_code,200,sent.text)
+            sid=sent.json()["reference"]
+            verified=self.admin.post(f"/api/admin/pattern-partners/{sid}/review",json={
+                "decision":"accept","verified_and_adopted":True,
+                "note":"Independently backtested and adopted in deployed rule catalog",
+            })
+            self.assertEqual(verified.status_code,200,verified.text)
+            linked=self.admin.post(f"/api/admin/pattern-partners/{sid}/reward",json={
+                "username":"owner","contributor_verified":True,
+                "strategy_family":rule["strategy_family"],"rule_id":rule["rule_id"],
+            })
+            self.assertEqual(linked.status_code,200,linked.text)
+            growth.create_promotion("weekly",5000,"COINTEST5K")
+            paid=self.buy("TX-COIN-CONTRIBUTOR-001","COINTEST5K")
+            self.assertEqual(paid.status_code,200,paid.text)
+            self.assertEqual(self.approve(1).status_code,200)
+            init=db.connect()
+            init.close()
+            con=referral_wallet.connect()
+            try:
+                period=con.execute("SELECT * FROM contributor_reward_periods WHERE purchase_request_id=1").fetchone()
+                self.assertEqual(period["reward_cap_ugx"],250)
+                buyer=con.execute("SELECT user_key FROM accounts WHERE id=?",(self.buyer_id,)).fetchone()
+                now=datetime.now(timezone.utc)
+                start=(now-timedelta(days=3)).isoformat()
+                chosen=(now-timedelta(days=2)).isoformat()
+                end=(now-timedelta(days=1)).isoformat()
+                earlier=(now-timedelta(days=4)).isoformat()
+                con.execute("UPDATE contributor_reward_periods SET start_at=?,end_at=? WHERE purchase_request_id=1",(start,end))
+                con.execute("UPDATE pattern_partner_attributions SET activated_at=? WHERE submission_id=?",(earlier,sid))
+                for n in (1,2):
+                    key=f"test|unique|selection|{n}"
+                    con.execute("""
+                        INSERT INTO user_predictions(
+                          user_id,season,matchday,prediction_key,league,target_home,
+                          target_away,selected,selected_at,created_at
+                        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                    """,(buyer["user_key"],"test-season",f"round-{n}",key,"epl",
+                         f"Team {n}","Opponent",1,chosen,chosen))
+                    if n==1:
+                        con.execute("""
+                            INSERT INTO prediction_supports(
+                              user_id,season,matchday,prediction_key,strategy_family,
+                              rule_id,league,target_home,target_away,market,created_at
+                            ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                        """,(buyer["user_key"],"test-season",f"round-{n}",key,
+                             rule["strategy_family"],rule["rule_id"],"epl",
+                             f"Team {n}","Opponent",rule["market"],chosen))
+                con.commit()
+            finally:
+                con.close()
+            state=self.owner.get("/api/referrals/wallet")
+            self.assertEqual(state.status_code,200,state.text)
+            wallet=state.json()
+            self.assertEqual(wallet["referral_earned_ugx"],1000)
+            self.assertEqual(wallet["contributor_earned_ugx"],125)
+            self.assertEqual(wallet["balance_ugx"],1125)
+            self.assertEqual(wallet["available_coins"],112500)
+            second=self.owner.get("/api/referrals/wallet").json()
+            self.assertEqual(second["contributor_earned_ugx"],125)
+            self.assertEqual(contributor_rewards.admin_status()["due_periods"],0)
+            confirmed=self.admin.post("/api/admin/contributor-rewards/1/reverse",json={
+                "confirmed_refund":True,"reason":"Test confirmed payment chargeback",
+            })
+            self.assertEqual(confirmed.status_code,200,confirmed.text)
+            reversed_state=self.owner.get("/api/referrals/wallet").json()
+            self.assertEqual(reversed_state["balance_ugx"],0)
+            self.assertEqual(reversed_state["contributor_reversed_ugx"],125)
+            self.assertEqual(self.admin.post(
+                "/api/admin/contributor-rewards/1/reverse",
+                json={"confirmed_refund":True,"reason":"Duplicate refund attempt"},
+            ).status_code,400)
+
+
+
 if __name__=="__main__":
     unittest.main()

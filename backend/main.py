@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -360,6 +360,8 @@ class PatternPartnerReview(BaseModel):
 class PatternPartnerReward(BaseModel):
     username: str
     contributor_verified: bool = False
+    strategy_family: str
+    rule_id: str
 
 
 class WalletVipPurchase(BaseModel):
@@ -584,8 +586,10 @@ def api_admin_pattern_partner_reward(submission_id:int,payload:PatternPartnerRew
     _verify_write_origin(request)
     response.headers["Cache-Control"] = "no-store"
     try:
-        return pattern_partners.reward_lifetime(
-            submission_id,int(admin["id"]),payload.username,payload.contributor_verified
+        return pattern_partners.activate_contributor(
+            submission_id,int(admin["id"]),payload.username,payload.contributor_verified,
+            payload.strategy_family,payload.rule_id,
+            {(row["strategy_family"],row["rule_id"]) for row in _admin_strategy_catalog()},
         )
     except ValueError as exc:
         raise HTTPException(400,str(exc))
@@ -819,6 +823,67 @@ def api_admin_referral_withdrawal_review(
     except ValueError as exc:
         raise HTTPException(400,str(exc))
     return {"ok":True,"status":"paid" if payload.paid else "rejected"}
+
+
+@app.get("/api/admin/contributor-rewards/status")
+def api_admin_contributor_reward_status(request:Request,response:Response):
+    _require_admin(request)
+    response.headers["Cache-Control"]="no-store, private"
+    return contributor_rewards.admin_status()
+
+
+@app.post("/api/admin/contributor-rewards/settle")
+def api_admin_contributor_reward_settle(request:Request,response:Response):
+    _require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        return contributor_rewards.settle_due(limit=100)
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+
+
+@app.post("/api/admin/contributor-rewards/{purchase_id}/reverse")
+def api_admin_contributor_reward_reverse(
+    purchase_id:int,payload:ReferralCommissionReversal,request:Request,response:Response
+):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    if not payload.confirmed_refund or not 5<=len(payload.reason.strip())<=500:
+        raise HTTPException(400,"Verify the refund and enter a reason (5–500 characters).")
+    con=referral_wallet.connect()
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        # A refund must reverse every payout liability, even if there was no referrer.
+        original=con.execute("""
+            SELECT * FROM referral_wallet_ledger
+            WHERE event_key=? AND entry_type='commission'
+        """,(f"commission:{purchase_id}",)).fetchone()
+        if original:
+            reversal=con.execute("SELECT 1 FROM referral_wallet_ledger WHERE event_key=?",
+                                 (f"reversal:{purchase_id}",)).fetchone()
+            if not reversal:
+                con.execute("""
+                    INSERT INTO referral_wallet_ledger(
+                      event_key,referrer_account_id,referred_account_id,purchase_request_id,
+                      entry_type,amount_ugx,purchase_amount_ugx,commission_rate_bps,created_at,note
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                """,(f"reversal:{purchase_id}",original["referrer_account_id"],
+                     original["referred_account_id"],purchase_id,"reversal",
+                     -int(original["amount_ugx"]),original["purchase_amount_ugx"],
+                     original["commission_rate_bps"],contributor_rewards._now(),payload.reason.strip()))
+        count=contributor_rewards.reverse_purchase(con,purchase_id,int(admin["id"]),payload.reason.strip())
+        con.commit()
+        return {"ok":True,"status":"reversed","contributor_entries_reversed":count}
+    except ValueError as exc:
+        con.rollback()
+        raise HTTPException(400,str(exc))
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
 
 
 @app.post("/api/admin/referral-commissions/{purchase_id}/reverse")

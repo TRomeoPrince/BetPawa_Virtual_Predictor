@@ -275,7 +275,7 @@ def activate_existing_verified(request_id, account_id, plan_code, admin_id):
     meta=access.PLAN_DEFINITIONS.get(plan_code)
     if not meta or plan_code not in PRICE_ENV:
         raise ValueError("Unknown paid plan.")
-    from . import referral_wallet
+    from . import referral_wallet, contributor_rewards
     wallet_con=referral_wallet.connect()
     wallet_con.close()
     con=connect()
@@ -315,6 +315,10 @@ def activate_existing_verified(request_id, account_id, plan_code, admin_id):
             (admin_id,account_id,plan_code,now.isoformat()),
         )
         referral_wallet.record_verified_purchase(con,request_id,account_id)
+        contributor_rewards.reserve_verified_purchase(
+            con,request_id,account_id,start.isoformat(),
+            ends.isoformat() if ends else None,plan_code
+        )
         con.execute(
             "UPDATE referral_profiles SET vip_converted_at=COALESCE(vip_converted_at,?) "
             "WHERE account_id=? AND referred_by IS NOT NULL",
@@ -329,11 +333,27 @@ def activate_existing_verified(request_id, account_id, plan_code, admin_id):
 
 
 def mark_approved(request_id,account_id):
+    from . import referral_wallet, contributor_rewards
+    init=referral_wallet.connect()
+    init.close()
     con=connect()
     try:
-        con.execute("UPDATE purchase_requests SET status='approved',client_account_id=? WHERE id=? AND status='processing'",
+        con.execute("BEGIN IMMEDIATE")
+        cur=con.execute("UPDATE purchase_requests SET status='approved',client_account_id=? WHERE id=? AND status='processing'",
                     (account_id,request_id))
+        if cur.rowcount!=1:
+            raise ValueError("Verified payment reservation not found.")
+        purchase=con.execute("SELECT plan_code FROM purchase_requests WHERE id=?",(request_id,)).fetchone()
+        sub=con.execute("SELECT starts_at,expires_at FROM subscriptions WHERE account_id=?",(account_id,)).fetchone()
+        if not sub or not sub["starts_at"]:
+            raise ValueError("Approved subscriber has no active subscription.")
+        contributor_rewards.reserve_verified_purchase(
+            con,request_id,account_id,sub["starts_at"],sub["expires_at"],purchase["plan_code"]
+        )
         con.commit()
+    except Exception:
+        con.rollback()
+        raise
     finally:con.close()
 
 def reset_processing(request_id):
