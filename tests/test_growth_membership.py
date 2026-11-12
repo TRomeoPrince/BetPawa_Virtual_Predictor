@@ -57,7 +57,7 @@ class FreeMembershipTests(unittest.TestCase):
         self.assertEqual(stats["signups"], 1)
         self.assertEqual(stats["visits"], 1)
         self.assertEqual(stats["vip_conversions"], 1)
-        self.assertFalse(stats["rewards_enabled"])
+        self.assertTrue(stats["rewards_enabled"])
         self.assertEqual(self.http.get("/api/admin/promotions").status_code, 403)
 
     def test_promotion_and_free_window(self):

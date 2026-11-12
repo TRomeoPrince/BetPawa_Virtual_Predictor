@@ -166,7 +166,7 @@ def referral_stats(account_id, origin):
             "visits": int(row["visits"]),
             "signups": int(counts["signups"] or 0),
             "vip_conversions": int(counts["conversions"] or 0),
-            "rewards_enabled": False,
+            "rewards_enabled": True,
         }
     finally:
         con.close()
