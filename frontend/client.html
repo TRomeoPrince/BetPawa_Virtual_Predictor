@@ -149,10 +149,17 @@ async function requestPlan(code){
 async function refreshFreeAccess(){
  try{
   const availability=await api('/api/free-access/status');
-  if(!(account.subscription||{}).is_active){
+  if(!(account.subscription||{}).is_active&&account.role!=='admin'){
+   const chosen=availability.markets||[];
    $('subText').textContent=availability.open
-     ?'Public predictions are currently available. Open a market to view this release.'
+     ?'Free predictions are currently available for: '+chosen.map(x=>x.toUpperCase()).join(', ')+'.'
      :'Public predictions are not currently released. Check back later or request VIP access.';
+   // Client filtering improves usability. The API independently blocks restricted markets.
+   document.querySelectorAll('a.market').forEach(link=>{
+    const code=link.getAttribute('href').split('/').pop();
+    link.hidden=!!availability.open&&!chosen.includes(code);
+    link.style.display=link.hidden?'none':'';
+   });
   }
  }catch(e){$('subText').textContent='Public access status could not be checked. Try again later.'}
 }
