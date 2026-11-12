@@ -5,18 +5,39 @@
 <style>
 :root{--bg:#f5f9f1;--panel:#fff;--soft:#f0f7ed;--line:#d5e5d3;--ink:#173c2b;--muted:#63796d;--green:#17694c;--red:#a62e41}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}.wrap{max-width:1230px;margin:auto;padding:26px 20px 65px}.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px}.brand{font-size:30px;font-weight:950;letter-spacing:-.045em}.muted{color:var(--muted);line-height:1.6}.btn{display:inline-block;border:1px solid var(--line);background:#f2f8ef;color:var(--ink);border-radius:10px;padding:10px 13px;font-weight:850;cursor:pointer;font-size:13px;text-decoration:none}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.btn.danger{background:#fff0f0;color:var(--red)}.btn:disabled{opacity:.55;cursor:wait}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}.tabs button.active{background:var(--green);color:#fff}.panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:23px;margin-top:14px;box-shadow:0 10px 30px #163b2810}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px}.stat b{font-size:27px;display:block}.stat span{font-size:13px;color:var(--muted)}table{width:100%;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{color:var(--muted)}input,select{background:#fff;color:var(--ink);border:1px solid #c9ddca;border-radius:9px;padding:11px;font:inherit;font-size:14px}.form{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0 20px}.form input{min-width:170px}.pill{display:inline-block;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900}.good{background:#e1f3e3;color:var(--green)}.bad{background:#ffe5e5;color:var(--red)}.pending{background:#fff0d2;color:#9c670c}.hidden{display:none!important}.strategy{background:var(--soft);border:1px solid var(--line);border-radius:13px;padding:15px;margin:9px 0}.strategy h4{margin:0 0 7px}.code{font-family:ui-monospace,Consolas,monospace;color:var(--green);font-size:12px}.guide{background:#e9f5e4;border:1px solid #c5dfc2;border-radius:14px;padding:16px 19px;line-height:1.7;margin:15px 0}.credentialBox{border:2px solid #a4cba2;background:#f5fcf1;border-radius:17px;padding:20px;margin:18px 0 25px}.credentialBox h3{margin:0 0 7px}.credentialBox label{display:block;font-size:12px;font-weight:850;margin:14px 0 5px}.credentialBox input{width:min(480px,100%);background:#fff;font-family:ui-monospace,Consolas,monospace;font-size:15px}.credentialActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.hint{font-size:12px;color:var(--muted);line-height:1.7}.actionsRow{display:flex;gap:6px;flex-wrap:wrap}.status{min-height:19px;color:var(--green);font-size:13px;font-weight:750;margin:12px 0}.status.error{color:var(--red)}:focus-visible{outline:3px solid #91d5aa;outline-offset:3px}@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:530px){.grid{grid-template-columns:1fr}.wrap{padding:18px 12px}.panel{padding:16px}.brand{font-size:25px}.form input,.form select,.form button{width:100%}}
+.analyticsSection{margin:26px 0;padding:17px;border:1px solid var(--line);border-radius:14px;background:#fbfef9}
+.analyticsLegend{display:flex;gap:15px;flex-wrap:wrap;margin:12px 0;font-size:12px;color:var(--muted)}
+.legendSquare{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.signupSquare{background:#17694c}.activeSquare{background:#a6c66e}
+.analyticsTrend{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));align-items:end;gap:5px;min-height:174px;overflow:visible}
+.analyticsDay{min-width:0;text-align:center;font-size:10px;color:var(--muted)}
+.analyticsBars{height:125px;display:flex;gap:2px;justify-content:center;align-items:end;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.analyticsBar{width:37%;max-width:22px;min-height:2px;border-radius:3px 3px 0 0}
+.analyticsBar.signup{background:#17694c}.analyticsBar.active{background:#a6c66e}
+@media(max-width:660px){.analyticsTrend{gap:2px}.analyticsDay{font-size:9px}.analyticsBar{min-width:3px}}
 </style></head><body>
 <main class="wrap">
 <header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
 <nav class="tabs" aria-label="Admin sections">
-<button type="button" class="btn" data-tab="overview">Overview</button>
-<button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
+<button type="button" class="btn active" data-tab="overview">Overview</button>
+<button type="button" class="btn" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
 <button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
-<section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
-<section id="clients" class="tab panel">
+<section id="overview" class="tab panel">
+<div class="sectionHead"><h2>Website Analytics</h2><p class="hint">Private, real database measurements · refreshes each minute while this tab is visible</p></div>
+<div id="stats" class="grid" aria-live="polite">Loading statistics…</div>
+<div class="analyticsSection">
+  <h3>Daily signups and active members</h3>
+  <p class="hint">Last 14 days · East Africa Time (EAT) · one active member counted once per day</p>
+  <div class="analyticsLegend"><span><i class="legendSquare signupSquare"></i> New signups</span><span><i class="legendSquare activeSquare"></i> Signed-in active members</span></div>
+  <div id="activityTrend" class="analyticsTrend" aria-label="Fourteen-day signups and active member activity chart"></div>
+</div>
+<p id="analyticsMeta" class="hint">Online means signed-in accounts active within the past five minutes; it does not count anonymous visitors or estimate concurrent browser connections.</p>
+<button id="refreshAnalytics" type="button" class="btn">Refresh analytics</button>
+</section>
+<section id="clients" class="tab panel hidden">
 <h2>Invite a client or tester</h2>
 <div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a one-use activation link (24 hours). After activation, issue a reusable personal sign-in link (90 days) if desired. Anyone possessing an active link can enter that client's account. Use <strong>Reset password</strong> if they forget it. Public signup is open for free memberships.</div>
 <div class="form"><input id="publicTesterUrl" type="url" placeholder="Public ngrok HTTPS URL (optional)" aria-label="Public tester URL" style="min-width:min(100%,380px)"></div>
@@ -92,7 +113,7 @@
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],referralWallets:[],referralWithdrawals:[],me:null},issued=null;
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],referralWallets:[],referralWithdrawals:[],analytics:null,me:null},issued=null;
 function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
 async function api(url,options){
  const response=await fetch(url,{credentials:'same-origin',...options});
@@ -110,17 +131,66 @@ function button(text,kind,callback){
 function showTab(name){
  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('hidden',el.id!==name));
+ if(name==='overview')loadAnalytics();
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+const wholeUGX=x=>'UGX '+Number(x||0).toLocaleString('en-UG');
+let analyticsLoading=false;
 function renderStats(){
- const counts=[['Clients',state.clients.length],['Active subscriptions',state.clients.filter(x=>x.subscription.is_active).length],['Pending requests',state.requests.filter(x=>x.status==='pending').length],['Private strategies',state.strategies.length]];
+ const a=state.analytics;
+ const cards=a?[
+   ['Online now (5m)',a.online_now],
+   ['Daily active (24h)',a.active_24h],
+   ['Weekly active (7d)',a.active_7d],
+   ['Total signups',a.signups_total],
+   ['Signups today',a.signups_today],
+   ['Signups last 7 days',a.signups_7d],
+   ['Signups this month',a.signups_month],
+   ['Active VIP members',a.active_vip],
+   ['Free members',a.free_members],
+   ['Verified external sales',wholeUGX(a.gross_external_paid_ugx)],
+   ['Approved external purchases',a.verified_external_purchases],
+   ['VIP wallet redemptions',wholeUGX(a.wallet_vip_spent_ugx)],
+   ['Wallet VIP purchases',a.wallet_vip_purchases],
+   ['Referral signups',a.referred_signups],
+   ['Referral VIP conversions',a.referral_vip_conversions],
+   ['Referral link visits',a.referral_link_visits],
+ ]:[['Loading','Please wait…']];
  $('stats').replaceChildren();
- for(const [label,value] of counts){
+ for(const [label,value] of cards){
   const card=document.createElement('div');card.className='stat';
-  const b=document.createElement('b');b.textContent=value;
-  const span=document.createElement('span');span.textContent=label;card.append(b,span);$('stats').append(card);
+  const b=document.createElement('b');b.textContent=typeof value==='number'?value.toLocaleString():value;
+  const span=document.createElement('span');span.textContent=label;
+  card.append(b,span);$('stats').append(card);
  }
+ const chart=$('activityTrend');chart.replaceChildren();
+ if(!a)return;
+ const days=a.trend||[],maximum=Math.max(1,...days.flatMap(d=>[d.signups,d.active]));
+ for(const day of days){
+  const wrapper=document.createElement('div');wrapper.className='analyticsDay';
+  const bars=document.createElement('div');bars.className='analyticsBars';
+  for(const key of ['signups','active']){
+   const bar=document.createElement('div');bar.className='analyticsBar '+(key==='signups'?'signup':'active');
+   const v=Number(day[key]||0);
+   bar.style.height=(v===0?2:Math.max(4,Math.round(v/maximum*120)))+'px';
+   bar.title=day.date+' · '+key+': '+v;bars.append(bar);
+  }
+  const date=document.createElement('div');date.textContent=day.date.slice(5);
+  wrapper.append(bars,date);chart.append(wrapper);
+ }
+ $('analyticsMeta').textContent=a.online_definition+'. '+a.history_note+' · Updated '+new Date(a.as_of).toLocaleString()+'. Verified sales are gross approved external receipts; wallet purchases are listed separately.';
 }
+async function loadAnalytics(){
+ if(analyticsLoading)return;
+ analyticsLoading=true;
+ try{
+  state.analytics=await api('/api/admin/analytics');
+  renderStats();
+ }catch(e){$('analyticsMeta').textContent='Analytics temporarily unavailable: '+e.message}
+ finally{analyticsLoading=false}
+}
+$('refreshAnalytics').addEventListener('click',loadAnalytics);
+setInterval(()=>{if(!document.hidden&&document.querySelector('[data-tab="overview"]').classList.contains('active'))loadAnalytics()},60000);
 function renderClients(){
  $('clientRows').replaceChildren();
  for(const c of state.clients){
@@ -376,7 +446,7 @@ async function load(){
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();loadAnalytics();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){

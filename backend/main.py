@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -30,6 +30,7 @@ from .access import (
     create_session,
     delete_session,
     ensure_bootstrap_admin,
+    recover_admin_password_from_env,
     grant_subscription,
     get_account,
     list_account_subscription_requests,
@@ -69,6 +70,7 @@ app = FastAPI(
 feed = BetPawaFeed()
 
 _bootstrap_password = ensure_bootstrap_admin()
+recover_admin_password_from_env()
 if _bootstrap_password:
     if os.environ.get("PREDICTOR_ADMIN_PASSWORD"):
         print("Initial admin account created from PREDICTOR_ADMIN_PASSWORD.")
@@ -770,6 +772,15 @@ def api_logout(request: Request, response: Response):
     return {"ok": True}
 
 
+@app.post("/api/activity/ping")
+def api_activity_ping(request: Request, response: Response):
+    """A visible logged-in tab can refresh its last-seen timestamp each minute."""
+    account=_require_account(request,allow_password_setup=True)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    return {"ok":True,"member":account.get("role")=="client"}
+
+
 @app.get("/api/auth/me")
 def api_me(request: Request):
     account = _require_account(request, allow_password_setup=True)
@@ -1118,6 +1129,13 @@ def api_client_delete_bet(bet_id: int, request: Request):
     return {"ok": True}
 
 
+@app.get("/api/admin/analytics")
+def api_admin_analytics(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"]="no-store, private"
+    return admin_analytics.snapshot()
+
+
 @app.get("/api/admin/clients")
 def api_admin_clients(request: Request):
     _require_admin(request)
@@ -1272,7 +1290,6 @@ def api_admin_strategies(request: Request):
 def status():
     return {
         "app": "BetPawa Predictor",
-        "version": "0.4.1",
         "rules_public": False,
         "mode": "client subscriptions + private admin strategy console",
     }
