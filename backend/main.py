@@ -337,6 +337,12 @@ class SignupRequest(BaseModel):
     referral_code: str = ""
 
 
+class WalletVipPurchase(BaseModel):
+    plan_code: str
+    promo_code: str = ""
+    idempotency_key: str
+
+
 class ReferralWithdrawalBody(BaseModel):
     amount_ugx: int
     destination_method: str
@@ -657,6 +663,21 @@ def api_referral_wallet(request: Request, response: Response):
         return referral_wallet.wallet(int(account["id"]))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+
+@app.post("/api/referrals/wallet/purchase-vip")
+def api_wallet_vip_purchase(payload: WalletVipPurchase, request: Request, response: Response):
+    account=_require_account(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    if account["role"]!="client" or account["status"]!="active":
+        raise HTTPException(403,"Member account required.")
+    try:
+        return referral_wallet.purchase_vip_with_wallet(
+            int(account["id"]),payload.plan_code,payload.promo_code,payload.idempotency_key
+        )
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
 
 
 @app.post("/api/referrals/withdrawals")
