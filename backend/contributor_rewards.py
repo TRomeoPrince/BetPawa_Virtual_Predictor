@@ -29,6 +29,17 @@ def enabled():
 
 
 def ensure_tables(con):
+    # Also initialize attribution before the first submission is received.
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS pattern_partner_attributions (
+            submission_id INTEGER PRIMARY KEY,
+            contributor_account_id INTEGER NOT NULL,
+            strategy_family TEXT NOT NULL,
+            rule_id TEXT NOT NULL,
+            approved_by INTEGER NOT NULL,
+            activated_at TEXT NOT NULL
+        )
+    """)
     con.execute("""
         CREATE TABLE IF NOT EXISTS contributor_reward_periods (
             purchase_request_id INTEGER PRIMARY KEY,
@@ -108,8 +119,6 @@ def _allocations(con,period):
           ON contributor.id=a.contributor_account_id
         WHERE p.user_id=? AND p.selected=1 AND p.selected_at>=?
           AND p.selected_at<? AND p.selected_at IS NOT NULL
-          AND (a.contributor_account_id IS NULL OR
-               (contributor.status='active' AND contributor.role='client'))
     """,(buyer["user_key"],period["start_at"],period["end_at"])).fetchall()
     # A left join can duplicate support rows. Count each selected pick once.
     owners=defaultdict(set)
@@ -118,7 +127,9 @@ def _allocations(con,period):
         if row["contributor_account_id"] is not None:
             owner=int(row["contributor_account_id"])
             if owner!=int(period["buyer_account_id"]):
-                owners[int(row["id"])].add(owner)
+                valid=con.execute("SELECT 1 FROM accounts WHERE id=? AND role='client' AND status='active'",(owner,)).fetchone()
+                if valid:
+                    owners[int(row["id"])].add(owner)
     total=len(owners)
     if not total or period["reward_cap_ugx"]<=0:
         return {},total
