@@ -14,6 +14,7 @@ button{background:var(--green);color:#fff;padding:14px 16px;width:100%;border:0;
 button:disabled{opacity:.5}.check{display:flex;gap:10px;font-weight:500;line-height:1.5}.check input{flex-shrink:0}
 #message{min-height:24px;color:var(--red);font-weight:730;margin-top:15px}.muted{font-size:13px}
 @media(max-width:560px){main{margin:12px;padding:22px}h1{font-size:29px}}
+.responsibleFooter{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 24px;margin:24px auto 0;padding:19px 20px 24px;border-top:1px solid var(--line,#d8e6d7);background:#f8fbf6;color:#173c2b;font-size:13px;line-height:1.6;text-align:center}.responsibleFooter strong{font-weight:800}.responsibleFooter span{font-weight:600}
 </style></head><body>
 <header><a href="/">BP · BetPawa Predictor</a></header>
 <main><h1>Join free</h1><p>Create your free account and explore available predictions. Public previews are released from time to time, and you can request VIP access whenever you are ready.</p>
@@ -27,7 +28,7 @@ button:disabled{opacity:.5}.check{display:flex;gap:10px;font-weight:500;line-hei
 <button id="submit">Create free account</button><div id="message" role="alert" aria-live="polite"></div>
 </form>
 <p class="muted">Already registered? <a href="/login">Sign in</a>. Paying customers can upgrade after verification. You will not be asked to create another account.</p></main>
-<script>
+<footer class="responsibleFooter" aria-label="Responsible betting and age warning"><strong>You have to be 25 years and above to bet.</strong><span>Betting is addictive and can be psychologically harmful.</span></footer><script>
 const $=id=>document.getElementById(id);
 const ref=new URLSearchParams(location.search).get('ref');if(ref)$('ref').value=ref.toUpperCase();
 $('form').addEventListener('submit',async event=>{

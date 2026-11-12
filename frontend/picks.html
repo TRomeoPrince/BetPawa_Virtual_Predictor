@@ -19,6 +19,7 @@ main{padding-top:32px;padding-bottom:70px}.hero{background:linear-gradient(115de
 :focus-visible{outline:3px solid #9bcda5;outline-offset:3px}
 @media(max-width:880px){.stats{grid-template-columns:repeat(3,1fr)}.cards{grid-template-columns:1fr}.fields{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:570px){.wrap{padding:0 15px}.top{padding:13px 0}.hero{padding:24px}.section{padding:17px}.stats{grid-template-columns:repeat(2,1fr);gap:9px}.stat{padding:14px}.stat b{font-size:24px}.fields{grid-template-columns:1fr}.field.wide{grid-column:auto}.journalStats{grid-template-columns:1fr 1fr}.tab,.chip{padding:10px 12px}}
+.responsibleFooter{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 24px;margin:24px auto 0;padding:19px 20px 24px;border-top:1px solid var(--line,#d8e6d7);background:#f8fbf6;color:#173c2b;font-size:13px;line-height:1.6;text-align:center}.responsibleFooter strong{font-weight:800}.responsibleFooter span{font-weight:600}
 </style>
 </head>
 <body>
@@ -51,7 +52,7 @@ main{padding-top:32px;padding-bottom:70px}.hero{background:linear-gradient(115de
 <p class="fine">A saved prediction is not a confirmed wager. Results appear only after grading. Historical performance does not guarantee future outcomes. Independent of betPawa. For adults aged 25+ only.</p>
 </section>
 </main>
-<script>
+<footer class="responsibleFooter" aria-label="Responsible betting and age warning"><strong>You have to be 25 years and above to bet.</strong><span>Betting is addictive and can be psychologically harmful.</span></footer><script>
 const $=id=>document.getElementById(id);
 const categories={overs:'Overs',unders:'Unders',btts:'BTTS',wins:'Wins'};
 const state={view:'latest',category:'all',outcome:'all',items:[],total:0,loading:false,loadSeq:0,editId:null,latest:null};
