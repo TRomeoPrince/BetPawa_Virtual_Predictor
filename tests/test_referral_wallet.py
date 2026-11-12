@@ -203,5 +203,122 @@ class ReferralWalletTests(unittest.TestCase):
         self.assertEqual(self.owner.get("/api/referrals/wallet").json()["available_ugx"],4000)
 
 
+    def test_wallet_vip_uses_promotional_price_once_and_activates_instantly(self):
+        growth.create_promotion("weekly",5000,"VIP5K")
+        self.assertEqual(self.buy("WALLET-SOURCE-001","VIP5K").status_code,200)
+        self.login_admin()
+        self.assertEqual(self.approve(1).status_code,200)
+        self.assertEqual(self.buy("WALLET-SOURCE-002").status_code,200)
+        self.assertEqual(self.approve(2).status_code,200)
+        previous=self.owner.get("/api/referrals/wallet").json()
+        self.assertEqual(previous["balance_ugx"],5000)
+        key="12345678-1234-1234-1234-123456789abc"
+        payload={"plan_code":"weekly","promo_code":"VIP5K",
+                 "idempotency_key":key,"expected_price_ugx":5000}
+        response=self.owner.post("/api/referrals/wallet/purchase-vip",json=payload)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertFalse(response.json()["already_processed"])
+        self.assertTrue(self.owner.get("/api/auth/me").json()["account"]["subscription"]["is_active"])
+        spent=self.owner.get("/api/referrals/wallet").json()
+        self.assertEqual(spent["spent_on_vip_ugx"],5000)
+        self.assertEqual(spent["balance_ugx"],0)
+        self.assertEqual(spent["available_ugx"],0)
+        self.assertEqual(spent["earned_ugx"],5000)
+        self.assertTrue(any(x["entry_type"]=="vip_wallet_purchase" for x in spent["entries"]))
+        duplicate=self.owner.post("/api/referrals/wallet/purchase-vip",json=payload)
+        self.assertEqual(duplicate.status_code,200,duplicate.text)
+        self.assertTrue(duplicate.json()["already_processed"])
+        self.assertEqual(duplicate.json()["id"],response.json()["id"])
+        self.assertEqual(duplicate.json()["expires_at"],response.json()["expires_at"])
+        self.assertEqual(self.owner.get("/api/referrals/wallet").json()["spent_on_vip_ugx"],5000)
+        self.assertEqual(self.buyer.post("/api/referrals/wallet/purchase-vip",json=payload).status_code,400)
+        self.assertEqual(self.owner.post("/api/referrals/wallet/purchase-vip",json={
+            "plan_code":"weekly","promo_code":"VIP5K",
+            "idempotency_key":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "expected_price_ugx":5000,
+        }).status_code,400)
+        con=purchase_requests.connect()
+        try:
+            self.assertEqual(con.execute("SELECT COUNT(*) FROM purchase_requests").fetchone()[0],2)
+            self.assertEqual(con.execute("SELECT COUNT(*) FROM referral_wallet_ledger WHERE entry_type='commission'").fetchone()[0],2)
+            self.assertEqual(con.execute("SELECT COUNT(*) FROM referral_wallet_spends").fetchone()[0],1)
+        finally:
+            con.close()
+
+    def test_withdrawal_reservations_and_insufficient_wallet_block_vip(self):
+        self.assertEqual(referral_wallet.minimum_withdrawal(),1000)
+        self.assertEqual(self.buy("SOURCE-RESERVED-1").status_code,200)
+        self.login_admin()
+        self.assertEqual(self.approve(1).status_code,200)
+        self.assertEqual(self.owner.get("/api/referrals/wallet").json()["balance_ugx"],4000)
+        unaffordable={
+            "plan_code":"daily","promo_code":"",
+            "idempotency_key":"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            "expected_price_ugx":5000,
+        }
+        self.assertEqual(self.owner.post("/api/referrals/wallet/purchase-vip",json=unaffordable).status_code,400)
+        self.assertEqual(self.owner.post("/api/referrals/withdrawals",json={
+            "amount_ugx":999,"destination_method":"mtn","destination_details":"0700000000",
+        }).status_code,400)
+        withdrawal=self.owner.post("/api/referrals/withdrawals",json={
+            "amount_ugx":1000,"destination_method":"mtn","destination_details":"0700000000",
+        })
+        self.assertEqual(withdrawal.status_code,200,withdrawal.text)
+        self.assertEqual(self.owner.get("/api/referrals/wallet").json()["available_ugx"],3000)
+        growth.create_promotion("daily",3500,"DAY3500")
+        restricted={
+            "plan_code":"daily","promo_code":"DAY3500",
+            "idempotency_key":"dddddddd-dddd-dddd-dddd-dddddddddddd",
+            "expected_price_ugx":3500,
+        }
+        self.assertEqual(self.owner.post("/api/referrals/wallet/purchase-vip",json=restricted).status_code,400)
+        self.assertEqual(self.admin.post(
+            f"/api/admin/referral-withdrawals/{withdrawal.json()['id']}/review",
+            json={"paid":False,"reason":"Correcting payout details"},
+        ).status_code,200)
+        incorrect={**restricted,"expected_price_ugx":3400}
+        self.assertEqual(self.owner.post("/api/referrals/wallet/purchase-vip",json=incorrect).status_code,400)
+        self.assertEqual(self.owner.post("/api/referrals/wallet/purchase-vip",headers={
+            "Origin":"https://another.example"
+        },json=restricted).status_code,403)
+        result=self.owner.post("/api/referrals/wallet/purchase-vip",json=restricted)
+        self.assertEqual(result.status_code,200,result.text)
+        balance=self.owner.get("/api/referrals/wallet").json()
+        self.assertEqual(balance["balance_ugx"],500)
+        self.assertEqual(balance["available_ugx"],500)
+        self.assertEqual(balance["spent_on_vip_ugx"],3500)
+        self.assertEqual(self.buyer.get("/api/referrals/wallet").json()["spent_on_vip_ugx"],0)
+
+    def test_wallet_vip_renewal_extends_expiry_and_lifetime_prevents_repeat(self):
+        # A test-only credited referral balance simulates already verified earnings.
+        con=referral_wallet.connect()
+        try:
+            con.execute("""
+                INSERT INTO referral_wallet_ledger(
+                    event_key,referrer_account_id,entry_type,amount_ugx,created_at
+                ) VALUES(?,?,?,?,?)
+            """,("test:verified-credit",self.owner_id,"commission",1100000,datetime.now(timezone.utc).isoformat()))
+            con.commit()
+        finally:con.close()
+        first=self.owner.post("/api/referrals/wallet/purchase-vip",json={
+            "plan_code":"weekly","idempotency_key":"11111111-1111-1111-1111-111111111111","expected_price_ugx":20000
+        })
+        self.assertEqual(first.status_code,200,first.text)
+        second=self.owner.post("/api/referrals/wallet/purchase-vip",json={
+            "plan_code":"weekly","idempotency_key":"22222222-2222-2222-2222-222222222222","expected_price_ugx":20000
+        })
+        self.assertEqual(second.status_code,200,second.text)
+        self.assertGreater(datetime.fromisoformat(second.json()["expires_at"]),datetime.fromisoformat(first.json()["expires_at"]))
+        lifetime=self.owner.post("/api/referrals/wallet/purchase-vip",json={
+            "plan_code":"lifetime","idempotency_key":"33333333-3333-3333-3333-333333333333","expected_price_ugx":1000000
+        })
+        self.assertEqual(lifetime.status_code,200,lifetime.text)
+        self.assertIsNone(lifetime.json()["expires_at"])
+        self.assertEqual(self.owner.post("/api/referrals/wallet/purchase-vip",json={
+            "plan_code":"daily","idempotency_key":"44444444-4444-4444-4444-444444444444","expected_price_ugx":5000
+        }).status_code,400)
+        self.assertEqual(self.owner.get("/api/referrals/wallet").json()["spent_on_vip_ugx"],1040000)
+
+
 if __name__=="__main__":
     unittest.main()
