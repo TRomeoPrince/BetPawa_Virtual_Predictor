@@ -348,6 +348,8 @@ class ReferralWalletTests(unittest.TestCase):
             paid=self.buy("TX-COIN-CONTRIBUTOR-001","COINTEST5K")
             self.assertEqual(paid.status_code,200,paid.text)
             self.assertEqual(self.approve(1).status_code,200)
+            init=db.connect()
+            init.close()
             con=referral_wallet.connect()
             try:
                 period=con.execute("SELECT * FROM contributor_reward_periods WHERE purchase_request_id=1").fetchone()
