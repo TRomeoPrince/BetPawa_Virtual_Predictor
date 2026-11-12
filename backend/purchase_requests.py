@@ -275,6 +275,9 @@ def activate_existing_verified(request_id, account_id, plan_code, admin_id):
     meta=access.PLAN_DEFINITIONS.get(plan_code)
     if not meta or plan_code not in PRICE_ENV:
         raise ValueError("Unknown paid plan.")
+    from . import referral_wallet
+    wallet_con=referral_wallet.connect()
+    wallet_con.close()
     con=connect()
     try:
         con.execute("BEGIN IMMEDIATE")
@@ -310,6 +313,12 @@ def activate_existing_verified(request_id, account_id, plan_code, admin_id):
         con.execute(
             "INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at) VALUES(?,?,'VIP_PAID_UPGRADE',?,?)",
             (admin_id,account_id,plan_code,now.isoformat()),
+        )
+        referral_wallet.record_verified_purchase(con,request_id,account_id)
+        con.execute(
+            "UPDATE referral_profiles SET vip_converted_at=COALESCE(vip_converted_at,?) "
+            "WHERE account_id=? AND referred_by IS NOT NULL",
+            (now.isoformat(),account_id),
         )
         con.commit()
     except Exception:

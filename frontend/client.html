@@ -25,7 +25,30 @@
 <a class="market" href="/client/wins"><span class="symbol" aria-hidden="true">✓</span><h3>Wins</h3><p>Home and away win patterns, when qualified.</p><span class="open">Explore Wins →</span></a>
 </div></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
-<section class="section panel" id="referrals"><div class="sectionHead"><div><h2>Invite friends</h2><p>Share your personal link. Track signups and verified VIP upgrades. No cash rewards are currently offered.</p></div></div><label for="referralLink">Your personal referral link</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="referralLink" readonly style="flex:1;min-width:190px;padding:12px;border:1px solid var(--line);border-radius:10px"><button id="copyReferral" type="button" class="btn">Copy link</button></div><p id="referralStats" class="muted"></p></section>
+<section class="section panel" id="referrals">
+<div class="sectionHead"><div><h2>Referral wallet</h2><p>Earn 20% commission during a referred member's first 30 days after their first verified VIP payment, then 15% on later verified purchases. Commissions use the amount actually paid after discounts.</p></div></div>
+<div class="walletGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:14px 0">
+<div class="statusCard" style="padding:15px"><span>Wallet balance</span><h3 id="walletBalance" style="margin:6px 0">UGX 0</h3></div>
+<div class="statusCard" style="padding:15px"><span>Available to withdraw</span><h3 id="walletAvailable" style="margin:6px 0">UGX 0</h3></div>
+<div class="statusCard" style="padding:15px"><span>Withdrawal pending</span><h3 id="walletReserved" style="margin:6px 0">UGX 0</h3></div>
+<div class="statusCard" style="padding:15px"><span>Total withdrawn</span><h3 id="walletPaid" style="margin:6px 0">UGX 0</h3></div>
+</div>
+<p class="muted" id="walletNotice" role="status">Loading wallet…</p>
+<form id="withdrawalForm" hidden style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:22px">
+<label>Withdrawal amount (UGX) <input id="withdrawalAmount" type="number" min="1" step="1" required placeholder="5000"></label>
+<label>Payout method <select id="withdrawalMethod"><option value="mtn">MTN Mobile Money</option><option value="crypto">Crypto wallet</option></select></label>
+<label>Receiving number or wallet address <input id="withdrawalDestination" maxlength="180" autocomplete="off" required placeholder="Your payout details"></label>
+<button class="btn primary" type="submit" id="requestWithdrawal">Request withdrawal</button>
+</form>
+<div class="sectionHead"><div><h3>Referral link</h3><p>Share your personal link. Your visits, registrations and verified VIP conversions are tracked.</p></div></div>
+<label for="referralLink">Your personal referral link</label>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<input id="referralLink" readonly style="flex:1;min-width:190px;padding:12px;border:1px solid var(--line);border-radius:10px">
+<button id="copyReferral" type="button" class="btn">Copy link</button>
+</div><p id="referralStats" class="muted"></p>
+<div class="sectionHead"><h3>Wallet activity</h3></div>
+<div style="overflow:auto"><table style="width:100%;text-align:left"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status / note</th></tr></thead><tbody id="walletActivity"></tbody></table></div>
+</section>
 <section class="section panel"><div class="sectionHead"><div><h2>Account security</h2><p>Change your temporary password before using your account regularly.</p></div></div><div id="passNotice" class="notice"></div><form id="passwordForm" class="securityForm"><div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div class="field"><label for="newPassword">New password (8+ characters)</label><input id="newPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></div><button class="btn primary" type="submit">Update password</button></form><div id="passwordMessage" class="feedback" role="status" aria-live="polite"></div></section>
 </main>
 <footer><div class="wrap">Independent virtual-football research tool, not affiliated with betPawa. Historical patterns are not guarantees. For adults aged 25+ only.</div></footer>
@@ -109,7 +132,7 @@ async function load(){
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
     renderPlans((plans.plans||[]).filter(p=>['daily','weekly','monthly','annual','lifetime'].includes(p.code)));
-    if(account.role!=='admin'){loadReferrals(); if(!(account.subscription||{}).is_active)refreshFreeAccess();}
+    if(account.role!=='admin'){loadReferrals();loadWallet(); if(!(account.subscription||{}).is_active)refreshFreeAccess();}
   }catch(error){if(!account)showFeedback('requestMessage',error.message,true);else showFeedback('requestMessage','Unable to load all account details: '+error.message,true)}
 }
 async function requestPlan(code){
@@ -130,6 +153,49 @@ async function refreshFreeAccess(){
   }
  }catch(e){$('subText').textContent='Public access status could not be checked. Try again later.'}
 }
+const money=value=>'UGX '+Number(value||0).toLocaleString('en-US');
+async function loadWallet(){
+ try{
+  const w=await api('/api/referrals/wallet');
+  $('walletBalance').textContent=money(w.balance_ugx);
+  $('walletAvailable').textContent=money(w.available_ugx);
+  $('walletReserved').textContent=money(w.reserved_ugx);
+  $('walletPaid').textContent=money(w.withdrawn_ugx);
+  $('walletNotice').textContent=w.withdrawals_enabled
+    ? 'Verified commissions are available for withdrawal. Requests are paid manually after approval.'
+    : 'Your earnings are recorded. Withdrawal requests will open when the payout service is ready.';
+  $('withdrawalForm').hidden=!w.withdrawals_enabled;
+  $('withdrawalForm').style.display=w.withdrawals_enabled?'flex':'none';
+  $('withdrawalAmount').min=w.minimum_withdrawal_ugx;
+  $('withdrawalAmount').max=w.available_ugx;
+  $('walletActivity').replaceChildren();
+  const records=[...(w.entries||[]).map(x=>({date:x.created_at,label:x.entry_type,amount:x.amount_ugx,
+      note:x.entry_type==='commission'?((x.commission_rate_bps/100).toFixed(0)+'% of '+money(x.purchase_amount_ugx)):(x.note||'—')})),
+    ...(w.withdrawals||[]).filter(x=>x.status==='pending'||x.status==='rejected')
+      .map(x=>({date:x.requested_at,label:'withdrawal request',amount:0,note:money(x.amount_ugx)+' · '+x.status}))];
+  records.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  if(!records.length){const r=document.createElement('tr');const c=document.createElement('td');c.colSpan=4;c.textContent='No commission activity yet.';r.append(c);$('walletActivity').append(r)}
+  for(const entry of records.slice(0,40)){
+    const row=document.createElement('tr');
+    for(const v of [formatDate(entry.date),entry.label,(entry.amount>0?'+':'')+money(entry.amount),entry.note]){
+      const col=document.createElement('td');col.textContent=v;col.style.padding='10px 8px';row.append(col);
+    }
+    $('walletActivity').append(row);
+  }
+ }catch(err){$('walletNotice').textContent='Unable to load wallet: '+err.message}
+}
+$('withdrawalForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const button=$('requestWithdrawal');button.disabled=true;
+ try{
+  const data={amount_ugx:Number($('withdrawalAmount').value),
+    destination_method:$('withdrawalMethod').value,destination_details:$('withdrawalDestination').value.trim()};
+  await api('/api/referrals/withdrawals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  $('withdrawalDestination').value='';$('withdrawalAmount').value='';
+  await loadWallet();$('walletNotice').textContent='Withdrawal request received. Payout will be reviewed manually.';
+ }catch(err){$('walletNotice').textContent=err.message}
+ finally{button.disabled=false}
+});
 async function loadReferrals(){
  try{
   const info=await api('/api/referrals/me');

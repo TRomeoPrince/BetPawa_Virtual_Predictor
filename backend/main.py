@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -62,7 +62,6 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 app = FastAPI(
     title="BetPawa Predictor",
-    version="0.4.1",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -131,6 +130,16 @@ def _free_market_result(public_result):
         "trackers": [], "personal": {},
         "free_release": True,
     }
+
+
+def _verify_write_origin(request: Request):
+    """Reject browser cross-origin mutation attempts using session cookies."""
+    from urllib.parse import urlparse
+    origin = request.headers.get("origin")
+    if origin:
+        parsed=urlparse(origin)
+        if parsed.netloc.lower()!=request.url.netloc.lower() or parsed.scheme not in ("http","https"):
+            raise HTTPException(403,"Cross-origin change rejected.")
 
 
 def _require_admin(request: Request):
@@ -326,6 +335,24 @@ class SignupRequest(BaseModel):
     password: str
     age_confirmed: bool = False
     referral_code: str = ""
+
+
+class ReferralWithdrawalBody(BaseModel):
+    amount_ugx: int
+    destination_method: str
+    destination_details: str
+
+
+class ReferralWithdrawalReview(BaseModel):
+    paid: bool = False
+    verified: bool = False
+    payout_reference: str = ""
+    reason: str = ""
+
+
+class ReferralCommissionReversal(BaseModel):
+    confirmed_refund: bool = False
+    reason: str
 
 
 class PromotionBody(BaseModel):
@@ -620,6 +647,81 @@ def api_my_referrals(request: Request):
     return growth.referral_stats(int(account["id"]), origin)
 
 
+@app.get("/api/referrals/wallet")
+def api_referral_wallet(request: Request, response: Response):
+    account = _require_account(request)
+    response.headers["Cache-Control"] = "no-store"
+    if account["role"] != "client":
+        raise HTTPException(403, "Wallets are available to registered members only.")
+    try:
+        return referral_wallet.wallet(int(account["id"]))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/referrals/withdrawals")
+def api_referral_withdrawal(payload: ReferralWithdrawalBody, request: Request, response: Response):
+    account = _require_account(request)
+    response.headers["Cache-Control"] = "no-store"
+    if account["role"] != "client":
+        raise HTTPException(403, "Member account required.")
+    _verify_write_origin(request)
+    try:
+        withdrawal_id = referral_wallet.request_withdrawal(
+            int(account["id"]),payload.amount_ugx,payload.destination_method,payload.destination_details
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok":True,"id":withdrawal_id,"status":"pending"}
+
+
+@app.get("/api/admin/referral-wallets")
+def api_admin_referral_wallets(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"]="no-store"
+    return {"wallets":referral_wallet.admin_wallets()}
+
+
+@app.get("/api/admin/referral-withdrawals")
+def api_admin_referral_withdrawals(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"]="no-store"
+    return {"withdrawals":referral_wallet.admin_withdrawals()}
+
+
+@app.post("/api/admin/referral-withdrawals/{withdrawal_id}/review")
+def api_admin_referral_withdrawal_review(
+    withdrawal_id:int,payload:ReferralWithdrawalReview,request:Request,response:Response
+):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        referral_wallet.review_withdrawal(
+            withdrawal_id,int(admin["id"]),payload.paid,payload.payout_reference,
+            payload.reason,payload.verified
+        )
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True,"status":"paid" if payload.paid else "rejected"}
+
+
+@app.post("/api/admin/referral-commissions/{purchase_id}/reverse")
+def api_admin_reverse_commission(
+    purchase_id:int,payload:ReferralCommissionReversal,request:Request,response:Response
+):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        referral_wallet.reverse_commission(
+            purchase_id,int(admin["id"]),payload.reason,payload.confirmed_refund
+        )
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True,"status":"reversed"}
+
+
 @app.post("/api/auth/login")
 def api_login(payload: LoginRequest, request: Request, response: Response):
     account = authenticate(payload.username, payload.password)
@@ -845,7 +947,6 @@ def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request
             if not current or current["role"] != "client" or current["status"] != "active" or current["username"].lower() != purchase["requested_username"].lower():
                 raise ValueError("The original buyer account is no longer available.")
             purchase_requests.activate_existing_verified(request_id, account_id, purchase["plan_code"], int(admin["id"]))
-            growth.mark_vip_conversion(account_id)
         except Exception:
             purchase_requests.reset_processing(request_id)
             raise
