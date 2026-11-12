@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -339,6 +339,29 @@ class SignupRequest(BaseModel):
     referral_code: str = ""
 
 
+class PatternPartnerSubmission(BaseModel):
+    name: str
+    email: str
+    username: str = ""
+    league: str
+    market: str
+    details: str
+    evidence_url: str = ""
+    age_confirmed: bool = False
+    website: str = ""
+
+
+class PatternPartnerReview(BaseModel):
+    decision: str
+    verified_and_adopted: bool = False
+    note: str
+
+
+class PatternPartnerReward(BaseModel):
+    username: str
+    contributor_verified: bool = False
+
+
 class WalletVipPurchase(BaseModel):
     plan_code: str
     promo_code: str = ""
@@ -507,6 +530,65 @@ def activation_page():
 @app.get("/access")
 def link_login_page():
     return _frontend_response(ROOT / "frontend" / "access-link.html")
+
+
+@app.get("/partners")
+def pattern_partners_page():
+    return _frontend_response(ROOT / "frontend" / "partners.html")
+
+
+@app.post("/api/pattern-partners")
+def api_pattern_partner_submit(payload: PatternPartnerSubmission, request: Request, response: Response):
+    _verify_write_origin(request)
+    response.headers["Cache-Control"] = "no-store"
+    # Honeypot for unsophisticated automated form submission.
+    if payload.website:
+        return {"ok":True,"status":"received"}
+    try:
+        ref=pattern_partners.submit(
+            payload.name,payload.email,payload.username,payload.league,payload.market,
+            payload.details,payload.evidence_url,payload.age_confirmed
+        )
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True,"status":"submitted","reference":ref}
+
+
+@app.get("/api/admin/pattern-partners")
+def api_admin_pattern_partner_submissions(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"] = "no-store, private"
+    return {"submissions":pattern_partners.list_submissions()}
+
+
+@app.post("/api/admin/pattern-partners/{submission_id}/review")
+def api_admin_pattern_partner_review(submission_id:int, payload:PatternPartnerReview,
+                                     request:Request,response:Response):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        status=pattern_partners.review(
+            submission_id,payload.decision,int(admin["id"]),
+            payload.verified_and_adopted,payload.note
+        )
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True,"status":status}
+
+
+@app.post("/api/admin/pattern-partners/{submission_id}/reward")
+def api_admin_pattern_partner_reward(submission_id:int,payload:PatternPartnerReward,
+                                     request:Request,response:Response):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return pattern_partners.reward_lifetime(
+            submission_id,int(admin["id"]),payload.username,payload.contributor_verified
+        )
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
 
 
 @app.get("/purchase")
