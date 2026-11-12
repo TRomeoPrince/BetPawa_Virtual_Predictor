@@ -32,10 +32,12 @@
 <div class="statusCard" style="padding:15px"><span>Available to withdraw</span><h3 id="walletAvailable" style="margin:6px 0">UGX 0</h3></div>
 <div class="statusCard" style="padding:15px"><span>Withdrawal pending</span><h3 id="walletReserved" style="margin:6px 0">UGX 0</h3></div>
 <div class="statusCard" style="padding:15px"><span>Total withdrawn</span><h3 id="walletPaid" style="margin:6px 0">UGX 0</h3></div>
+<div class="statusCard" style="padding:15px"><span>Spent on VIP</span><h3 id="walletVipSpent" style="margin:6px 0">UGX 0</h3></div>
 </div>
 <p class="muted" id="walletNotice" role="status">Loading wallet…</p>
+<p><a class="btn primary" href="/purchase">Use wallet to purchase VIP</a></p>
 <form id="withdrawalForm" hidden style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:22px">
-<label>Withdrawal amount (UGX) <input id="withdrawalAmount" type="number" min="1" step="1" required placeholder="5000"></label>
+<label>Withdrawal amount (UGX) <input id="withdrawalAmount" type="number" min="1000" step="1" required placeholder="1000"></label>
 <label>Payout method <select id="withdrawalMethod"><option value="mtn">MTN Mobile Money</option><option value="crypto">Crypto wallet</option></select></label>
 <label>Receiving number or wallet address <input id="withdrawalDestination" maxlength="180" autocomplete="off" required placeholder="Your payout details"></label>
 <button class="btn primary" type="submit" id="requestWithdrawal">Request withdrawal</button>
@@ -161,9 +163,10 @@ async function loadWallet(){
   $('walletAvailable').textContent=money(w.available_ugx);
   $('walletReserved').textContent=money(w.reserved_ugx);
   $('walletPaid').textContent=money(w.withdrawn_ugx);
+  $('walletVipSpent').textContent=money(w.spent_on_vip_ugx);
   $('walletNotice').textContent=w.withdrawals_enabled
     ? 'Verified commissions are available for withdrawal. Requests are paid manually after approval.'
-    : 'Your earnings are recorded. Withdrawal requests will open when the payout service is ready.';
+    : 'Your earnings can purchase VIP now. Withdrawal requests will open when the payout service is ready.';
   $('withdrawalForm').hidden=!w.withdrawals_enabled;
   $('withdrawalForm').style.display=w.withdrawals_enabled?'flex':'none';
   $('withdrawalAmount').min=w.minimum_withdrawal_ugx;
