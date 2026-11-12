@@ -38,7 +38,7 @@ class ExistingAccountUpgradeTests(unittest.TestCase):
         return self.buyer.post("/api/purchase/requests", json={
             "email": "buyer@example.com", "username": "buyer",
             "display_name": "Buyer", "plan_code": "weekly",
-            "payment_method": "mtn", "transaction_ref": reference,
+            "payment_method": "airtel", "transaction_ref": reference,
             "proof_base64": base64.b64encode(proof).decode(), "age_confirmed": True,
         })
 
