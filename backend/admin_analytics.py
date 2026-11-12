@@ -87,8 +87,10 @@ def snapshot(now: datetime | None = None) -> dict:
             GROUP BY day
         """,(_utc(datetime(beginning.year,beginning.month,beginning.day,tzinfo=EAT)),)).fetchall()
         active_rows=con.execute("""
-            SELECT activity_day AS day,COUNT(*) AS n FROM member_daily_activity
-            WHERE activity_day>=? GROUP BY activity_day
+            SELECT d.activity_day AS day,COUNT(*) AS n FROM member_daily_activity d
+            JOIN accounts a ON a.id=d.account_id
+            WHERE d.activity_day>=? AND a.role='client' AND a.status='active'
+            GROUP BY d.activity_day
         """,(beginning.isoformat(),)).fetchall()
         signups={row["day"]:int(row["n"]) for row in signup_rows}
         active={row["day"]:int(row["n"]) for row in active_rows}
