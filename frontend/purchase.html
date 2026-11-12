@@ -23,6 +23,12 @@ button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.
 <div class="grid"><section class="card"><h2>1. Choose and pay</h2>
 <label for="plan">Subscription plan</label><select id="plan"></select><div id="cost" class="details"></div>
 <label for="promo">Promo code (optional)</label><input id="promo" maxlength="32" placeholder="Enter promo code"><div id="promoStatus" class="hint" role="status"></div>
+<div id="walletPay" class="details" hidden>
+<strong>Pay with referral wallet</strong>
+<p id="walletPayBalance" class="hint"></p>
+<button type="button" id="walletPurchase" disabled>Purchase VIP with wallet</button>
+<p id="walletPayHelp" class="hint" role="status"></p>
+</div>
 <label for="method">Payment method / network</label><select id="method"></select><div id="details" class="details"></div>
 <p class="hint">Use the exact listed network for crypto transfers. Networks and wrapped assets are not interchangeable. Confirm the token amount with the administrator before sending crypto, because exchange rates and network fees vary. Transfers may be irreversible.</p>
 </section><section class="card"><h2>2. Request verification</h2>
@@ -36,8 +42,22 @@ button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.
 <p class="note">A submitted receipt does not automatically grant access. The administrator must confirm the actual incoming payment. Do not upload passwords or identity documents.</p>
 <button id="submit" type="submit">Request payment verification</button><p id="status" role="status"></p></form></section></div></main>
 <script>
-const $=id=>document.getElementById(id);let catalog={plans:[],methods:[]};
+const $=id=>document.getElementById(id);let catalog={plans:[],methods:[]},wallet=null,currentQuote=null,walletPaymentKey=null,quoteSeq=0;
 function money(n){return typeof n==='number'?'UGX '+n.toLocaleString('en-UG'):'Price unavailable'}
+function updateWalletPay(){
+ const section=$('walletPay');
+ if(!wallet){section.hidden=true;return}
+ section.hidden=false;
+ const available=Number(wallet.available_ugx||0);
+ $('walletPayBalance').textContent='Available: '+money(available)+' · Reserved for withdrawal: '+money(Number(wallet.reserved_ugx||0));
+ const ready=currentQuote&&Number.isInteger(currentQuote.price_ugx);
+ const price=ready?currentQuote.price_ugx:0;
+ const enough=ready&&available>=price&&price>0;
+ $('walletPurchase').disabled=!enough;
+ $('walletPayHelp').textContent=!ready?'Choose a plan and valid promo code.':
+   enough?'Use your referral earnings for instant VIP access. No receipt required.':
+   'You need '+money(Math.max(0,price-available))+' more to pay the full price with your wallet.';
+}
 function render(){
  $('plan').replaceChildren();
  $('submit').disabled=!catalog.accepting_requests;
@@ -54,6 +74,7 @@ function render(){
  refresh();
 }
 function refresh(){
+ walletPaymentKey=null;currentQuote=null;updateWalletPay();
  const plan=catalog.plans.find(p=>p.code===$('plan').value);
  $('cost').textContent=plan?plan.label+' · '+money(plan.price_ugx):'No plans have a configured price yet.';
  refreshQuote();
@@ -66,17 +87,20 @@ function refresh(){
  $('details').append(title,address,description);
 }
 async function refreshQuote(){
+ const request=++quoteSeq;currentQuote=null;updateWalletPay();
  const plan=$('plan').value, code=$('promo').value.trim();
  if(!plan)return;
  try{
   const res=await fetch('/api/purchase/quote?plan_code='+encodeURIComponent(plan)+'&promo_code='+encodeURIComponent(code),{cache:'no-store'});
   const data=await res.json().catch(()=>({}));
+  if(request!==quoteSeq)return;
   if(!res.ok)throw Error(data.detail||'Unable to apply code.');
+  currentQuote=data;updateWalletPay();
   $('cost').textContent=(data.discount_ugx?'Regular '+money(data.regular_ugx)+' · Pay ':'Pay ')+money(data.price_ugx);
   $('promoStatus').textContent=data.discount_ugx?'Discount: '+money(data.discount_ugx)+' off'+(data.promo_code?' using '+data.promo_code:' (automatic promotion)'):'No active promotion for this selection.';
- }catch(e){$('promoStatus').textContent=e.message;$('cost').textContent='Promo code cannot be used. Correct it before paying.'}
+ }catch(e){if(request!==quoteSeq)return;currentQuote=null;updateWalletPay();$('promoStatus').textContent=e.message;$('cost').textContent='Promo code cannot be used. Correct it before paying.'}
 }
-$('promo').addEventListener('change',refreshQuote);
+$('promo').addEventListener('change',()=>{walletPaymentKey=null;refreshQuote()});
 $('plan').addEventListener('change',refresh);$('method').addEventListener('change',refresh);
 (async()=>{try{
  const response=await fetch('/api/purchase/catalog',{cache:'no-store'});if(!response.ok)throw Error('Unable to load plans.');
@@ -88,10 +112,31 @@ $('plan').addEventListener('change',refresh);$('method').addEventListener('chang
   if(r.ok){const a=await r.json();$('username').value=a.username;$('username').readOnly=true;
    $('display').value=a.display_name||a.username;
    if(a.email){$('email').value=a.email;$('email').readOnly=true}
+   const response=await fetch('/api/referrals/wallet',{credentials:'same-origin',cache:'no-store'});
+   if(response.ok){wallet=await response.json();updateWalletPay()}
    $('status').textContent='Signed in as @'+a.username+'. Verified payment upgrades this account.'}
  }catch(e){}
 
  }catch(error){$('status').textContent=error.message;$('status').className='error'}})();
+$('walletPurchase').addEventListener('click',async()=>{
+ if(!wallet||!currentQuote||$('walletPurchase').disabled)return;
+ const plan=$('plan').value,promo=$('promo').value.trim(),price=currentQuote.price_ugx;
+ const label=(catalog.plans.find(p=>p.code===plan)||{}).label||plan;
+ if(!confirm('Use '+money(price)+' from your referral wallet to buy '+label+' VIP now?'))return;
+ const btn=$('walletPurchase');btn.disabled=true;
+ $('walletPayHelp').textContent='Processing wallet purchase…';
+ if(!walletPaymentKey)walletPaymentKey=crypto.randomUUID();
+ try{
+  const res=await fetch('/api/referrals/wallet/purchase-vip',{
+   method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({plan_code:plan,promo_code:promo,idempotency_key:walletPaymentKey,expected_price_ugx:price})
+  });
+  const body=await res.json().catch(()=>({}));
+  if(!res.ok)throw Error(body.detail||'Unable to complete wallet purchase.');
+  $('walletPayHelp').textContent='VIP activated. '+money(body.amount_ugx)+' deducted from the referral wallet.';
+  window.location.assign('/client');
+ }catch(error){$('walletPayHelp').textContent=error.message;btn.disabled=false}
+});
 $('purchaseForm').addEventListener('submit',async event=>{
  event.preventDefault();const status=$('status');status.textContent='';status.className='';
  const file=$('proof').files[0];
