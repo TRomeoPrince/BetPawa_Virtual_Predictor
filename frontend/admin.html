@@ -12,7 +12,7 @@
 <button type="button" class="btn" data-tab="overview">Overview</button>
 <button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
-<button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
+<button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
 <section id="overview" class="tab panel hidden"><h2>Overview</h2><div id="stats" class="grid"></div></section>
@@ -60,6 +60,22 @@
 <p class="hint">An enabled release opens at the chosen time and closes automatically after its five estimated matchdays. You can disable it early or delete it. Start times may be unpredictable and do not recur.</p>
 <div style="overflow:auto"><table><thead><tr><th>Start (EAT)</th><th>End (EAT)</th><th>Status</th><th>Controls</th></tr></thead><tbody id="freeReleaseRows"></tbody></table></div>
 </section>
+<section id="referral-wallets" class="tab panel hidden">
+<h2>Referral commissions &amp; withdrawals</h2>
+<p class="hint">20% of actual paid VIP amount during the referred customer's first 30 days after their first verified VIP purchase; 15% thereafter. Withdrawals require independent manual transfer. Nothing is paid automatically.</p>
+<div id="walletAdminSummary"></div>
+<h3>Referral wallets</h3>
+<div style="overflow:auto"><table><thead><tr><th>Member</th><th>Total earned</th><th>Current balance</th><th>Available</th><th>Withdrawn</th></tr></thead><tbody id="adminWalletRows"></tbody></table></div>
+<h3>Withdrawal requests</h3>
+<div style="overflow:auto"><table><thead><tr><th>Member</th><th>Amount</th><th>Destination</th><th>Status</th><th>Review</th></tr></thead><tbody id="adminWithdrawalRows"></tbody></table></div>
+<h3>Reverse a refunded purchase commission</h3>
+<p class="hint">Only reverse a commission after confirming a real refund or chargeback. This creates a new negative audit entry; it does not delete the original credit.</p>
+<form id="reverseCommissionForm" class="form">
+<label>Approved payment request ID <input type="number" min="1" step="1" id="reversePurchaseId" required></label>
+<label>Refund or chargeback reason <input type="text" id="reverseReason" minlength="5" maxlength="500" required placeholder="Why the verified payment was reversed"></label>
+<button class="btn danger" type="submit">Reverse commission</button>
+</form>
+</section>
 <section id="promotions" class="tab panel hidden">
 <h2>VIP promotions and promo codes</h2><p class="hint">Blank code means automatic discount. Code-filled means coupon-only. Disable an offer to restore the normal price.</p>
 <form id="promoForm" class="form">
@@ -76,7 +92,7 @@
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],me:null},issued=null;
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],referralWallets:[],referralWithdrawals:[],me:null},issued=null;
 function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
 async function api(url,options){
  const response=await fetch(url,{credentials:'same-origin',...options});
@@ -257,6 +273,58 @@ $('scheduleFree').addEventListener('click',()=>{
  if(isNaN(dt.valueOf())){feedback('Choose a valid start date and time.',true);return}
  createFreeRelease(dt.toISOString());
 });
+function renderReferralWallets(){
+ $('adminWalletRows').replaceChildren();$('adminWithdrawalRows').replaceChildren();
+ for(const w of state.referralWallets){
+   const tr=document.createElement('tr');
+   for(const value of [w.username,'UGX '+Number(w.earned_ugx).toLocaleString(),'UGX '+Number(w.balance_ugx).toLocaleString(),
+       'UGX '+Number(w.available_ugx).toLocaleString(),'UGX '+Number(w.withdrawn_ugx).toLocaleString()])tr.append(td(value));
+   $('adminWalletRows').append(tr);
+ }
+ for(const w of state.referralWithdrawals){
+   const tr=document.createElement('tr');
+   tr.append(td((w.username||'Deleted account')+' · #'+w.id),
+     td('UGX '+Number(w.amount_ugx).toLocaleString()),
+     td(w.destination_method+': '+(w.destination_details||'No saved details')),
+     td(w.status.toUpperCase()));
+   const action=td('');
+   if(w.status==='pending'){
+     action.append(button('Mark paid','primary',async()=>{
+       if(!confirm('Have you ALREADY transferred the full amount to this receiving account? Click Cancel if not.'))return;
+       const reference=prompt('Enter the real completed payout transaction reference:');
+       if(!reference)return;
+       try{await api('/api/admin/referral-withdrawals/'+w.id+'/review',{
+         method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({paid:true,verified:true,payout_reference:reference})
+       });feedback('Payout recorded with an audit entry.');await load()}
+       catch(err){feedback(err.message,true)}
+     }),document.createTextNode(' '),button('Reject','danger',async()=>{
+       if(!confirm('Reject and release this pending withdrawal reservation?'))return;
+       const reason=prompt('Rejection reason:')||'Request rejected';
+       try{await api('/api/admin/referral-withdrawals/'+w.id+'/review',{
+         method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({paid:false,reason})
+       });feedback('Withdrawal rejected.');await load()}
+       catch(err){feedback(err.message,true)}
+     }));
+   }
+   tr.append(action);$('adminWithdrawalRows').append(tr);
+ }
+ $('walletAdminSummary').textContent='Wallets: '+state.referralWallets.length+
+   ' · Pending withdrawals: '+state.referralWithdrawals.filter(w=>w.status==='pending').length;
+}
+$('reverseCommissionForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!confirm('Have you independently verified the refund or chargeback? This will create a permanent negative ledger entry.'))return;
+ try{
+  const id=Number($('reversePurchaseId').value),reason=$('reverseReason').value.trim();
+  await api('/api/admin/referral-commissions/'+id+'/reverse',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({confirmed_refund:true,reason})
+  });
+  $('reverseCommissionForm').reset();feedback('Commission reversed in the audit ledger.');await load();
+ }catch(err){feedback(err.message,true)}
+});
 function renderPromotions(){
  $('promoRows').replaceChildren();
  for(const p of state.promotions){
@@ -301,14 +369,14 @@ async function load(){
   if(me.account.must_change_password){location.assign('/password-setup');return}
   if(me.account.role!=='admin'){location.assign('/client');return}
   state.me=me.account;
-  const [clients,requests,strategies,plans,purchases,promotions,freeReleases]=await Promise.all([
-   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions'),api('/api/admin/free-releases')
+  const [clients,requests,strategies,plans,purchases,promotions,freeReleases,referralWallets,referralWithdrawals]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions'),api('/api/admin/free-releases'),api('/api/admin/referral-wallets'),api('/api/admin/referral-withdrawals')
   ]);
-  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;state.freeReleases=freeReleases.releases;
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;state.freeReleases=freeReleases.releases;state.referralWallets=referralWallets.wallets;state.referralWithdrawals=referralWithdrawals.withdrawals;
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderPromotions();renderStrategies();
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){
