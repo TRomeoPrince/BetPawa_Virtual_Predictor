@@ -221,6 +221,15 @@ $('passwordForm').addEventListener('submit',async event=>{
 });
 $('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
 load();
+
+/* Presence counts only active, visible, signed-in browser tabs. */
+(()=>{
+ const ping=()=>{if(document.visibilityState==='visible')
+   fetch('/api/activity/ping',{method:'POST',credentials:'same-origin',cache:'no-store'})
+     .catch(()=>{});};
+ document.addEventListener('visibilitychange',ping);
+ setInterval(ping,60000);
+})();
 </script>
 </body>
 </html>

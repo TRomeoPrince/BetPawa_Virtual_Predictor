@@ -70,5 +70,14 @@ async function loadHistory(){try{const h=await json('/api/history/'+page);const 
 async function check(){const go=$('#go');go.disabled=true;$('#msg').textContent='Loading live next matchday and checking '+cfg.title+' patterns…';try{const d=await json('/api/predict/'+page,{method:'POST'});isFree=!!d.free;currentSeason=d.season;currentMatchday=d.next_matchday;window.currentTarget=d.next_target||{};latestPredictions=d.predictions||[];const current=(d.personal?.last_batch||{});if(String(current.season)===String(currentSeason)&&String(current.matchday)===String(currentMatchday))selectedKeys=new Set((current.predictions||[]).filter(p=>p.selected).map(keyOf));else selectedKeys=new Set();$('#overview').style.display='grid';$('#overview').innerHTML='<div class="stat"><b>'+esc(d.latest_completed_matchday)+'</b><span class="meta">Latest completed MD</span></div><div class="stat"><b>'+esc(d.next_matchday)+'</b><span class="meta">Next matchday</span></div><div class="stat"><b>'+esc(Object.values(window.currentTarget).reduce((n,x)=>n+x.length,0))+'</b><span class="meta">Matches playing</span></div><div class="stat"><b>'+esc(latestPredictions.length)+'</b><span class="meta">'+cfg.title+' signals</span></div>';$('#msg').textContent=(isFree?'Public preview (saving picks requires VIP). ':'')+'Loaded the actual next-round fixtures and '+latestPredictions.length+' qualifying '+cfg.title+' predictions.';renderCurrent();renderHistory(d.personal)}catch(e){$('#msg').innerHTML='<span class="error">'+esc(e.message)+'</span>'}finally{go.disabled=false}}
 $('#go').onclick=check;$('#refresh').onclick=async()=>{try{const h=await json('/api/history/'+page+'/refresh',{method:'POST'});renderHistory(h);await loadHistory()}catch(e){alert(e.message)}};$('#logoutLink').onclick=async e=>{e.preventDefault();await fetch('/api/auth/logout',{method:'POST'});location.href='/login'};
 loadHistory();
+
+/* Presence counts only active, visible, signed-in browser tabs. */
+(()=>{
+ const ping=()=>{if(document.visibilityState==='visible')
+   fetch('/api/activity/ping',{method:'POST',credentials:'same-origin',cache:'no-store'})
+     .catch(()=>{});};
+ document.addEventListener('visibilitychange',ping);
+ setInterval(ping,60000);
+})();
 </script>
 </body></html>

@@ -19,13 +19,13 @@
 <main class="wrap">
 <header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
 <nav class="tabs" aria-label="Admin sections">
-<button type="button" class="btn" data-tab="overview">Overview</button>
-<button type="button" class="btn active" data-tab="clients">Clients &amp; Invitations</button>
+<button type="button" class="btn active" data-tab="overview">Overview</button>
+<button type="button" class="btn" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
 <button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
-<section id="overview" class="tab panel hidden">
+<section id="overview" class="tab panel">
 <div class="sectionHead"><h2>Website Analytics</h2><p class="hint">Private, real database measurements · refreshes each minute while this tab is visible</p></div>
 <div id="stats" class="grid" aria-live="polite">Loading statistics…</div>
 <div class="analyticsSection">
@@ -37,7 +37,7 @@
 <p id="analyticsMeta" class="hint">Online means signed-in accounts active within the past five minutes; it does not count anonymous visitors or estimate concurrent browser connections.</p>
 <button id="refreshAnalytics" type="button" class="btn">Refresh analytics</button>
 </section>
-<section id="clients" class="tab panel">
+<section id="clients" class="tab panel hidden">
 <h2>Invite a client or tester</h2>
 <div class="guide"><strong>How it works:</strong> Enter a username and choose an optional subscription. The system generates a one-use activation link (24 hours). After activation, issue a reusable personal sign-in link (90 days) if desired. Anyone possessing an active link can enter that client's account. Use <strong>Reset password</strong> if they forget it. Public signup is open for free memberships.</div>
 <div class="form"><input id="publicTesterUrl" type="url" placeholder="Public ngrok HTTPS URL (optional)" aria-label="Public tester URL" style="min-width:min(100%,380px)"></div>
@@ -446,7 +446,7 @@ async function load(){
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();loadAnalytics();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){
