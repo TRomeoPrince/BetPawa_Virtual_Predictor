@@ -122,7 +122,7 @@
 <h3>Promotions</h3><div style="overflow:auto"><table><thead><tr><th>Plan</th><th>Code</th><th>Price</th><th>Window</th><th>Status</th><th>Action</th></tr></thead><tbody id="promoRows"></tbody></table></div></section>
 <section id="pattern-partners" class="tab panel hidden">
 <h2>Pattern Partners · Contributor applications</h2>
-<p class="hint">Review submitted patterns, independently test their rules and evidence, and accept only those you actually adopt. Lifetime VIP is granted separately after verifying that the member account email matches the contributor's submitted email.</p>
+<p class="hint">Review submitted patterns, independently test their rules and evidence, and accept only those you actually adopt. Once accepted, link the verified contributor to a deployed private strategy. Earnings will activate only when the capped Predictor Coins reward service is enabled. No Lifetime VIP is granted.</p>
 <div id="partnerReviewList" class="grid" aria-live="polite">Loading pattern applications…</div>
 </section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
@@ -514,14 +514,14 @@ function renderPatternPartners(){
   const actions=document.createElement('div');actions.className='form';
   if(item.status==='pending'){
    actions.append(button('Accept validated pattern','primary',async()=>{
-    if(!confirm('Did you independently validate AND ADOPT this pattern? This step does not grant VIP until the contributor account is verified.'))return;
+    if(!confirm('Did you independently validate AND ADOPT this pattern? This step does not grant VIP or coins. Verify the contributor and link a deployed rule separately.'))return;
     const note=prompt('Enter testing results and adoption justification (at least 8 characters):');
     if(note===null)return;
     try{
      await api('/api/admin/pattern-partners/'+item.id+'/review',{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({decision:'accept',verified_and_adopted:true,note})});
-     feedback('Contribution accepted. Grant Lifetime VIP after account verification.');await load();
+     feedback('Contribution accepted. Verify the member and link a deployed strategy.');await load();
     }catch(e){feedback(e.message,true)}
    }),button('Reject','danger',async()=>{
     const note=prompt('Reason for rejecting this pattern:');if(note===null)return;
@@ -532,20 +532,26 @@ function renderPatternPartners(){
     }catch(e){feedback(e.message,true)}
    }));
   }else if(item.status==='accepted'){
-   actions.append(button('Grant Lifetime VIP','primary',async()=>{
-    const username=prompt('Enter the VERIFIED member username to receive Lifetime VIP:',item.username||'');
+   actions.append(button('Activate verified contributor','primary',async()=>{
+    const username=prompt('Enter the VERIFIED member username to associate with this strategy:',item.username||'');
     if(!username)return;
-    if(!confirm('Have you independently verified account ownership? The member account email must match the submitted contributor email. This action grants Lifetime VIP permanently.'))return;
+    const ruleId=prompt('Enter the exact deployed rule ID from Admin > Private strategy catalog:');
+    if(!ruleId)return;
+    const matches=state.strategies.filter(x=>x.rule_id===ruleId);
+    if(!matches.length){feedback('The rule ID does not exist in the deployed strategy catalog.',true);return}
+    const family=matches.length===1?matches[0].strategy_family:prompt('Enter strategy family exactly as shown in the catalog:');
+    if(!family || !matches.some(x=>x.strategy_family===family)){feedback('Rule family does not match the deployed catalog.',true);return}
+    if(!confirm('Verify the member email matches the submission and this adopted rule is genuinely based on their contribution. This links ownership only; it does NOT grant Lifetime VIP or pay coins automatically.'))return;
     try{
      const data=await api('/api/admin/pattern-partners/'+item.id+'/reward',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({username,contributor_verified:true})
+      body:JSON.stringify({username,contributor_verified:true,strategy_family:family,rule_id:ruleId})
      });
-     feedback('Lifetime VIP awarded. Account #'+data.account_id+' · Pattern #'+item.id);await load();
+     feedback('Contributor linked to deployed rule. Account #'+data.account_id+' · Pattern #'+item.id);await load();
     }catch(e){feedback(e.message,true)}
    }));
   }else if(item.status==='rewarded'){
-   const reward=document.createElement('p');reward.textContent='Lifetime VIP awarded to account #'+item.rewarded_account_id+' on '+item.rewarded_at;
+   const reward=document.createElement('p');reward.textContent=item.attributed_rule ? 'Contributor account #'+item.rewarded_account_id+' linked to '+item.attributed_family+'/'+item.attributed_rule+' on '+item.rewarded_at : 'Legacy Lifetime VIP grant to account #'+item.rewarded_account_id+' on '+item.rewarded_at;
    actions.append(reward);
   }
   card.append(actions);list.append(card);
