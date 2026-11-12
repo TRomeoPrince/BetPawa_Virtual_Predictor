@@ -27,13 +27,13 @@
 </div></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
 <section class="section panel" id="referrals">
-<div class="sectionHead"><div><h2>Referral wallet</h2><p>Earn 20% commission during a referred member's first 30 days after their first verified VIP payment, then 15% on later verified purchases. Commissions use the amount actually paid after discounts.</p></div></div>
+<div class="sectionHead"><div><h2>Predictor Coins wallet</h2><p>Earn 20% referral commission during a member's first 30 days after their first verified VIP payment, then 15% on later verified purchases. Rewards display as Predictor Coins at a fixed <strong>100 PC = UGX 1</strong>; the UGX equivalent is always shown. Verified pattern-contributor rewards are planned separately.</p></div></div>
 <div class="walletGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:14px 0">
-<div class="statusCard" style="padding:15px"><span>Wallet balance</span><h3 id="walletBalance" style="margin:6px 0">UGX 0</h3></div>
-<div class="statusCard" style="padding:15px"><span>Available balance</span><h3 id="walletAvailable" style="margin:6px 0">UGX 0</h3></div>
-<div class="statusCard" style="padding:15px"><span>Withdrawal pending</span><h3 id="walletReserved" style="margin:6px 0">UGX 0</h3></div>
-<div class="statusCard" style="padding:15px"><span>Total withdrawn</span><h3 id="walletPaid" style="margin:6px 0">UGX 0</h3></div>
-<div class="statusCard" style="padding:15px"><span>Spent on VIP</span><h3 id="walletVipSpent" style="margin:6px 0">UGX 0</h3></div>
+<div class="statusCard" style="padding:15px"><span>Wallet balance</span><h3 id="walletBalance" style="margin:6px 0">0 PC</h3></div>
+<div class="statusCard" style="padding:15px"><span>Available balance</span><h3 id="walletAvailable" style="margin:6px 0">0 PC</h3></div>
+<div class="statusCard" style="padding:15px"><span>Withdrawal pending</span><h3 id="walletReserved" style="margin:6px 0">0 PC</h3></div>
+<div class="statusCard" style="padding:15px"><span>Total withdrawn</span><h3 id="walletPaid" style="margin:6px 0">0 PC</h3></div>
+<div class="statusCard" style="padding:15px"><span>Spent on VIP</span><h3 id="walletVipSpent" style="margin:6px 0">0 PC</h3></div>
 </div>
 <p class="muted" id="walletNotice" role="status">Loading wallet…</p>
 <p><a class="btn primary" href="/purchase">Use wallet to purchase VIP</a></p>
@@ -164,17 +164,19 @@ async function refreshFreeAccess(){
  }catch(e){$('subText').textContent='Public access status could not be checked. Try again later.'}
 }
 const money=value=>'UGX '+Number(value||0).toLocaleString('en-US');
+const coins=value=>Number(value||0).toLocaleString('en-US')+' PC';
+const coinValue=(pc,ugx)=>coins(pc)+' · '+money(ugx);
 async function loadWallet(){
  try{
   const w=await api('/api/referrals/wallet');
-  $('walletBalance').textContent=money(w.balance_ugx);
-  $('walletAvailable').textContent=money(w.available_ugx);
-  $('walletReserved').textContent=money(w.reserved_ugx);
-  $('walletPaid').textContent=money(w.withdrawn_ugx);
-  $('walletVipSpent').textContent=money(w.spent_on_vip_ugx);
+  $('walletBalance').textContent=coinValue(w.balance_coins,w.balance_ugx);
+  $('walletAvailable').textContent=coinValue(w.available_coins,w.available_ugx);
+  $('walletReserved').textContent=coinValue(w.reserved_coins,w.reserved_ugx);
+  $('walletPaid').textContent=coinValue(w.withdrawn_coins,w.withdrawn_ugx);
+  $('walletVipSpent').textContent=coinValue(w.spent_on_vip_coins,w.spent_on_vip_ugx);
   $('walletNotice').textContent=w.withdrawals_enabled
-    ? 'Verified commissions are available for withdrawal. Requests are paid manually after approval.'
-    : 'Your earnings can purchase VIP now. Withdrawal requests will open when the payout service is ready.';
+    ? 'Predictor Coins are displayed at 100 PC per UGX. Withdrawals use the equivalent UGX amount and require manual approval.'
+    : 'Your existing UGX-backed referral credits can purchase VIP. Withdrawal requests will open when the payout service is ready.';
   $('withdrawalForm').hidden=!w.withdrawals_enabled;
   $('withdrawalForm').style.display=w.withdrawals_enabled?'flex':'none';
   $('withdrawalAmount').min=w.minimum_withdrawal_ugx;
@@ -188,7 +190,7 @@ async function loadWallet(){
   if(!records.length){const r=document.createElement('tr');const c=document.createElement('td');c.colSpan=4;c.textContent='No commission activity yet.';r.append(c);$('walletActivity').append(r)}
   for(const entry of records.slice(0,40)){
     const row=document.createElement('tr');
-    for(const v of [formatDate(entry.date),entry.label,(entry.amount>0?'+':'')+money(entry.amount),entry.note]){
+    for(const v of [formatDate(entry.date),entry.label,(entry.amount>0?'+':'')+coinValue(Math.round(entry.amount*(w.coins_per_ugx||100)),entry.amount),entry.note]){
       const col=document.createElement('td');col.textContent=v;col.style.padding='10px 8px';row.append(col);
     }
     $('walletActivity').append(row);
