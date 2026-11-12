@@ -15,6 +15,7 @@
 .analyticsBar{width:37%;max-width:22px;min-height:2px;border-radius:3px 3px 0 0}
 .analyticsBar.signup{background:#17694c}.analyticsBar.active{background:#a6c66e}
 @media(max-width:660px){.analyticsTrend{gap:2px}.analyticsDay{font-size:9px}.analyticsBar{min-width:3px}}
+.freeMarketChoices{display:flex;flex-wrap:wrap;gap:14px 24px;margin:5px 0 0}.freeMarketChoices label{display:inline-flex;align-items:center;gap:8px;font-weight:800}.freeMarketChoices input[type=checkbox],#freeEnabled{min-width:0!important;width:17px;height:17px;margin:0;padding:0;accent-color:var(--green)}
 </style></head><body>
 <main class="wrap">
 <header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
@@ -79,7 +80,7 @@
 </div>
 <fieldset style="border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:12px 0">
 <legend style="font-weight:850">Free prediction markets — select at least one</legend>
-<div class="form" style="margin:4px 0">
+<div class="freeMarketChoices">
 <label><input class="freeMarket" type="checkbox" value="btts" checked> BTTS</label>
 <label><input class="freeMarket" type="checkbox" value="overs" checked> OVERS</label>
 <label><input class="freeMarket" type="checkbox" value="unders" checked> UNDERS</label>
@@ -330,7 +331,7 @@ function editFreeRelease(release){
  document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=(release.markets||[]).includes(box.value));
  $('scheduleFree').textContent='Save release changes';
  $('cancelEditFree').classList.remove('hidden');
- $('freeEditNotice').textContent='Editing release #'+release.id+'. Set a future End time and check Enable to reopen an expired release; click Save changes.';
+ $('freeEditNotice').textContent='Editing release #'+release.id+'. Set a future start and end time, check Enable to reopen an expired release, then click Save changes.';
  $('freeStart').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function renderFreeReleases(){
