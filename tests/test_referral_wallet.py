@@ -98,6 +98,12 @@ class ReferralWalletTests(unittest.TestCase):
 
     def test_exact_thirty_day_boundary_and_duplicate_credit(self):
         first=datetime(2026,6,1,12,0,tzinfo=timezone.utc)
+        con=referral_wallet.connect()
+        try:
+            con.execute("UPDATE referral_profiles SET joined_at=? WHERE account_id=?",
+                        ((first-timedelta(days=1)).isoformat(),self.buyer_id))
+            con.commit()
+        finally:con.close()
         def record(ref,when,price,status="approved"):
             con=purchase_requests.connect()
             try:
@@ -139,14 +145,14 @@ class ReferralWalletTests(unittest.TestCase):
         self.login_admin()
         self.assertEqual(self.approve(1).status_code,200)
         request=self.owner.post("/api/referrals/withdrawals",json={
-            "amount_ugx":4000,"destination_method":"mtn","destination_details":"0781920398",
+            "amount_ugx":4000,"destination_method":"mtn","destination_details":"0700000000",
         })
         self.assertEqual(request.status_code,200,request.text)
         rid=request.json()["id"]
         reserved=self.owner.get("/api/referrals/wallet").json()
         self.assertEqual((reserved["balance_ugx"],reserved["reserved_ugx"],reserved["available_ugx"]), (4000,4000,0))
         self.assertEqual(self.owner.post("/api/referrals/withdrawals",json={
-            "amount_ugx":1,"destination_method":"mtn","destination_details":"0781920398",
+            "amount_ugx":1,"destination_method":"mtn","destination_details":"0700000000",
         }).status_code,400)
         self.assertEqual(self.admin.post(f"/api/admin/referral-withdrawals/{rid}/review",json={
             "paid":True,"payout_reference":"TRANSFER-001","verified":False,
@@ -181,13 +187,13 @@ class ReferralWalletTests(unittest.TestCase):
         with patch.dict(os.environ,{"PREDICTOR_REFERRAL_WITHDRAWALS_ENABLED":"false"}):
             self.assertFalse(self.owner.get("/api/referrals/wallet").json()["withdrawals_enabled"])
             self.assertEqual(self.owner.post("/api/referrals/withdrawals",json={
-                "amount_ugx":4000,"destination_method":"mtn","destination_details":"0781920398",
+                "amount_ugx":4000,"destination_method":"mtn","destination_details":"0700000000",
             }).status_code,400)
         self.assertEqual(self.owner.post("/api/referrals/withdrawals",headers={"Origin":"https://evil.example"},json={
-            "amount_ugx":4000,"destination_method":"mtn","destination_details":"0781920398",
+            "amount_ugx":4000,"destination_method":"mtn","destination_details":"0700000000",
         }).status_code,403)
         ok=self.owner.post("/api/referrals/withdrawals",json={
-            "amount_ugx":1000,"destination_method":"mtn","destination_details":"0781920398",
+            "amount_ugx":1000,"destination_method":"mtn","destination_details":"0700000000",
         })
         self.assertEqual(ok.status_code,200,ok.text)
         rejected=self.admin.post(f"/api/admin/referral-withdrawals/{ok.json()['id']}/review",json={
