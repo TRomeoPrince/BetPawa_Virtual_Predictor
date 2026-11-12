@@ -379,7 +379,16 @@ class PromotionToggle(BaseModel):
 
 class FreeReleaseBody(BaseModel):
     starts_at: str | None = None
+    ends_at: str | None = None
+    markets: list[str] | None = None
     enabled: bool = True
+
+
+class FreeReleaseEditBody(BaseModel):
+    starts_at: str | None = None
+    ends_at: str | None = None
+    markets: list[str] | None = None
+    enabled: bool | None = None
 
 
 class FreeReleaseToggle(BaseModel):
@@ -820,8 +829,12 @@ def api_free_access_status(request: Request):
     response = {"vip": _is_vip(account)}
     if response["vip"]:
         response["open"] = True
+        response["markets"] = ["overs","unders","btts","wins"]
     else:
-        response["open"] = bool(account.get("email")) and free_access.active_release() is not None
+        release = free_access.active_release()
+        response["open"] = bool(account.get("email")) and bool(release and release["markets"])
+        # Market choices are public only DURING an active release, not its timetable.
+        response["markets"] = release["markets"] if response["open"] else []
     return response
 
 
@@ -834,16 +847,34 @@ def api_admin_free_releases(request: Request):
 @app.post("/api/admin/free-releases")
 def api_admin_create_free_release(payload: FreeReleaseBody, request: Request):
     admin = _require_admin(request)
+    _verify_write_origin(request)
     try:
-        release_id = free_access.create_release(payload.starts_at, int(admin["id"]), payload.enabled)
+        release_id = free_access.create_release(
+            payload.starts_at, int(admin["id"]), payload.enabled, payload.ends_at, payload.markets
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True, "id": release_id}
 
 
+@app.patch("/api/admin/free-releases/{release_id}")
+def api_admin_edit_free_release(release_id: int, payload: FreeReleaseEditBody, request: Request):
+    admin = _require_admin(request)
+    _verify_write_origin(request)
+    try:
+        free_access.update_release(
+            release_id, payload.starts_at, payload.ends_at,
+            payload.markets, payload.enabled, int(admin["id"])
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
+
+
 @app.post("/api/admin/free-releases/{release_id}/enabled")
 def api_admin_toggle_free_release(release_id: int, payload: FreeReleaseToggle, request: Request):
     _require_admin(request)
+    _verify_write_origin(request)
     try:
         free_access.set_enabled(release_id, payload.enabled)
     except ValueError as exc:
@@ -854,6 +885,7 @@ def api_admin_toggle_free_release(release_id: int, payload: FreeReleaseToggle, r
 @app.delete("/api/admin/free-releases/{release_id}")
 def api_admin_delete_free_release(release_id: int, request: Request):
     _require_admin(request)
+    _verify_write_origin(request)
     try:
         free_access.delete_release(release_id)
     except ValueError as exc:
@@ -1307,6 +1339,8 @@ def predict_category(category: str, request: Request, response: Response):
         raise HTTPException(403, "An active subscription is required.")
     if is_free and free_access.active_release() is None:
         raise HTTPException(403, "No public predictions have been released at the moment.")
+    if is_free and not free_access.allowed_market(category):
+        raise HTTPException(403, "This prediction market is not enabled for the current Free release.")
     try:
         context = feed.prediction_context()
         if is_free and not _free_round_allowed(context):

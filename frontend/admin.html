@@ -15,6 +15,7 @@
 .analyticsBar{width:37%;max-width:22px;min-height:2px;border-radius:3px 3px 0 0}
 .analyticsBar.signup{background:#17694c}.analyticsBar.active{background:#a6c66e}
 @media(max-width:660px){.analyticsTrend{gap:2px}.analyticsDay{font-size:9px}.analyticsBar{min-width:3px}}
+.freeMarketChoices{display:flex;flex-wrap:wrap;gap:14px 24px;margin:5px 0 0}.freeMarketChoices label{display:inline-flex;align-items:center;gap:8px;font-weight:800}.freeMarketChoices input[type=checkbox],#freeEnabled{min-width:0!important;width:17px;height:17px;margin:0;padding:0;accent-color:var(--green)}
 </style></head><body>
 <main class="wrap">
 <header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
@@ -72,14 +73,26 @@
 </section>
 <section id="free-releases" class="tab panel hidden">
 <h2>Public Free access</h2>
-<p class="hint">You control every release. No free matchdays are published automatically or daily. Each release allows up to five upcoming matchdays from the EPL and Dutch virtual leagues, using the existing predictor. Public users see only whether access is currently open, not your timetable.</p>
+<p class="hint">Choose exactly when access opens and closes (up to 24 hours), and which markets Free members can view. Free predictions remain limited to the EPL and Dutch virtual leagues. No releases are published automatically. Only the availability and selected markets, never your schedule, are shown to members.</p>
 <div class="form">
-<label>Schedule a release (your device's local timezone) <input type="datetime-local" id="freeStart" aria-label="Free release start time"></label>
+<label>Start (your device's local timezone) <input type="datetime-local" id="freeStart" aria-label="Free release start time"></label>
+<label>End (your device's local timezone) <input type="datetime-local" id="freeEnd" aria-label="Free release end time"></label>
+</div>
+<fieldset style="border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:12px 0">
+<legend style="font-weight:850">Free prediction markets — select at least one</legend>
+<div class="freeMarketChoices">
+<label><input class="freeMarket" type="checkbox" value="btts" checked> BTTS</label>
+<label><input class="freeMarket" type="checkbox" value="overs" checked> OVERS</label>
+<label><input class="freeMarket" type="checkbox" value="unders" checked> UNDERS</label>
+</div></fieldset>
+<div class="form" style="align-items:center">
+<label><input type="checkbox" id="freeEnabled" checked> Enable this release</label>
 <button id="scheduleFree" type="button" class="btn primary">Schedule free release</button>
 <button id="openFreeNow" type="button" class="btn">Open free access now</button>
+<button id="cancelEditFree" type="button" class="btn hidden">Cancel edit</button>
 </div>
-<p class="hint">An enabled release opens at the chosen time and closes automatically after its five estimated matchdays. You can disable it early or delete it. Start times may be unpredictable and do not recur.</p>
-<div style="overflow:auto"><table><thead><tr><th>Start (EAT)</th><th>End (EAT)</th><th>Status</th><th>Controls</th></tr></thead><tbody id="freeReleaseRows"></tbody></table></div>
+<p class="hint" id="freeEditNotice">If you leave End blank, the release defaults to five upcoming estimated matchdays. You can edit the start, end, enabled status and markets of an existing release. Expired releases must have their dates updated before being enabled again.</p>
+<div style="overflow:auto"><table><thead><tr><th>Start (EAT)</th><th>End (EAT)</th><th>Markets</th><th>Est. rounds</th><th>Status</th><th>Controls</th></tr></thead><tbody id="freeReleaseRows"></tbody></table></div>
 </section>
 <section id="referral-wallets" class="tab panel hidden">
 <h2>Referral commissions &amp; withdrawals</h2>
@@ -297,17 +310,50 @@ function freeDate(value){
  if(!value)return '—';
  return new Date(value).toLocaleString('en-UG',{timeZone:'Africa/Kampala',dateStyle:'medium',timeStyle:'short'})+' EAT';
 }
+let editingFreeId=null;
+const localDateTime=iso=>{
+ const d=new Date(iso);if(isNaN(d.valueOf()))return '';
+ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+};
+function resetFreeEditor(){
+ editingFreeId=null;$('freeStart').value='';$('freeEnd').value='';
+ $('freeEnabled').checked=true;
+ document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=true);
+ $('scheduleFree').textContent='Schedule free release';
+ $('cancelEditFree').classList.add('hidden');
+ $('freeEditNotice').textContent='Leave End blank for five upcoming matchdays; otherwise choose a later end time (maximum 24 hours).';
+}
+function editFreeRelease(release){
+ editingFreeId=release.id;
+ $('freeStart').value=localDateTime(release.starts_at);
+ $('freeEnd').value=localDateTime(release.ends_at);
+ $('freeEnabled').checked=!!release.enabled;
+ document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=(release.markets||[]).includes(box.value));
+ $('scheduleFree').textContent='Save release changes';
+ $('cancelEditFree').classList.remove('hidden');
+ $('freeEditNotice').textContent='Editing release #'+release.id+'. Set a future start and end time, check Enable to reopen an expired release, then click Save changes.';
+ $('freeStart').scrollIntoView({behavior:'smooth',block:'center'});
+}
 function renderFreeReleases(){
  $('freeReleaseRows').replaceChildren();
  if(!state.freeReleases.length){
   const tr=document.createElement('tr'),cell=td('No releases scheduled. Free access is currently closed.');
-  cell.colSpan=4;tr.append(cell);$('freeReleaseRows').append(tr);return;
+  cell.colSpan=6;tr.append(cell);$('freeReleaseRows').append(tr);return;
  }
  for(const release of state.freeReleases){
   const tr=document.createElement('tr');
-  tr.append(td(freeDate(release.starts_at)),td(freeDate(release.ends_at)),td(release.state.toUpperCase()));
+  tr.append(td(freeDate(release.starts_at)),td(freeDate(release.ends_at)),
+   td((release.markets||[]).map(m=>m.toUpperCase()).join(', ')||'None'),
+   td(String(release.round_count)),td(release.state.toUpperCase()));
   const actions=td('');
-  actions.append(button(release.enabled?'Disable':'Enable',release.enabled?'danger':'primary',async()=>{
+  actions.append(button('Edit','',()=>editFreeRelease(release)),document.createTextNode(' '));
+  const expired=Date.parse(release.ends_at)<=Date.now();
+  actions.append(button(release.enabled?'Disable':expired?'Edit to reopen':'Enable',release.enabled?'danger':'primary',async()=>{
+   if(!release.enabled&&expired){
+    editFreeRelease(release);
+    feedback('This release has ended. Set new start/end times and check Enable before saving.',true);
+    return;
+   }
    try{
     await api('/api/admin/free-releases/'+release.id+'/enabled',{
      method:'POST',headers:{'Content-Type':'application/json'},
@@ -318,30 +364,53 @@ function renderFreeReleases(){
   }));
   actions.append(document.createTextNode(' '),button('Delete','danger',async()=>{
    if(!confirm('Permanently delete this Free release?'))return;
-   try{await api('/api/admin/free-releases/'+release.id,{method:'DELETE'});feedback('Release deleted.');await load()}
-   catch(e){feedback(e.message,true)}
+   try{
+    await api('/api/admin/free-releases/'+release.id,{method:'DELETE'});
+    if(editingFreeId===release.id)resetFreeEditor();
+    feedback('Release deleted.');await load();
+   }catch(e){feedback(e.message,true)}
   }));
   tr.append(actions);$('freeReleaseRows').append(tr);
  }
 }
-async function createFreeRelease(startIso=null){
+function freeDateValue(id){
+ const entered=$(id).value;
+ if(!entered)return null;
+ const dt=new Date(entered);
+ if(isNaN(dt.valueOf()))throw Error('Choose a valid '+(id==='freeStart'?'start':'end')+' time.');
+ return dt.toISOString();
+}
+async function createFreeRelease(startIso){
  try{
-  const response=await api('/api/admin/free-releases',{
-   method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({starts_at:startIso,enabled:true})
+  const markets=Array.from(document.querySelectorAll('input.freeMarket:checked')).map(x=>x.value);
+  if(!markets.length)throw Error('Select at least one market: BTTS, OVERS or UNDERS.');
+  const ends_at=freeDateValue('freeEnd');
+  const body={starts_at:startIso,ends_at,markets,enabled:$('freeEnabled').checked};
+  const updating=editingFreeId!==null;
+  if(updating&&startIso===null)throw Error('Choose a start date and time when editing this release.');
+  if(!updating&&startIso===null&&!body.enabled)throw Error('To create a disabled release, schedule a start time.');
+  if(startIso&&ends_at&&new Date(ends_at)<=new Date(startIso))
+   throw Error('End time must be after the start time.');
+  const response=await api(updating?'/api/admin/free-releases/'+editingFreeId:'/api/admin/free-releases',{
+   method:updating?'PATCH':'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify(body)
   });
-  feedback('Free release #'+response.id+' configured.');$('freeStart').value='';await load();
+  feedback(updating?'Free release updated.':'Free release #'+response.id+' configured.');
+  resetFreeEditor();await load();
  }catch(e){feedback(e.message,true)}
 }
+$('cancelEditFree').addEventListener('click',resetFreeEditor);
 $('openFreeNow').addEventListener('click',()=>{
- if(confirm('Open a one-time Free release of five upcoming matchdays now?'))createFreeRelease();
+ if(editingFreeId!==null){feedback('Cancel editing the existing release before opening a new one.',true);return}
+ if(confirm('Open Free access now with your selected markets and '+($('freeEnd').value?'the selected end time':'five upcoming estimated matchdays')+'?'))
+  createFreeRelease(null);
 });
 $('scheduleFree').addEventListener('click',()=>{
- const entered=$('freeStart').value;
- if(!entered){feedback('Choose a start date and time first.',true);return}
- const dt=new Date(entered);
- if(isNaN(dt.valueOf())){feedback('Choose a valid start date and time.',true);return}
- createFreeRelease(dt.toISOString());
+ try{
+  const start=freeDateValue('freeStart');
+  if(!start)throw Error('Choose a start date and time first.');
+  createFreeRelease(start);
+ }catch(e){feedback(e.message,true)}
 });
 function renderReferralWallets(){
  $('adminWalletRows').replaceChildren();$('adminWithdrawalRows').replaceChildren();
