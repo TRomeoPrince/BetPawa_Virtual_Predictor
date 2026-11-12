@@ -67,7 +67,7 @@ class ReferralWalletTests(unittest.TestCase):
     def buy(self,reference,promo=""):
         return self.buyer.post("/api/purchase/requests",json={
             "email":"referred@example.org","username":"referred","display_name":"Referred",
-            "plan_code":"weekly","payment_method":"mtn",
+            "plan_code":"weekly","payment_method":"airtel",
             "transaction_ref":reference,"age_confirmed":True,"promo_code":promo,
         })
 
