@@ -50,7 +50,7 @@ class PurchaseRequestTests(unittest.TestCase):
         return {
             "email":"buyer@example.com",
             "username":username,"display_name":"Buyer One",
-            "plan_code":"daily","payment_method":"mtn",
+            "plan_code":"daily","payment_method":"airtel",
             "transaction_ref":txref,
             "proof_base64":base64.b64encode(image).decode(),
             "age_confirmed":True,
@@ -59,7 +59,10 @@ class PurchaseRequestTests(unittest.TestCase):
     def test_public_catalog_receiving_details(self):
         data=self.http.get("/api/purchase/catalog").json()
         m={x["code"]:x for x in data["methods"]}
-        self.assertEqual(m["mtn"]["account"],"0781920398")
+        self.assertEqual(m["airtel"]["account"],"0753208363")
+        self.assertEqual(m["airtel"]["name"],"Norah Nagawa")
+        self.assertEqual(m["airtel"]["label"],"Airtel Money")
+        self.assertNotIn("mtn",m)
         self.assertEqual(m["usdt_trc20"]["address"],"TCcR54xQu4dE3aKQao8PrUn3Nb7d2DVucG")
         self.assertEqual(m["btc_bitcoin"]["address"],"14QTD6Eao9TMeuvStxjgrhyr9Qr4PSQ3rR")
         self.assertEqual(m["usdc_solana"]["address"],"DDq3v8aj28dUw4mMcGUob94YgNQx9qn8XrNUnmQGpgPs")
