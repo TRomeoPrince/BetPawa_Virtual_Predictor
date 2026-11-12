@@ -341,6 +341,7 @@ class WalletVipPurchase(BaseModel):
     plan_code: str
     promo_code: str = ""
     idempotency_key: str
+    expected_price_ugx: int
 
 
 class ReferralWithdrawalBody(BaseModel):
@@ -674,7 +675,7 @@ def api_wallet_vip_purchase(payload: WalletVipPurchase, request: Request, respon
         raise HTTPException(403,"Member account required.")
     try:
         return referral_wallet.purchase_vip_with_wallet(
-            int(account["id"]),payload.plan_code,payload.promo_code,payload.idempotency_key
+            int(account["id"]),payload.plan_code,payload.promo_code,payload.idempotency_key,payload.expected_price_ugx
         )
     except ValueError as exc:
         raise HTTPException(400,str(exc))

@@ -395,7 +395,7 @@ def detach_deleted_client(con,account_id):
 
 
 
-def purchase_vip_with_wallet(account_id, plan_code, promo_code, idempotency_key):
+def purchase_vip_with_wallet(account_id, plan_code, promo_code, idempotency_key, expected_price_ugx):
     """Pay the entire VIP price from available referral earnings in one transaction.
 
     Commissions and withdrawals remain separate liabilities; a wallet redemption
@@ -431,6 +431,8 @@ def purchase_vip_with_wallet(account_id, plan_code, promo_code, idempotency_key)
         price=int(offer["price_ugx"])
         if price<=0:
             raise ValueError("VIP plan price is unavailable.")
+        if isinstance(expected_price_ugx,bool) or not isinstance(expected_price_ugx,int) or price!=expected_price_ugx:
+            raise ValueError("The VIP price changed. Refresh the checkout and confirm the latest price.")
 
         con.execute("BEGIN IMMEDIATE")
         previous=con.execute(
