@@ -11,13 +11,13 @@ Before approval, enter the current HTTPS ngrok origin under Admin → Payment Re
 ## Public customer flow
 
 - Open /purchase. Select an approved plan: Daily UGX 5,000, Weekly UGX 20,000, Monthly UGX 60,000, Yearly UGX 500,000, or Lifetime UGX 1,000,000. All plans include three sessions of five matchdays each per day (15 matchdays daily).
-- Select MTN or the exact coin/network, then transfer payment. Wallet addresses and the MTN number come from the owner's supplied instructions.
+- Select **Airtel Money — 0753208363 — Norah Nagawa** or the exact coin/network, then transfer payment. Wallet addresses and the Airtel Money number come from the owner's supplied instructions. The former MTN receiving account is no longer a valid destination for new purchases.
 - Enter email and username, then submit the transaction reference or an attached PNG/JPG/WebP/PDF receipt (2 MB limit). Customers can send either form of evidence, or both. Both blank is rejected. Matching transaction references and identical receipt files are blocked from reuse.
 - The request remains pending until manual verification. No automatic proof acceptance or subscription grant happens.
 
 ## Admin flow
 
-- Open /admin > Payment Requests. Review the submitted reference and/or download the proof when attached; cross-check your actual MTN statement or blockchain explorer. Confirm correct amount, coin, chain, recipient, settlement/finality, and that it hasn't already been used.
+- Open /admin > Payment Requests. Review the submitted reference and/or download the proof when attached; cross-check the Airtel Money receiving statement or blockchain explorer. Confirm correct amount, coin, chain, recipient, settlement/finality, and that it hasn't already been used.
 - Select Approve verified only after settlement is confirmed. The system creates one account and a one-use 24-hour activation link.
 - If SMTP is configured and working, the activation link is emailed. Otherwise the system reports **email not sent** and shows an admin-only copyable HTTPS link. The admin may click Retry activation email, which rotates the link.
 - Reject unconfirmed or mismatched payments. Approval is not idempotently repeatable: a reviewed request cannot be approved again.
