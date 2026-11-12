@@ -360,6 +360,8 @@ class PatternPartnerReview(BaseModel):
 class PatternPartnerReward(BaseModel):
     username: str
     contributor_verified: bool = False
+    strategy_family: str
+    rule_id: str
 
 
 class WalletVipPurchase(BaseModel):
@@ -584,8 +586,10 @@ def api_admin_pattern_partner_reward(submission_id:int,payload:PatternPartnerRew
     _verify_write_origin(request)
     response.headers["Cache-Control"] = "no-store"
     try:
-        return pattern_partners.reward_lifetime(
-            submission_id,int(admin["id"]),payload.username,payload.contributor_verified
+        return pattern_partners.activate_contributor(
+            submission_id,int(admin["id"]),payload.username,payload.contributor_verified,
+            payload.strategy_family,payload.rule_id,
+            {(row["strategy_family"],row["rule_id"]) for row in _admin_strategy_catalog()},
         )
     except ValueError as exc:
         raise HTTPException(400,str(exc))
