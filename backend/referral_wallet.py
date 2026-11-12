@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from . import growth
 
 MONTH = timedelta(days=30)
+COINS_PER_UGX = 100  # Presentation denomination only; UGX ledger remains authoritative.
 
 
 def _iso():
@@ -116,6 +117,12 @@ def _summary_in_transaction(con, account_id):
         "balance_ugx": balance,
         "reserved_ugx": reserved,
         "available_ugx": max(0, balance-reserved),
+        "coins_per_ugx": COINS_PER_UGX,
+        "balance_coins": balance * COINS_PER_UGX,
+        "available_coins": max(0, balance-reserved) * COINS_PER_UGX,
+        "reserved_coins": reserved * COINS_PER_UGX,
+        "withdrawn_coins": int(entries["withdrawn"]) * COINS_PER_UGX,
+        "spent_on_vip_coins": spent * COINS_PER_UGX,
     }
 
 
@@ -128,6 +135,7 @@ def wallet(account_id, limit=50):
         result = _summary_in_transaction(con,account_id)
         result["withdrawals_enabled"] = withdrawals_enabled()
         result["minimum_withdrawal_ugx"] = minimum_withdrawal()
+        result["minimum_withdrawal_coins"] = minimum_withdrawal() * COINS_PER_UGX
         result["entries"] = [
             dict(x) for x in con.execute("""
                 SELECT id, entry_type, amount_ugx, purchase_amount_ugx,
