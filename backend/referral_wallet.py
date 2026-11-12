@@ -391,3 +391,99 @@ def detach_deleted_client(con,account_id):
     con.execute("UPDATE referral_wallet_ledger SET referred_account_id=NULL WHERE referred_account_id=?",(account_id,))
     con.execute("UPDATE referral_wallet_ledger SET referrer_account_id=NULL WHERE referrer_account_id=?",(account_id,))
     con.execute("UPDATE referral_withdrawals SET account_id=NULL,destination_details='' WHERE account_id=?",(account_id,))
+    con.execute("UPDATE referral_wallet_spends SET account_id=NULL WHERE account_id=?",(account_id,))
+
+
+
+def purchase_vip_with_wallet(account_id, plan_code, promo_code, idempotency_key):
+    """Pay the entire VIP price from available referral earnings in one transaction.
+
+    Commissions and withdrawals remain separate liabilities; a wallet redemption
+    is not new external revenue and never earns a new referral commission.
+    """
+    from . import access
+    from .purchase_requests import PRICE_ENV
+
+    key=(idempotency_key or "").strip()
+    code=(promo_code or "").strip().upper()
+    if not re.fullmatch(r"[a-fA-F0-9-]{16,64}",key):
+        raise ValueError("Invalid wallet checkout request key.")
+    if plan_code not in PRICE_ENV or plan_code not in access.PLAN_DEFINITIONS:
+        raise ValueError("Select a supported VIP plan.")
+
+    con=connect()
+    try:
+        def replay(row):
+            if int(row["account_id"] or 0)!=int(account_id) or row["plan_code"]!=plan_code or (row["promo_code"] or "")!=code:
+                raise ValueError("This wallet checkout request key was already used.")
+            return {"ok":True,"id":int(row["id"]),"plan_code":row["plan_code"],
+                    "amount_ugx":int(row["amount_ugx"]),
+                    "expires_at":row["subscription_expires_at"],"already_processed":True}
+
+        previous=con.execute(
+            "SELECT * FROM referral_wallet_spends WHERE idempotency_key=?",(key,)
+        ).fetchone()
+        if previous:
+            return replay(previous)
+
+        # Price is determined on the server, using current configured promotions.
+        offer=growth.quote(plan_code,code)
+        price=int(offer["price_ugx"])
+        if price<=0:
+            raise ValueError("VIP plan price is unavailable.")
+
+        con.execute("BEGIN IMMEDIATE")
+        previous=con.execute(
+            "SELECT * FROM referral_wallet_spends WHERE idempotency_key=?",(key,)
+        ).fetchone()
+        if previous:
+            return replay(previous)
+        owner=con.execute("SELECT role,status FROM accounts WHERE id=?",(account_id,)).fetchone()
+        if not owner or owner["role"]!="client" or owner["status"]!="active":
+            raise ValueError("An active registered member account is required.")
+        current=con.execute(
+            "SELECT plan_code,status,expires_at FROM subscriptions WHERE account_id=?",(account_id,)
+        ).fetchone()
+        if current and current["plan_code"]=="lifetime" and current["status"]=="active":
+            raise ValueError("This account already has lifetime VIP access.")
+        balance=_summary_in_transaction(con,account_id)
+        if balance["available_ugx"]<price:
+            raise ValueError("The available referral wallet does not cover this VIP plan.")
+
+        now=datetime.now(timezone.utc)
+        start=now
+        if current and current["status"]=="active" and current["expires_at"]:
+            current_expiry=_timestamp(current["expires_at"])
+            if current_expiry>now:
+                start=current_expiry
+        days=access.PLAN_DEFINITIONS[plan_code]["days"]
+        end=start+timedelta(days=int(days)) if days is not None else None
+        expiry=end.isoformat() if end else None
+
+        spent=con.execute("""
+            INSERT INTO referral_wallet_spends(
+                idempotency_key,account_id,plan_code,amount_ugx,
+                promo_code,promotion_id,purchased_at,subscription_expires_at
+            ) VALUES(?,?,?,?,?,?,?,?)
+        """,(key,account_id,plan_code,price,code or None,
+             offer["promotion_id"],now.isoformat(),expiry))
+
+        con.execute("""
+            INSERT INTO subscriptions(account_id,plan_code,starts_at,expires_at,status,updated_at)
+            VALUES(?,?,?,?, 'active',?)
+            ON CONFLICT(account_id) DO UPDATE SET
+                plan_code=excluded.plan_code,starts_at=excluded.starts_at,
+                expires_at=excluded.expires_at,status='active',updated_at=excluded.updated_at
+        """,(account_id,plan_code,start.isoformat(),expiry,now.isoformat()))
+        con.execute("""
+            INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at)
+            VALUES(?,?,'VIP_WALLET_PURCHASE',?,?)
+        """,(account_id,account_id,f"wallet_spend:{spent.lastrowid}",now.isoformat()))
+        con.commit()
+        return {"ok":True,"id":int(spent.lastrowid),"plan_code":plan_code,
+                "amount_ugx":price,"expires_at":expiry,"already_processed":False}
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
