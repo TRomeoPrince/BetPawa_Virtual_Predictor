@@ -16,6 +16,7 @@ button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.
 .address{padding:12px;margin:10px 0;background:white;border:1px dashed #b0cfad;border-radius:9px;font-family:ui-monospace,Consolas,monospace;user-select:all;overflow-wrap:anywhere}
 .check{display:flex;gap:10px;align-items:flex-start;font-weight:500;line-height:1.5}.check input{width:auto;margin-top:4px}
 .note{border-left:4px solid #80ad67;padding-left:15px;margin:20px 0}@media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:19px}}
+.responsibleFooter{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 24px;margin:24px auto 0;padding:19px 20px 24px;border-top:1px solid var(--line,#d8e6d7);background:#f8fbf6;color:#173c2b;font-size:13px;line-height:1.6;text-align:center}.responsibleFooter strong{font-weight:800}.responsibleFooter span{font-weight:600}
 </style></head><body>
 <header><a href="/">BP · BetPawa Predictor</a></header><main><h1>Purchase your access</h1>
 <p>Choose a plan, transfer the payment to the exact account displayed, and submit proof. Accounts are created only after independent payment verification.</p>
@@ -41,7 +42,7 @@ button:disabled{opacity:.6;cursor:wait}.hint{font-size:12px;color:var(--muted)}.
 <label class="check"><input id="age" type="checkbox" required><span>I confirm I am 25 or older, my payment details are accurate and predictions do not guarantee outcomes.</span></label>
 <p class="note">A submitted receipt does not automatically grant access. The administrator must confirm the actual incoming payment. Do not upload passwords or identity documents.</p>
 <button id="submit" type="submit">Request payment verification</button><p id="status" role="status"></p></form></section></div></main>
-<script>
+<footer class="responsibleFooter" aria-label="Responsible betting and age warning"><strong>You have to be 25 years and above to bet.</strong><span>Betting is addictive and can be psychologically harmful.</span></footer><script>
 const $=id=>document.getElementById(id);let catalog={plans:[],methods:[]},wallet=null,currentQuote=null,walletPaymentKey=null,quoteSeq=0;
 function money(n){return typeof n==='number'?'UGX '+n.toLocaleString('en-UG'):'Price unavailable'}
 function updateWalletPay(){
