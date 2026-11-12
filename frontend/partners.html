@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pattern Partners · BetPawa Predictor</title><meta name="description" content="Submit your tested virtual-football patterns for independent review. Accepted and adopted contributions can earn Lifetime VIP.">
+<style>
+:root{--ink:#163429;--muted:#5c7467;--green:#17694c;--line:#dce8d9;--bg:#f6f9f1}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:0 22px}a{color:var(--green)}
+header{background:#fff;border-bottom:1px solid var(--line)}header .wrap{padding-top:22px;padding-bottom:22px}
+.brand{text-decoration:none;font-weight:900;font-size:18px;color:var(--ink)}
+main{padding:53px 0 75px}.eyebrow{color:var(--green);font-size:12px;letter-spacing:.14em;font-weight:900;text-transform:uppercase}
+h1{font-size:clamp(36px,6vw,54px);line-height:1.08;letter-spacing:-.05em;margin:14px 0}
+.lead{font-size:17px;line-height:1.75;color:var(--muted);max-width:720px}
+.reward{background:#e6f3de;border:1px solid #c6dfb8;border-radius:16px;padding:19px 22px;line-height:1.7;margin:23px 0 29px}
+.card{background:white;border:1px solid var(--line);border-radius:21px;padding:28px}
+h2{margin:0 0 9px;font-size:25px}p{line-height:1.7}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+label{display:block;font-weight:750;font-size:14px;margin:13px 0 5px}
+input,select,textarea{width:100%;padding:13px 12px;font:inherit;border:1px solid #cadccc;border-radius:10px;background:white;color:var(--ink)}
+textarea{min-height:160px;resize:vertical}input:focus,textarea:focus,select:focus{outline:2px solid #a4d2b3}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);font-weight:650;margin:16px 0}
+.check input{flex:0 0 19px;width:19px;height:19px;margin:2px 0}
+button{background:var(--green);color:#fff;border:0;border-radius:12px;padding:14px 22px;font:inherit;font-weight:850;cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
+.note{font-size:13px;color:var(--muted)}
+.status{font-weight:750;min-height:22px;margin-top:16px}.error{color:#a52338}
+footer{border-top:1px solid var(--line);padding:28px 0 42px;color:var(--muted);font-size:13px;line-height:1.7}
+@media(max-width:650px){main{padding:32px 0}.grid{grid-template-columns:1fr}.card{padding:20px}}
+</style></head><body>
+<header><div class="wrap"><a href="/" class="brand">BP · BetPawa Predictor</a></div></header>
+<main class="wrap">
+<div class="eyebrow">Open call for contributors</div>
+<h1>Become a Pattern Partner</h1>
+<p class="lead">Have a measurable virtual-football pattern worth testing? Share the rule, its conditions, and supporting historical results. We review genuine contributions before considering them for the predictor.</p>
+<div class="reward"><strong>Contributor reward: Lifetime VIP.</strong> When your original pattern is independently reviewed, validated, <strong>accepted and adopted</strong> into the predictor, we'll award Lifetime VIP to your verified member account. Submitting a pattern does not guarantee acceptance or access. Rewards are issued only after the administrator approves the contribution and verifies account ownership.</div>
+<section class="card"><h2>Submit a pattern for review</h2>
+<p class="note">Submissions are reviewed manually. Provide enough reproducible detail—league, matchdays, exact conditions, sample size and historical hit rate. We never ask for payments or account passwords to consider a pattern.</p>
+<form id="partnerForm">
+<div class="grid"><div><label for="name">Your name</label><input id="name" maxlength="100" required autocomplete="name"></div><div><label for="email">Email for follow-up</label><input id="email" type="email" maxlength="260" required autocomplete="email"></div></div>
+<label for="username">BetPawa Predictor username (optional)</label><input id="username" maxlength="40" placeholder="Leave blank if you don't have an account yet">
+<div class="grid">
+<div><label for="league">Virtual league</label><select id="league" required><option value="epl">English Premier League</option><option value="dutch">Dutch League</option><option value="both">Both leagues</option></select></div>
+<div><label for="market">Prediction market</label><select id="market" required><option value="overs">Overs</option><option value="unders">Unders</option><option value="btts">BTTS</option><option value="wins">Wins</option><option value="multiple">Several markets</option></select></div>
+</div>
+<label for="details">Pattern conditions and evidence</label><textarea id="details" required minlength="60" maxlength="5000" placeholder="Describe exactly when the pattern triggers, how you tested it, the historical sample size, number of wins/losses, and results across different seasons."></textarea>
+<label for="evidence">Supporting evidence link (optional, HTTPS)</label><input id="evidence" type="url" maxlength="400" placeholder="https://…">
+<div hidden aria-hidden="true"><label>Website<input id="website" tabindex="-1" autocomplete="off"></label></div>
+<label class="check"><input type="checkbox" id="age" required><span>I confirm I am at least 25 years old, that I can submit this pattern for review, and that I agree to be contacted about its assessment.</span></label>
+<button type="submit" id="submit">Submit pattern</button><p id="status" class="status" role="status" aria-live="polite"></p>
+</form></section>
+<p class="note">Assessment can take time. The administrator may decline patterns that are unreproducible, duplicated, misleading, or unsuitable. Patterns are not guarantees of future betting results.</p>
+</main>
+<footer><div class="wrap">Independent virtual-football analysis tool; not affiliated with betPawa.<p><strong>You have to be 25 years and above to bet.</strong> Betting is addictive and can be psychologically harmful.</p></div></footer>
+<script>
+const $=id=>document.getElementById(id);
+$('partnerForm').addEventListener('submit',async event=>{
+ event.preventDefault();const btn=$('submit'),status=$('status');status.textContent='Sending your pattern…';status.className='status';btn.disabled=true;
+ try{
+  const body={name:$('name').value.trim(),email:$('email').value.trim(),
+    username:$('username').value.trim(),league:$('league').value,market:$('market').value,
+    details:$('details').value.trim(),evidence_url:$('evidence').value.trim(),
+    age_confirmed:$('age').checked,website:$('website').value};
+  const response=await fetch('/api/pattern-partners',{method:'POST',credentials:'same-origin',
+     headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data.detail||'Could not submit this pattern.');
+  $('partnerForm').reset();
+  status.textContent='Pattern received for review. Reference #'+(data.reference||'pending')+
+    '. You will be contacted only if further information is required.';
+ }catch(error){status.textContent=error.message;status.className='status error'}
+ finally{btn.disabled=false}
+});
+</script></body></html>
