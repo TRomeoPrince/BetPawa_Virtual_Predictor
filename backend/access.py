@@ -335,6 +335,8 @@ def create_session(account_id: int) -> str:
         "INSERT INTO sessions(token_hash, account_id, created_at, expires_at, last_seen) VALUES(?,?,?,?,?)",
         (token_hash, account_id, _iso(now), _iso(now + timedelta(days=SESSION_DAYS)), _iso(now)),
     )
+    # Signup and activation create sessions without calling authenticate().
+    _record_member_activity(con,int(account_id),now)
     con.commit()
     con.close()
     return raw
