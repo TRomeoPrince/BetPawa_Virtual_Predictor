@@ -71,6 +71,20 @@ def connect():
     """)
     con.execute("CREATE INDEX IF NOT EXISTS referral_withdrawal_accounts ON referral_withdrawals(account_id,status,id DESC)")
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS referral_payout_unique_reference ON referral_withdrawals(payout_reference) WHERE status='paid' AND payout_reference IS NOT NULL")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS referral_wallet_spends (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            account_id INTEGER,
+            plan_code TEXT NOT NULL,
+            amount_ugx INTEGER NOT NULL CHECK(amount_ugx>0),
+            promo_code TEXT,
+            promotion_id INTEGER,
+            purchased_at TEXT NOT NULL,
+            subscription_expires_at TEXT
+        )
+    """)
+    con.execute("CREATE INDEX IF NOT EXISTS referral_wallet_spends_owner ON referral_wallet_spends(account_id,id DESC)")
     con.commit()
     return con
 
@@ -88,12 +102,17 @@ def _summary_in_transaction(con, account_id):
         "SELECT COALESCE(SUM(amount_ugx),0) FROM referral_withdrawals WHERE account_id=? AND status='pending'",
         (account_id,),
     ).fetchone()[0])
-    balance = int(entries["balance"])
+    spent = int(con.execute(
+        "SELECT COALESCE(SUM(amount_ugx),0) FROM referral_wallet_spends WHERE account_id=?",
+        (account_id,),
+    ).fetchone()[0])
+    balance = int(entries["balance"]) - spent
     return {
         "currency": "UGX",
         "earned_ugx": int(entries["earned"]),
         "reversed_ugx": int(entries["reversed"]),
         "withdrawn_ugx": int(entries["withdrawn"]),
+        "spent_on_vip_ugx": spent,
         "balance_ugx": balance,
         "reserved_ugx": reserved,
         "available_ugx": max(0, balance-reserved),
@@ -117,6 +136,20 @@ def wallet(account_id, limit=50):
                 ORDER BY id DESC LIMIT ?
             """,(account_id,max(1,min(int(limit),100)))).fetchall()
         ]
+        spends = [
+            dict(x) for x in con.execute("""
+                SELECT id,plan_code,amount_ugx,purchased_at FROM referral_wallet_spends
+                WHERE account_id=? ORDER BY id DESC LIMIT ?
+            """,(account_id,max(1,min(int(limit),100)))).fetchall()
+        ]
+        result["entries"].extend({
+            "id":x["id"],"entry_type":"vip_wallet_purchase",
+            "amount_ugx":-int(x["amount_ugx"]),"created_at":x["purchased_at"],
+            "purchase_amount_ugx":x["amount_ugx"],"commission_rate_bps":None,
+            "purchase_request_id":None,"note":"VIP "+x["plan_code"]
+        } for x in spends)
+        result["entries"].sort(key=lambda item:(item["created_at"],item["id"]),reverse=True)
+        result["entries"]=result["entries"][:max(1,min(int(limit),100))]
         result["withdrawals"] = [
             dict(x) for x in con.execute("""
                 SELECT id, amount_ugx, destination_method, status, requested_at,
@@ -136,7 +169,7 @@ def withdrawals_enabled():
 
 def minimum_withdrawal():
     try:
-        amount=int(os.getenv("PREDICTOR_REFERRAL_MIN_WITHDRAWAL_UGX", "1"))
+        amount=int(os.getenv("PREDICTOR_REFERRAL_MIN_WITHDRAWAL_UGX", "1000"))
     except ValueError:
         amount=1
     return max(1,amount)
