@@ -106,8 +106,60 @@ def connect():
       created_at TEXT NOT NULL
     )
     """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS member_activity(
+            account_id INTEGER PRIMARY KEY,
+            last_seen TEXT NOT NULL
+        )
+    """)
+    con.execute("CREATE INDEX IF NOT EXISTS member_activity_last_seen_idx ON member_activity(last_seen)")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS member_daily_activity(
+            account_id INTEGER NOT NULL,
+            activity_day TEXT NOT NULL,
+            PRIMARY KEY(account_id,activity_day)
+        )
+    """)
+    con.execute("CREATE INDEX IF NOT EXISTS member_daily_activity_day_idx ON member_daily_activity(activity_day)")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS member_activity_maintenance(
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS admin_recovery_runs(
+            marker_digest TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )
+    """)
+    con.execute("CREATE INDEX IF NOT EXISTS account_joined_at_idx ON accounts(role,created_at)")
     con.commit()
     return con
+
+
+def _record_member_activity(con, account_id: int, now: datetime) -> None:
+    """Track signed-in members with a bounded activity history."""
+    stamp=_iso(now)
+    con.execute("""
+        INSERT INTO member_activity(account_id,last_seen) VALUES(?,?)
+        ON CONFLICT(account_id) DO UPDATE SET last_seen=excluded.last_seen
+    """,(account_id,stamp))
+    eat_day=(now+timedelta(hours=3)).date()
+    con.execute(
+        "INSERT OR IGNORE INTO member_daily_activity(account_id,activity_day) VALUES(?,?)",
+        (account_id,eat_day.isoformat()),
+    )
+    old=con.execute(
+        "SELECT value FROM member_activity_maintenance WHERE key='pruned_day'"
+    ).fetchone()
+    if not old or old["value"]!=eat_day.isoformat():
+        cutoff=(eat_day-timedelta(days=90)).isoformat()
+        con.execute("DELETE FROM member_daily_activity WHERE activity_day<?",(cutoff,))
+        con.execute("""
+            INSERT INTO member_activity_maintenance(key,value) VALUES('pruned_day',?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+        """,(eat_day.isoformat(),))
 
 
 def hash_password(password: str) -> str:
@@ -204,6 +256,57 @@ def ensure_bootstrap_admin() -> str | None:
     return password
 
 
+def recover_admin_password_from_env() -> bool:
+    """One-time admin-only reset to the stored Railway bootstrap password.
+
+    An operator must set a new PREDICTOR_ADMIN_RECOVERY_ONCE marker. The marker's
+    digest is saved so subsequent deployments cannot reset a changed password.
+    No secret or credential is printed or exposed through API endpoints.
+    """
+    marker=(os.getenv("PREDICTOR_ADMIN_RECOVERY_ONCE") or "").strip()
+    if not marker:
+        return False
+    if not 12 <= len(marker) <= 128:
+        raise RuntimeError("Invalid administrator recovery marker length.")
+    password=os.getenv("PREDICTOR_ADMIN_PASSWORD") or ""
+    if not 12 <= len(password) <= 128:
+        raise RuntimeError("Existing Railway admin password is unavailable or too short.")
+    digest=hashlib.sha256(marker.encode("utf-8")).hexdigest()
+    con=connect()
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        if con.execute("SELECT 1 FROM admin_recovery_runs WHERE marker_digest=?",
+                       (digest,)).fetchone():
+            con.rollback()
+            return False
+        account=con.execute(
+            "SELECT id,status FROM accounts WHERE role='admin' AND lower(username)='admin' LIMIT 1"
+        ).fetchone()
+        if not account or account["status"]!="active":
+            raise RuntimeError("Active administrator account not found; password unchanged.")
+        account_id=int(account["id"])
+        con.execute("""
+            UPDATE accounts SET password_hash=?,must_change_password=1 WHERE id=?
+        """,(hash_password(password),account_id))
+        con.execute("DELETE FROM sessions WHERE account_id=?",(account_id,))
+        now=_iso(_now())
+        con.execute("""
+            INSERT INTO admin_recovery_runs(marker_digest,applied_at) VALUES(?,?)
+        """,(digest,now))
+        con.execute("""
+            INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at)
+            VALUES(?,?,'ADMIN_PASSWORD_RECOVERED',NULL,?)
+        """,(account_id,account_id,now))
+        con.commit()
+        print("Administrator recovery completed once using the existing Railway secret.")
+        return True
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
+
+
 def authenticate(username: str, password: str) -> dict[str, Any] | None:
     con = connect()
     row = con.execute(
@@ -213,7 +316,9 @@ def authenticate(username: str, password: str) -> dict[str, Any] | None:
     if not row or row["status"] != "active" or not verify_password(password, row["password_hash"]):
         con.close()
         return None
-    con.execute("UPDATE accounts SET last_login=? WHERE id=?", (_iso(_now()), row["id"]))
+    now=_now()
+    con.execute("UPDATE accounts SET last_login=? WHERE id=?", (_iso(now), row["id"]))
+    _record_member_activity(con,int(row["id"]),now)
     con.commit()
     row = con.execute("SELECT * FROM accounts WHERE id=?", (row["id"],)).fetchone()
     account = _account_with_subscription(con, row)
@@ -252,7 +357,11 @@ def account_from_session(raw_token: str | None) -> dict[str, Any] | None:
         con.commit()
         con.close()
         return None
-    con.execute("UPDATE sessions SET last_seen=? WHERE token_hash=?", (_iso(_now()), token_hash))
+    now=_now()
+    con.execute("UPDATE sessions SET last_seen=? WHERE token_hash=?", (_iso(now), token_hash))
+    previous=_parse(session["last_seen"])
+    if not previous or previous <= now-timedelta(seconds=45):
+        _record_member_activity(con,int(session["account_id"]),now)
     row = con.execute("SELECT * FROM accounts WHERE id=?", (session["account_id"],)).fetchone()
     account = _account_with_subscription(con, row)
     con.commit()
