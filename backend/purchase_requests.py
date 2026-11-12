@@ -23,7 +23,7 @@ from . import access, access_links
 
 MAX_PROOF_BYTES = 2_000_000
 METHODS = {
-    "mtn": {"label": "MTN Mobile Money", "account": "0781920398", "name": "ROMEO"},
+    "airtel": {"label": "Airtel Money", "account": "0753208363", "name": "Norah Nagawa"},
     "usdt_trc20": {"label": "USDT · TRC20", "address": "TCcR54xQu4dE3aKQao8PrUn3Nb7d2DVucG"},
     "usdt_bep20": {"label": "USDT · BEP20", "address": "0x37e801c682cc4fb65cd501ae450149c274b6ba6c"},
     "usdt_erc20": {"label": "USDT · ERC20", "address": "0x37e801c682cc4fb65cd501ae450149c274b6ba6c"},
