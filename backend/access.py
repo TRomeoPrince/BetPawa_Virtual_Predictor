@@ -429,6 +429,10 @@ def delete_client(account_id: int, admin_id: int) -> None:
         con.execute("DELETE FROM referral_profiles WHERE account_id=?", (account_id,))
         con.execute("UPDATE purchase_requests SET buyer_account_id=NULL WHERE buyer_account_id=?", (account_id,))
         con.execute("UPDATE purchase_requests SET client_account_id=NULL WHERE client_account_id=?", (account_id,))
+        from . import referral_wallet
+        wcon=referral_wallet.connect()
+        wcon.close()
+        referral_wallet.detach_deleted_client(con,account_id)
         for table in ("sessions", "subscriptions", "subscription_requests",
                       "client_access_links"):
             con.execute(f"DELETE FROM {table} WHERE account_id=?", (account_id,))
