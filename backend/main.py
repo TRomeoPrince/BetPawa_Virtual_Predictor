@@ -947,7 +947,6 @@ def api_admin_review_payment(request_id: int, payload: PurchaseDecision, request
             if not current or current["role"] != "client" or current["status"] != "active" or current["username"].lower() != purchase["requested_username"].lower():
                 raise ValueError("The original buyer account is no longer available.")
             purchase_requests.activate_existing_verified(request_id, account_id, purchase["plan_code"], int(admin["id"]))
-            growth.mark_vip_conversion(account_id)
         except Exception:
             purchase_requests.reset_processing(request_id)
             raise
