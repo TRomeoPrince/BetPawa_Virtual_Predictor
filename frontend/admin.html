@@ -23,7 +23,7 @@
 <button type="button" class="btn active" data-tab="overview">Overview</button>
 <button type="button" class="btn" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
-<button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button>
+<button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button><button type="button" class="btn" data-tab="pattern-partners">Pattern Partners</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
 <section id="overview" class="tab panel">
@@ -66,7 +66,7 @@
 </section>
 <section id="requests" class="tab panel hidden"><h2>Subscription requests</h2><div style="overflow:auto"><table><thead><tr><th>Client</th><th>Requested</th><th>Plan</th><th>Status</th><th>Action</th></tr></thead><tbody id="requestRows"></tbody></table></div></section>
 <section id="purchases" class="tab panel hidden"><h2>Customer payment requests</h2>
-<p class="hint">Check your actual receiving MTN account or wallet before approving. A screenshot alone does not establish settlement. Email delivery requires SMTP configuration.</p>
+<p class="hint">Check your actual receiving Airtel Money account or crypto wallet before approving. A screenshot alone does not establish settlement. Email delivery requires SMTP configuration.</p>
 <label for="purchasePublicUrl">Public HTTPS website URL (needed for new customer activation links)</label><input id="purchasePublicUrl" type="url" placeholder="https://your-domain.ngrok-free.dev" style="width:min(100%,560px)" title="Used to build activation links even when SMTP is unavailable">
 <div style="overflow:auto"><table><thead><tr><th>Customer</th><th>Plan</th><th>Payment</th><th>Status</th><th>Review</th></tr></thead><tbody id="purchaseRows"></tbody></table></div>
 <p id="purchaseNotice" class="hint"></p><label for="manualActivationLink">Email unavailable? Private activation link for manual sending</label><input id="manualActivationLink" readonly style="width:min(100%,740px)">
@@ -120,13 +120,18 @@
 <label>End (optional) <input id="promoEnds" type="datetime-local"></label>
 <button class="btn primary" type="submit">Create promotion</button></form>
 <h3>Promotions</h3><div style="overflow:auto"><table><thead><tr><th>Plan</th><th>Code</th><th>Price</th><th>Window</th><th>Status</th><th>Action</th></tr></thead><tbody id="promoRows"></tbody></table></div></section>
+<section id="pattern-partners" class="tab panel hidden">
+<h2>Pattern Partners · Contributor applications</h2>
+<p class="hint">Review submitted patterns, independently test their rules and evidence, and accept only those you actually adopt. Lifetime VIP is granted separately after verifying that the member account email matches the contributor's submitted email.</p>
+<div id="partnerReviewList" class="grid" aria-live="polite">Loading pattern applications…</div>
+</section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
 <section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],referralWallets:[],referralWithdrawals:[],analytics:null,me:null},issued=null;
+let state={clients:[],requests:[],strategies:[],plans:[],purchases:[],promotions:[],freeReleases:[],referralWallets:[],referralWithdrawals:[],partnerSubmissions:[],analytics:null,me:null},issued=null;
 function feedback(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
 async function api(url,options){
  const response=await fetch(url,{credentials:'same-origin',...options});
@@ -490,6 +495,62 @@ $('promoForm').addEventListener('submit',async event=>{
   feedback('Promotion created; standard prices unchanged.');$('promoForm').reset();await load();
  }catch(e){feedback(e.message,true)}
 });
+function renderPatternPartners(){
+ const list=$('partnerReviewList');list.replaceChildren();
+ if(!state.partnerSubmissions.length){const empty=document.createElement('p');empty.textContent='No Pattern Partner submissions yet.';list.append(empty);return}
+ for(const item of state.partnerSubmissions){
+  const card=document.createElement('article');card.className='strategy';
+  const h=document.createElement('h4');
+  h.textContent='#'+item.id+' · '+item.applicant_name+' · '+item.market.toUpperCase()+' / '+item.league.toUpperCase();
+  const meta=document.createElement('p');meta.className='muted';
+  meta.textContent='Status: '+item.status.toUpperCase()+' · '+item.submitted_at+
+   ' · Contact: '+item.email+(item.username?' · Account claimed: @'+item.username:'');
+  const rule=document.createElement('pre');rule.style.whiteSpace='pre-wrap';rule.style.overflowWrap='anywhere';
+  rule.textContent=item.pattern_details;
+  const evidence=document.createElement('p');evidence.className='muted';
+  evidence.textContent='Evidence: '+(item.evidence_url||'None supplied')+
+    (item.review_note?' · Review: '+item.review_note:'');
+  card.append(h,meta,rule,evidence);
+  const actions=document.createElement('div');actions.className='form';
+  if(item.status==='pending'){
+   actions.append(button('Accept validated pattern','primary',async()=>{
+    if(!confirm('Did you independently validate AND ADOPT this pattern? This step does not grant VIP until the contributor account is verified.'))return;
+    const note=prompt('Enter testing results and adoption justification (at least 8 characters):');
+    if(note===null)return;
+    try{
+     await api('/api/admin/pattern-partners/'+item.id+'/review',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({decision:'accept',verified_and_adopted:true,note})});
+     feedback('Contribution accepted. Grant Lifetime VIP after account verification.');await load();
+    }catch(e){feedback(e.message,true)}
+   }),button('Reject','danger',async()=>{
+    const note=prompt('Reason for rejecting this pattern:');if(note===null)return;
+    try{
+     await api('/api/admin/pattern-partners/'+item.id+'/review',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({decision:'reject',note})});
+     feedback('Submission rejected.');await load();
+    }catch(e){feedback(e.message,true)}
+   }));
+  }else if(item.status==='accepted'){
+   actions.append(button('Grant Lifetime VIP','primary',async()=>{
+    const username=prompt('Enter the VERIFIED member username to receive Lifetime VIP:',item.username||'');
+    if(!username)return;
+    if(!confirm('Have you independently verified account ownership? The member account email must match the submitted contributor email. This action grants Lifetime VIP permanently.'))return;
+    try{
+     const data=await api('/api/admin/pattern-partners/'+item.id+'/reward',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,contributor_verified:true})
+     });
+     feedback('Lifetime VIP awarded. Account #'+data.account_id+' · Pattern #'+item.id);await load();
+    }catch(e){feedback(e.message,true)}
+   }));
+  }else if(item.status==='rewarded'){
+   const reward=document.createElement('p');reward.textContent='Lifetime VIP awarded to account #'+item.rewarded_account_id+' on '+item.rewarded_at;
+   actions.append(reward);
+  }
+  card.append(actions);list.append(card);
+ }
+}
 function renderStrategies(){
  const q=$('strategySearch').value.toLowerCase();$('strategyList').replaceChildren();
  for(const s of state.strategies.filter(x=>JSON.stringify(x).toLowerCase().includes(q))){
@@ -508,14 +569,14 @@ async function load(){
   if(me.account.must_change_password){location.assign('/password-setup');return}
   if(me.account.role!=='admin'){location.assign('/client');return}
   state.me=me.account;
-  const [clients,requests,strategies,plans,purchases,promotions,freeReleases,referralWallets,referralWithdrawals]=await Promise.all([
-   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions'),api('/api/admin/free-releases'),api('/api/admin/referral-wallets'),api('/api/admin/referral-withdrawals')
+  const [clients,requests,strategies,plans,purchases,promotions,freeReleases,referralWallets,referralWithdrawals,partnerSubmissions]=await Promise.all([
+   api('/api/admin/clients'),api('/api/admin/subscription-requests'),api('/api/admin/strategies'),api('/api/plans'),api('/api/admin/payment-requests'),api('/api/admin/promotions'),api('/api/admin/free-releases'),api('/api/admin/referral-wallets'),api('/api/admin/referral-withdrawals'),api('/api/admin/pattern-partners')
   ]);
-  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;state.freeReleases=freeReleases.releases;state.referralWallets=referralWallets.wallets;state.referralWithdrawals=referralWithdrawals.withdrawals;
+  state.clients=clients.clients;state.requests=requests.requests;state.strategies=strategies.strategies;state.plans=plans.plans;state.purchases=purchases.requests;state.promotions=promotions.promotions;state.freeReleases=freeReleases.releases;state.referralWallets=referralWallets.wallets;state.referralWithdrawals=referralWithdrawals.withdrawals;state.partnerSubmissions=partnerSubmissions.submissions;
   $('newPlan').replaceChildren();
   const none=document.createElement('option');none.value='';none.textContent='No plan';$('newPlan').append(none);
   for(const p of state.plans){const opt=document.createElement('option');opt.value=p.code;opt.textContent=p.label;$('newPlan').append(opt)}
-  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();loadAnalytics();
+  renderStats();renderClients();renderRequests();renderPurchases();renderFreeReleases();renderReferralWallets();renderPromotions();renderStrategies();renderPatternPartners();loadAnalytics();
  }catch(error){feedback(error.message,true)}
 }
 function publicOrigin(){
