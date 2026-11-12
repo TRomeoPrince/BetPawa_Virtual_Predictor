@@ -138,6 +138,9 @@ def _summary_in_transaction(con, account_id):
 
 
 def wallet(account_id, limit=50):
+    from . import contributor_rewards
+    if contributor_rewards.enabled():
+        contributor_rewards.settle_due(limit=100)
     con=connect()
     try:
         owner=con.execute("SELECT id,role,status FROM accounts WHERE id=?",(account_id,)).fetchone()
@@ -398,6 +401,13 @@ def reverse_commission(purchase_id,admin_id,reason,confirmed):
             INSERT INTO access_audit(actor_account_id,target_account_id,action,details,created_at)
             VALUES(?,?,'REFERRAL_COMMISSION_REVERSED',?,?)
         """,(admin_id,original["referrer_account_id"],f"payment:{purchase_id}",_iso()))
+        from . import contributor_rewards
+        found=con.execute(
+            "SELECT 1 FROM contributor_reward_periods WHERE purchase_request_id=?",
+            (purchase_id,),
+        ).fetchone()
+        if found:
+            contributor_rewards.reverse_purchase(con,purchase_id,admin_id,reason)
         con.commit()
     except Exception:
         con.rollback()
