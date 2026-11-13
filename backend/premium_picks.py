@@ -310,7 +310,7 @@ def _grade(item: dict, league_fixtures: list[dict]) -> dict | None:
     if not isinstance(h, int) or not isinstance(a, int) or min(h, a) < 0:
         return None
     score = f"{h}–{a}"
-    if item["kind"] == "watch":
+    if item.get("kind") == "watch":
         return {"ft_score": score, "result_summary": "FT recorded · pattern watch",
                 "status": "watch-result"}
     if item["selection"] == "BTTS / Over 2.5":
