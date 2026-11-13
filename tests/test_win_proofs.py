@@ -38,6 +38,15 @@ class WinProofTests(unittest.TestCase):
         })
         login=self.admin.post("/api/auth/login",json={"username":"admin","password":"WinProofTestPassword2026!"})
         self.assertEqual(login.status_code,200,login.text)
+        changed=self.admin.post("/api/auth/change-password",json={
+            "current_password":"WinProofTestPassword2026!",
+            "new_password":"WinProofTestChangedAdminPassword2026!"
+        })
+        self.assertEqual(changed.status_code,200,changed.text)
+        login=self.admin.post("/api/auth/login",json={
+            "username":"admin","password":"WinProofTestChangedAdminPassword2026!"
+        })
+        self.assertEqual(login.status_code,200,login.text)
 
     def tearDown(self):
         self.guest.close();self.member.close();self.admin.close()
