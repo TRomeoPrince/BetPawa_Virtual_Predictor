@@ -44,6 +44,22 @@
 .winProofOwn div{font-size:12px;line-height:1.6;color:#486b59}
 .winProofOwn button{font-size:12px;padding:7px 9px;margin-top:5px}
 .winProofHelp{font-size:12px;line-height:1.6;color:#667b70}
+
+.referralFunnel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:15px 0 22px}
+.referralMetric{background:#f4f9ef;border:1px solid #d4e7d3;border-radius:14px;padding:16px}
+.referralMetric strong{display:block;font-size:29px;letter-spacing:-.04em;color:#17694c}
+.referralMetric span{display:block;font-size:12px;font-weight:800;color:#536e5e;margin-top:3px}
+.referralExplanation{font-size:12px;line-height:1.7;color:#607768;margin:9px 0 17px}
+.referralTableWrap{overflow:auto;border:1px solid #dce8d9;border-radius:12px;margin-top:10px}
+.referralPeople{width:100%;border-collapse:collapse;min-width:670px}
+.referralPeople th,.referralPeople td{text-align:left;padding:12px 13px;border-bottom:1px solid #e6eee5;font-size:13px}
+.referralPeople th{background:#f3f8f0;color:#4c6a59;font-weight:850}
+.referralPeople tr:last-child td{border-bottom:0}
+.referralTag{font-size:11px;font-weight:850;border-radius:8px;padding:6px 9px;background:#eaf1e6;color:#4b6b58}
+.referralTag.paid{background:#dcf3df;color:#175a36}
+.referralTag.uncredited{background:#fff0d2;color:#88620f}
+.referralHeader{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+@media(max-width:540px){.referralFunnel{grid-template-columns:1fr}.referralMetric{padding:12px}.referralMetric strong{font-size:26px}}
 </style>
 </head>
 <body>
@@ -108,6 +124,17 @@
 <input id="referralLink" readonly style="flex:1;min-width:190px;padding:12px;border:1px solid var(--line);border-radius:10px">
 <button id="copyReferral" type="button" class="btn">Copy link</button>
 </div><p id="referralStats" class="muted"></p>
+
+<div class="referralFunnel" aria-label="Referral performance">
+ <div class="referralMetric"><strong id="referralVisits">—</strong><span>Referral link visits</span></div>
+ <div class="referralMetric"><strong id="referralSignups">—</strong><span>Registered through your link</span></div>
+ <div class="referralMetric"><strong id="referralPaid">—</strong><span>Verified paying referrals</span></div>
+</div>
+<p class="referralExplanation">Visits count link opens (the same visitor may open more than once). Anonymous visitors are not identifiable. Only verified VIP payments create commissions; refunded/reversed payments are excluded from credited paying referrals.</p>
+<div class="referralHeader"><div><h3 style="margin:0">People you've referred</h3><p class="muted" style="margin:5px 0 0;font-size:13px">Usernames, joining dates, verified payment status and your referral rewards.</p></div><button type="button" class="btn" id="refreshReferredPeople">Refresh referrals</button></div>
+<div class="referralTableWrap"><table class="referralPeople"><thead><tr><th>Username</th><th>Registered</th><th>Payment status</th><th>Commission earned</th><th>Last credited payment</th></tr></thead><tbody id="referredPeopleRows"><tr><td colspan="5">Loading referrals…</td></tr></tbody></table></div>
+<p id="referralPeopleNote" class="referralExplanation" aria-live="polite"></p>
+<button type="button" class="btn" id="moreReferredPeople" hidden>Show more referred people</button>
 <div class="sectionHead"><h3>Wallet activity</h3></div>
 <div style="overflow:auto"><table style="width:100%;text-align:left"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status / note</th></tr></thead><tbody id="walletActivity"></tbody></table></div>
 </section>
@@ -343,13 +370,53 @@ $('withdrawalForm').addEventListener('submit',async event=>{
  }catch(err){$('walletNotice').textContent=err.message}
  finally{button.disabled=false}
 });
+let referralPeopleOffset=0;
+async function loadReferredPeople(reset=true){
+ if(reset){
+  referralPeopleOffset=0;
+  $('referredPeopleRows').replaceChildren();
+  $('referralPeopleNote').textContent='Loading your referral list…';
+ }
+ const btn=$('moreReferredPeople');btn.disabled=true;
+ try{
+  const info=await api('/api/referrals/people?limit=25&offset='+referralPeopleOffset,{cache:'no-store'});
+  $('referralSignups').textContent=Number(info.signups).toLocaleString('en-UG');
+  $('referralPaid').textContent=Number(info.paid_referrals).toLocaleString('en-UG');
+  const tbody=$('referredPeopleRows');
+  for(const person of info.people||[]){
+   const tr=document.createElement('tr'),cell=(value)=>{const td=document.createElement('td');td.textContent=value;return td};
+   const status=document.createElement('td'),pill=document.createElement('span');pill.className='referralTag '+person.status;
+   pill.textContent=person.status==='paid'?'Verified paid':person.status==='uncredited'?'No active credited payment':'Registered · not paid';
+   status.append(pill);
+   const earnings=Number(person.earned_ugx||0);
+   tr.append(cell('@'+person.username),
+     cell(person.registered_at?new Date(person.registered_at).toLocaleDateString('en-UG'):'—'),
+     status,
+     cell(earnings.toLocaleString('en-UG')+' UGX · '+(earnings*100).toLocaleString('en-UG')+' PC'),
+     cell(person.last_paid_at?new Date(person.last_paid_at).toLocaleDateString('en-UG'):'—'));
+   tbody.append(tr);
+  }
+  referralPeopleOffset+=info.people.length;
+  if(!referralPeopleOffset){
+   const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No one has registered using your link yet.';tr.append(td);tbody.append(tr);
+  }
+  btn.hidden=!info.has_more;
+  $('referralPeopleNote').textContent=info.signups+' total registrations · '+info.paid_referrals+' verified paying referrals. Only you can see this list.';
+ }catch(e){
+  $('referralPeopleNote').textContent='Could not load referrals: '+e.message;
+ }finally{btn.disabled=false}
+}
 async function loadReferrals(){
  try{
-  const info=await api('/api/referrals/me');
+  const info=await api('/api/referrals/me',{cache:'no-store'});
   $('referralLink').value=info.url;
-  $('referralStats').textContent=info.visits+' visits · '+info.signups+' signups · '+info.vip_conversions+' paid VIP referrals.';
+  $('referralVisits').textContent=Number(info.visits).toLocaleString('en-UG');
+  $('referralStats').textContent='Your referral link tracks visits, registrations and verified VIP payments.';
+  await loadReferredPeople();
  }catch(e){$('referralStats').textContent='Referral data unavailable: '+e.message}
 }
+$('refreshReferredPeople').addEventListener('click',()=>loadReferrals());
+$('moreReferredPeople').addEventListener('click',()=>loadReferredPeople(false));
 $('copyReferral').addEventListener('click',async()=>{
  try{await navigator.clipboard.writeText($('referralLink').value);$('referralStats').textContent+=' Link copied.'}
  catch(e){$('referralLink').select();$('referralStats').textContent+=' Select and copy the highlighted link.'}
