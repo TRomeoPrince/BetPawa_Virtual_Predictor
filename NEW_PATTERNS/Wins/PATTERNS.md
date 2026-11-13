@@ -29,3 +29,7 @@ Example season `139218`: `AST–CRY` MD10 **3–0**, `CRY–AST` MD29 **2–2**;
 ## Other leads not promoted
 - Spanish position-2 Home Win was previously reported as **251/408 = 61.52%** vs league baseline 47.87%, but requires reproduction from the underlying seasons and exact fixture-row rule before adoption.
 - BRE ranked above SUN: previous exploratory 12-season review found BRE win 6/13 (46.2%) but avoided defeat 11/13 (84.6%). **Win and double-chance are different markets**; this is not a 84.6% BRE-win rule.
+
+## New independent fixture-pair audit (13 Nov 2026)
+
+See [the market-specific pair verification](PAIR_MARKETS_2026-11-13.md) for AST–CRY, TOT–CRY, CHE–TOT and BRE–SUN in **both home/away directions**, with raw scores and separately computed validation/recent rates. [Same-match overlap audit](../TESTS/PAIR_MARKET_INTERSECTIONS_2026-11-13.md) lists the occasions when BTTS YES, Over 2.5 and a home/away win simultaneously occurred. This cross-reference does **not** merge the separate market patterns, and none was enabled in the live predictor.
