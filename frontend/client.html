@@ -28,6 +28,11 @@
 .premiumStatus.closed{background:#f0f1ef;color:#707c74}
 .premiumStatus.soon{background:#fff0ca;color:#895b0d}
 .premiumStatus.window{background:#d5f3d8;color:#17694c}
+.premiumStatus.won{background:#d7f2dd;color:#145f37}
+.premiumStatus.lost{background:#ffe1e1;color:#9f2432}
+.premiumStatus.mixed{background:#fff0c4;color:#79520d}
+.premiumStatus.awaiting{background:#f0f1ef;color:#5c6b61}
+.premiumStatus.watch-result{background:#e9f0fa;color:#355a7a}
 .premiumFoot{margin:12px 0 0;color:#677c6e;font-size:12px;line-height:1.6}
 @media(max-width:570px){.premiumSection{padding:16px}.premiumSection h2{font-size:22px}}
 
@@ -76,10 +81,10 @@
   <p class="premiumInfo">Friday, 13 November 2026 · English Virtual League · Uganda time (EAT)</p>
  </div><button type="button" class="btn" id="refreshPremiumPicks">Refresh picks</button></div>
  <div class="premiumTableWrap"><table class="premiumTable" aria-label="Scheduled premium selections">
-  <thead><tr><th>Season</th><th>MD</th><th>Fixture</th><th>Selection</th><th>Alarm</th><th>Betting window</th><th>Status</th></tr></thead>
+  <thead><tr><th>Season</th><th>MD</th><th>Fixture</th><th>Selection</th><th>Alarm</th><th>Betting window</th><th>FT score</th><th>Status</th></tr></thead>
   <tbody id="premiumPicksRows"></tbody>
  </table></div>
- <p class="premiumFoot">BTTS / Over 2.5 indicates two alternative markets, not a guaranteed combination. “Win/loss pattern” is a research watch, not a winner pick. Alarm times are reference reminders, not automatic notifications. Historical patterns do not guarantee results; no bets are placed through this page.</p>
+ <p class="premiumFoot">BTTS / Over 2.5 indicates two alternative markets, not a guaranteed combination. “Win/loss pattern” is a research watch, not a winner pick. Results are checked starting one minute after each betting window closes, then retried every minute until published. Alarm times are reference reminders, not automatic notifications. Historical patterns do not guarantee results; no bets are placed through this page.</p>
 </section>
 
 <section id="winProofSubmit" class="winSubmitPanel" aria-label="Submit Win Proof">
@@ -152,12 +157,28 @@ async function api(url,options){
   return data;
 }
 
+
+let premiumScheduledTimer=null;
+function schedulePremiumResultRefresh(items){
+ clearTimeout(premiumScheduledTimer);
+ const now=Date.now();
+ const due=(items||[]).filter(x=>['upcoming','soon','window','closed'].includes(x.status))
+   .map(x=>Date.parse(x.date_eat+'T'+x.window_close_eat+':00+03:00')+60000)
+   .filter(t=>Number.isFinite(t)&&t>now);
+ if(due.length){
+  const delay=Math.min(...due)-now+750;
+  premiumScheduledTimer=setTimeout(()=>{
+   if(account&&document.visibilityState==='visible')loadPremiumPicks();
+  },Math.max(1000,delay));
+ }
+}
+
 function displayPremiumPicks(items){
   const section=$('premiumPicksSection'),body=$('premiumPicksRows');
   body.replaceChildren();
   if(!items.length){section.hidden=true;return}
   const makeCell=(text,cls='')=>{const cell=document.createElement('td');cell.textContent=String(text);if(cls)cell.className=cls;return cell};
-  const statuses={upcoming:'UPCOMING',soon:'ALARM TIME',window:'WINDOW OPEN',closed:'ENDED'};
+  const statuses={upcoming:'UPCOMING',soon:'ALARM TIME',window:'WINDOW OPEN',closed:'ENDED',awaiting:'RESULT PENDING',won:'WON',lost:'LOST',mixed:'MIXED', 'watch-result':'FT RECORDED'};
   items.forEach(item=>{
     const tr=document.createElement('tr');
     const selection=makeCell(item.selection,item.kind==='watch'?'premiumWatch':'premiumPick');
@@ -165,10 +186,10 @@ function displayPremiumPicks(items){
     const status=makeCell('');
     const pill=document.createElement('span');
     pill.className='premiumStatus '+(item.status||'');
-    pill.textContent=statuses[item.status]||'SCHEDULED';
+    pill.textContent=item.result_summary||statuses[item.status]||'SCHEDULED';
     status.append(pill);
     tr.append(makeCell(item.season),makeCell('MD '+item.matchday),makeCell(item.fixture,'fixture'),
-      selection,makeCell(item.alarm_eat),makeCell(item.window_open_eat+'–'+item.window_close_eat),status);
+      selection,makeCell(item.alarm_eat),makeCell(item.window_open_eat+'–'+item.window_close_eat),makeCell(item.ft_score||'—'),status);
     body.append(tr);
   });
   section.hidden=false;
@@ -177,6 +198,7 @@ async function loadPremiumPicks(){
   try{
     const data=await api('/api/premium-picks',{cache:'no-store'});
     displayPremiumPicks(data.items||[]);
+    schedulePremiumResultRefresh(data.items||[]);
   }catch(error){
     // Do not expose VIP-only data after Free Access closes or a session expires.
     $('premiumPicksSection').hidden=true;
