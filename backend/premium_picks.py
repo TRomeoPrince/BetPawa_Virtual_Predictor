@@ -26,7 +26,7 @@ PICKS = (
     ("139445", 26, "SUN – BRE", "BRE WIN",           "22:12", "22:15", "22:20", "pick"),
     ("139445", 30, "TOT – CHE", "BTTS / Over 2.5",   "22:32", "22:35", "22:40", "pick"),
     ("139445", 32, "CRY – AST", "AST WIN",           "22:42", "22:45", "22:50", "pick"),
-    ("139446", 1,  "BRE – SUN", "BTTS / Over 2.5",   "22:57", "23:00", "23:05", "pick"),
+    ("139446", 1,  "BRE – SUN", "BRE WIN",           "22:57", "23:00", "23:05", "pick"),
     ("139446", 5,  "CHE – TOT", "BTTS / Over 2.5",   "23:17", "23:20", "23:25", "pick"),
 )
 
@@ -81,9 +81,6 @@ def _connect():
     if not con.execute("SELECT 1 FROM premium_pick_metadata WHERE key='seed_v1'").fetchone():
         stamp=datetime.now(timezone.utc).isoformat()
         for season, md, fixture, selection, alarm, opened, closed, kind in PICKS:
-            # Original season 139446 MD1 BRE–SUN was BRE WIN. The requested
-            # change arrived after the 23:00 EAT window opened; disclose it.
-            changed=(season=="139446" and md==1 and fixture=="BRE – SUN")
             con.execute("""
                 INSERT OR IGNORE INTO premium_pick_entries
                 (date_eat,season,matchday,fixture,selection,alarm_eat,
@@ -91,7 +88,7 @@ def _connect():
                  edited_after_open,revised_from,created_at,updated_at)
                 VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)
             """, (PICK_DATE,season,md,fixture,selection,alarm,opened,closed,kind,
-                  1 if changed else 0,"BRE WIN" if changed else "",stamp,stamp))
+                  0,"",stamp,stamp))
         con.execute("INSERT INTO premium_pick_metadata(key,value) VALUES('seed_v1',?)",(stamp,))
     con.commit()
     return con

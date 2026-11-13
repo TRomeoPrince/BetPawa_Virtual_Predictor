@@ -24,9 +24,9 @@ class PremiumPickTests(unittest.TestCase):
         self.assertEqual(rows[3]["selection"], "Win/loss pattern")
         self.assertEqual(rows[5]["fixture"], "TOT – CHE")
         self.assertEqual(rows[6]["fixture"], "CRY – AST")
-        self.assertEqual(rows[7]["selection"],"BTTS / Over 2.5")
-        self.assertTrue(rows[7]["edited_after_open"])
-        self.assertEqual(rows[7]["revised_from"],"BRE WIN")
+        self.assertEqual(rows[7]["selection"],"BRE WIN")
+        self.assertFalse(rows[7]["edited_after_open"])
+        self.assertEqual(rows[7]["revised_from"],"")
 
     def test_clock_status_and_expiry_are_eat(self):
         now = lambda h, m: datetime(2026, 11, 13, h, m, tzinfo=premium_picks.EAT)
@@ -128,22 +128,28 @@ class PremiumAdminCrudTests(unittest.TestCase):
         self.db_patch.stop()
         self.temp.cleanup()
 
-    def test_edit_current_match_and_keep_after_open_disclosure(self):
+    def test_original_bre_win_preserved_and_admin_edits_are_auditable(self):
         entries=premium_picks.list_entries()
         self.assertEqual(len(entries),9)
         md1=next(p for p in entries if p["season"]=="139446" and p["matchday"]==1)
-        self.assertEqual(md1["selection"],"BTTS / Over 2.5")
-        self.assertEqual(md1["revised_from"],"BRE WIN")
-        self.assertTrue(md1["edited_after_open"])
-        data={k:md1[k] for k in ("date_eat","season","matchday","fixture","selection",
-             "alarm_eat","window_open_eat","window_close_eat","enabled")}
-        data["selection"]="BRE WIN"
-        changed=premium_picks.save_entry(data,1,md1["id"])
-        self.assertEqual(changed["selection"],"BRE WIN")
-        self.assertTrue(changed["edited_after_open"])
+        self.assertEqual(md1["selection"],"BRE WIN")
+        self.assertEqual(md1["revised_from"],"")
+        self.assertFalse(md1["edited_after_open"])
+        # Use a future event to test normal admin edit without touching BRE–SUN.
+        data={"date_eat":"2026-12-01","season":"139600","matchday":4,
+              "fixture":"BRE – SUN","selection":"BRE WIN",
+              "alarm_eat":"22:57","window_open_eat":"23:00",
+              "window_close_eat":"23:05","enabled":True}
+        made=premium_picks.save_entry(data,1)
+        self.assertEqual(made["selection"],"BRE WIN")
+        data["selection"]="BTTS / Over 2.5"
+        changed=premium_picks.save_entry(data,1,made["id"])
+        self.assertEqual(changed["selection"],"BTTS / Over 2.5")
         self.assertEqual(changed["revised_from"],"BRE WIN")
-        # Store persists across independent connections; no duplicate seed.
-        self.assertEqual(len(premium_picks.list_entries()),9)
+        # Original season 139446 MD1 remains unchanged.
+        original=next(p for p in premium_picks.list_entries() if p["season"]=="139446" and p["matchday"]==1)
+        self.assertEqual(original["selection"],"BRE WIN")
+        self.assertFalse(original["edited_after_open"])
 
     def test_admin_create_unpublish_and_republish(self):
         item={
