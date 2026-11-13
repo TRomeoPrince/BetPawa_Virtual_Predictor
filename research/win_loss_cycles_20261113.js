@@ -191,8 +191,37 @@
    const sorted=done.map(x=>x.wins).sort((a,b)=>a-b);
    const med=sorted.length?sorted[Math.floor((sorted.length-1)/2)]:null;
    const sortedCases=done.slice().sort((a,b)=>b.wins-a.wins);
+   const splits={};
+   for(const [split,ids] of [["earlier6",["139430","139431","139432","139433","139434","139435"]],
+                              ["last3",["139436","139437","139438"]]]){
+    const eventsIn=evs.filter(x=>ids.includes(x.season));
+    const rate=(num,den)=>den?Math.round(1000*num/den)/10:null;
+    let afterLoss=[],afterDoubleLoss=[],afterWin=[];
+    for(const sid of ids){
+     const arr=eventsIn.filter(x=>x.season===sid);
+     for(let i=0;i<arr.length-1;i++){
+      const a=arr[i].status, next=arr[i+1].status;
+      if(a==="L")afterLoss.push(next);
+      if(a==="W")afterWin.push(next);
+      if(i>0&&a==="L"&&arr[i-1].status==="L")afterDoubleLoss.push(next);
+     }
+    }
+    splits[split]={
+     triggers:eventsIn.length,
+     roundWins:eventsIn.filter(x=>x.status==="W").length,
+     strictRate:rate(eventsIn.filter(x=>x.status==="W").length,eventsIn.length),
+     afterLossN:afterLoss.length,
+     afterLossWin:afterLoss.filter(x=>x==="W").length,
+     afterLossRate:rate(afterLoss.filter(x=>x==="W").length,afterLoss.length),
+     afterWinN:afterWin.length,
+     afterWinRate:rate(afterWin.filter(x=>x==="W").length,afterWin.length),
+     afterDoubleLossN:afterDoubleLoss.length,
+     afterDoubleLossWin:afterDoubleLoss.filter(x=>x==="W").length,
+     afterDoubleLossRate:rate(afterDoubleLoss.filter(x=>x==="W").length,afterDoubleLoss.length)
+    };
+   }
    endObj.patterns.push({
-    name:label,market:defs.find(x=>x[0]===label)[2],
+    name:label,market:defs.find(x=>x[0]===label)[2],splits,
     picks:c.pickWins+c.pickLosses,pickWins:c.pickWins,pickWinPct:prop(c.pickWins,c.pickWins+c.pickLosses),
     triggered:c.triggerRounds,roundWins:c.strictWins,roundWinPct:prop(c.strictWins,c.triggerRounds),
     postLossNextWinPct:prop(afterLoss.filter(x=>x==="W").length,afterLoss.length),
