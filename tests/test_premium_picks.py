@@ -89,7 +89,8 @@ class PremiumPickTests(unittest.TestCase):
         premium_picks._RESULTS.clear()
         premium_picks._ATTEMPTS.clear()
 
-    def test_active_free_and_vip_are_separately_gated(self):
+    @patch("backend.premium_picks.attach_results", side_effect=lambda payload, provider: payload)
+    def test_active_free_and_vip_are_separately_gated(self, _mock_attach):
         from backend import main
         from fastapi.testclient import TestClient
 
