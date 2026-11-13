@@ -39,9 +39,9 @@ _ALLOWED_SELECTIONS = {
     "Over 1.5", "Over 2.5", "Over 3.5",
     "Under 2.5", "Under 3.5", "Win/loss pattern",
 }
-_FIXTURE = re.compile(r"^([A-Z0-9]{2,6})\\s*[–-]\\s*([A-Z0-9]{2,6})$")
-_CLOCK = re.compile(r"^([01]\\d|2[0-3]):[0-5]\\d$")
-_SEASON = re.compile(r"^\\d{3,12}$")
+_FIXTURE = re.compile(r"^([A-Z0-9]{2,6})\s*[–-]\s*([A-Z0-9]{2,6})$")
+_CLOCK = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_SEASON = re.compile(r"^\d{3,12}$")
 
 
 def _datetime(local_time: str, date_eat: str = PICK_DATE) -> datetime:
@@ -263,7 +263,26 @@ _LOCK = threading.RLock()
 RETRY_SECONDS = 60
 
 _ALIASES = {
-    "BRE": {"bre", "brentford"},
+    "ARS": {"ars","arsenal"},
+    "BOU": {"bou","bournemouth"},
+    "BHA": {"bha","brighton","brightonandhovealbion"},
+    "BUR": {"bur","burnley"},
+    "EVE": {"eve","everton"},
+    "FUL": {"ful","fulham"},
+    "LEE": {"lee","leeds","leedsunited"},
+    "LIV": {"liv","liverpool"},
+    "MCI": {"mci","mancity","manchestercity"},
+    "MUN": {"mun","manutd","manchesterunited"},
+    "NEW": {"new","newcastle","newcastleunited"},
+    "NFO": {"nfo","nottinghamforest","nottingham"},
+    "WHU": {"whu","westham","westhamunited"},
+    "WOL": {"wol","wolves","wolverhampton","wolverhamptonwanderers"},
+    "AVL": {"avl","astonvilla"},
+    "LEI": {"lei","leicester","leicestercity"},
+    "SOU": {"sou","southampton"},
+    "IPS": {"ips","ipswich","ipswichtown"},
+    "SHU": {"shu","sheffieldunited"},
+    "BRE": {"bre","brentford"},
     "SUN": {"sun", "sunderland"},
     "CHE": {"che", "chelsea"},
     "TOT": {"tot", "tottenham", "tottenhamhotspur", "spurs"},
