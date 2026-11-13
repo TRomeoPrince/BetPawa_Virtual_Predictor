@@ -998,7 +998,8 @@ def api_premium_picks(request: Request, response: Response):
         # Preserve existing email-based Free Access eligibility and release timing.
         if not account.get("email") or not free_access.active_release():
             raise HTTPException(403, "VIP or an active Free Access release is required.")
-    return {"ok": True, **premium_picks.snapshot()}
+    schedule = premium_picks.snapshot()
+    return {"ok": True, **premium_picks.attach_results(schedule, feed)}
 
 
 @app.get("/api/free-access/status")

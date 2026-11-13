@@ -726,6 +726,72 @@ class BetPawaFeed:
             if 0 <= i < len(rounds)
         ]
 
+
+    def completed_premium_rounds(self, identifiers):
+        """Fetch settled English fixtures for explicit (season, matchday) pairs.
+
+        Only requests rounds whose actual betPawa trading end is at least one
+        minute past. Missing/unpublished scores are never substituted with a
+        guessed score; these rounds are retried on later refreshes.
+        """
+        keys = {(str(sid), int(md)) for sid, md in identifiers}
+        if not keys:
+            return {}
+        actual, past, _ = self._catalog()
+        seasons = {
+            str(s["id"]): s for s in (self._items(past) + self._items(actual))
+            if s.get("id") is not None
+        }
+        settled = {}
+        missing = []
+        now = time.time()
+        for sid, md in sorted(keys):
+            season = seasons.get(sid)
+            if not season:
+                continue
+            rounds = self._season_rounds(season)
+            if md < 1 or md > len(rounds):
+                continue
+            round_obj = rounds[md - 1]
+            finished_at = _parse_ts((round_obj.get("tradingTime") or {}).get("end"))
+            if finished_at is None or finished_at + FINALITY_BUFFER_SECONDS > now:
+                continue
+            rid = str(round_obj["id"])
+            cached = get_cached_round(rid, require_settled=True)
+            if cached is not None:
+                english = self.normalize_round(cached, include_scores=True).get("English", [])
+                if any(isinstance(x.get("ft_home"), int) and isinstance(x.get("ft_away"), int)
+                       for x in english):
+                    settled[(sid, md)] = english
+                    continue
+            missing.append({"season_id": sid, "matchday": md, "round": round_obj})
+
+        if missing:
+            def fetch_missing(driver, captured):
+                for spec in missing:
+                    rid = str(spec["round"]["id"])
+                    try:
+                        payload = self._browser_fetch(
+                            driver, BASE + EVENTS_V3.format(round_id=rid), captured
+                        )
+                        english = self.normalize_round(payload, include_scores=True).get("English", [])
+                        if not any(isinstance(x.get("ft_home"), int)
+                                   and isinstance(x.get("ft_away"), int) for x in english):
+                            # No settlement yet: do not mark a score-less event immutable.
+                            continue
+                        save_cached_round(
+                            round_id=rid, season_id=spec["season_id"],
+                            matchday=spec["matchday"], payload=payload, settled=True,
+                        )
+                        settled[(spec["season_id"], spec["matchday"])] = english
+                    except Exception:
+                        # A missing single round must not hide other completed results.
+                        continue
+                return None
+            self._with_browser(fetch_missing)
+        return settled
+
+
     def prediction_context(self):
         actual, past, catalog_mode = self._catalog()
         current, source_idx, previous = self._select_context_seasons(actual, past)
