@@ -78,3 +78,15 @@ Record `pattern_id`, market, league, exact trigger (including home vs away and f
 
 ## Deployment and responsible use
 This is **documentation only**, not authorization to enable a rule, update payment logic, or claim consistent betting profits. Revalidate using complete, untouched current seasons. Gambling is risky and historical correlations often collapse when many combinations are screened.
+
+## New 13 Nov 2026 — paired fixture verification (category-separated)
+
+**All discussed English pairs:** AST–CRY and CRY–AST; TOT–CRY and CRY–TOT; CHE–TOT and TOT–CHE; BRE–SUN and SUN–BRE. The same fixture is evaluated independently in each requested market, with its proper HOME and AWAY direction. These are research-only observations, not activated predictions.
+
+- **[Wins report](Wins/PAIR_MARKETS_2026-11-13.md):** separately indexed FT Home Win and FT Away Win rules, 11-season validation sample and recent three-season check.
+- **[Over 2.5 report](OVERS/PAIR_MARKETS_2026-11-13.md):** independent FT goal-total rules, results and failure→win sequences by venue.
+- **[BTTS report](BTTS/PAIR_MARKETS_2026-11-13.md):** BTTS YES and BTTS NO conditions by venue, not blended with goal-total or win outcomes.
+- **[Same-match intersection audit](TESTS/PAIR_MARKET_INTERSECTIONS_2026-11-13.md):** exact fixtures where BTTS YES, Over 2.5 and HOME or AWAY Win coincide (cross-reference only).
+- **[Archived score evidence](TESTS/PAIR_RESULTS_ARCHIVE_2026-11-13.csv)** and **[recent independent score evidence](TESTS/PAIR_RESULTS_RECENT_2026-11-13.csv)**: preserve HOME/AWAY, season, matchday, HT/FT where available.
+
+The 12-season archived snapshot includes season 139214 plus 11 seasons 139216–139226; the three independently rechecked seasons are 139430–139432. Earlier 21-season aggregation overlaps that snapshot and **must not be added as new data**. Venue sample sizes are small; the usual >=60% screening floor alone is not validation, and no profitable strategy or market odds were verified. Screenshots supplied for the website are a separate publication workflow and are not included in these data-only research commits.
