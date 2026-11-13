@@ -16,6 +16,16 @@
 .analyticsBar.signup{background:#17694c}.analyticsBar.active{background:#a6c66e}
 @media(max-width:660px){.analyticsTrend{gap:2px}.analyticsDay{font-size:9px}.analyticsBar{min-width:3px}}
 .freeMarketChoices{display:flex;flex-wrap:wrap;gap:14px 24px;margin:5px 0 0}.freeMarketChoices label{display:inline-flex;align-items:center;gap:8px;font-weight:800}.freeMarketChoices input[type=checkbox],#freeEnabled{min-width:0!important;width:17px;height:17px;margin:0;padding:0;accent-color:var(--green)}
+
+.premiumEditor{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:15px 0}
+.premiumEditor label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:850}
+.premiumEditor input,.premiumEditor select{width:100%;min-width:0}
+.premiumEditRow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.premiumEditRow input[type=checkbox]{width:18px;height:18px}
+.premiumAdminWrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.premiumAdminWrap table{min-width:780px}
+.premiumAdminWrap td{font-size:12px}
+.premiumChange{font-size:11px;color:#90600c;font-weight:800;display:block;margin-top:5px}
 </style></head><body>
 <main class="wrap">
 <header class="top"><div><div class="brand">Admin Console</div><div class="muted">Supervised client invitations, subscriptions and private strategies</div></div><div><a class="btn" href="/client">Client view</a> <button class="btn" id="logout">Sign out</button></div></header>
@@ -25,6 +35,7 @@
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
 <button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button><button type="button" class="btn" data-tab="pattern-partners">Pattern Partners</button>
 <button type="button" class="btn" data-tab="win-proofs">Win Proof</button>
+<button type="button" class="btn" data-tab="premium-picks">Premium Picks</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
 <section id="overview" class="tab panel">
@@ -145,6 +156,39 @@
   <select id="winProofFilter" aria-label="Filter win proofs"><option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
  <div id="adminWinProofList" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
 </section>
+
+<section id="premium-picks" class="tab panel hidden">
+ <h2>VIP Top Recommended Premium Picks · Publisher</h2>
+ <p class="hint">Publish matches to VIP members and members during an active Free Access release. Times are <strong>Uganda (EAT, UTC+3)</strong>, regardless of the administrator's device time zone. Editing a selection after the betting window opens will be clearly disclosed to viewers. No bets are placed.</p>
+ <form id="premiumAdminForm">
+  <div class="premiumEditor">
+   <label>Date (EAT)<input id="premiumDate" type="date" required></label>
+   <label>Season ID<input id="premiumSeason" placeholder="139446" inputmode="numeric" required pattern="[0-9]{3,12}"></label>
+   <label>Matchday (1–34)<input id="premiumMD" type="number" min="1" max="34" required></label>
+   <label>Fixture (home – away)<input id="premiumFixture" placeholder="BRE – SUN" required></label>
+   <label>Selection<select id="premiumSelection" required>
+     <option value="home">Home team WIN</option><option value="away">Away team WIN</option>
+     <option value="BTTS / Over 2.5">BTTS / Over 2.5</option>
+     <option value="BTTS YES">BTTS YES</option><option value="BTTS NO">BTTS NO</option>
+     <option value="Over 1.5">Over 1.5</option><option value="Over 2.5">Over 2.5</option>
+     <option value="Over 3.5">Over 3.5</option>
+     <option value="Under 2.5">Under 2.5</option><option value="Under 3.5">Under 3.5</option>
+     <option value="Win/loss pattern">Win/loss pattern (watch only)</option>
+   </select></label>
+   <label>Alarm time (EAT)<input id="premiumAlarm" type="time" required></label>
+   <label>Betting opens (EAT)<input id="premiumOpen" type="time" required></label>
+   <label>Betting closes (EAT)<input id="premiumClose" type="time" required></label>
+  </div>
+  <div class="premiumEditRow"><label><input type="checkbox" id="premiumEnabled" checked> Publish to eligible members</label>
+   <button class="btn primary" id="premiumSave" type="submit">Publish premium pick</button>
+   <button class="btn" id="premiumCancel" type="button">Clear / new match</button>
+   <button class="btn" id="premiumRefresh" type="button">Refresh list</button>
+  </div>
+ </form>
+ <p class="hint" id="premiumAdminMessage" role="status" aria-live="polite"></p>
+ <h3>Published &amp; unpublished matches</h3>
+ <div class="premiumAdminWrap"><table><thead><tr><th>Season / MD</th><th>Fixture</th><th>Selection</th><th>Date / window (EAT)</th><th>Visibility</th><th>Actions</th></tr></thead><tbody id="premiumAdminRows"></tbody></table></div>
+</section>
 <section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 </main>
@@ -170,6 +214,7 @@ function showTab(name){
  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('hidden',el.id!==name));
  if(name==='overview')loadAnalytics();
  if(name==='win-proofs')loadWinProofReviews();
+ if(name==='premium-picks')loadPremiumAdminPicks();
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 const wholeUGX=x=>'UGX '+Number(x||0).toLocaleString('en-UG');
@@ -619,6 +664,103 @@ function renderStrategies(){
   card.append(heading,code,summary,trigger,detail);$('strategyList').append(card);
  }
 }
+
+
+let premiumEditId=null;
+let premiumRows=[];
+function premiumEATDate(){
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Kampala',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+ const get=name=>parts.find(p=>p.type===name)?.value||'';
+ return get('year')+'-'+get('month')+'-'+get('day');
+}
+function premiumSelectionFromItem(item){
+ const sides=item.fixture.replace('–','-').split('-').map(x=>x.trim().toUpperCase());
+ if(item.selection===sides[0]+' WIN')return 'home';
+ if(item.selection===sides[1]+' WIN')return 'away';
+ return item.selection;
+}
+function newPremiumPick(){
+ premiumEditId=null;$('premiumAdminForm').reset();
+ $('premiumDate').value=premiumEATDate();
+ $('premiumEnabled').checked=true;$('premiumSave').textContent='Publish premium pick';
+ $('premiumAdminMessage').textContent='';
+}
+function editPremiumPick(item){
+ premiumEditId=item.id;
+ $('premiumDate').value=item.date_eat;$('premiumSeason').value=item.season;
+ $('premiumMD').value=item.matchday;$('premiumFixture').value=item.fixture;
+ $('premiumSelection').value=premiumSelectionFromItem(item);
+ $('premiumAlarm').value=item.alarm_eat;$('premiumOpen').value=item.window_open_eat;
+ $('premiumClose').value=item.window_close_eat;
+ $('premiumEnabled').checked=item.enabled;
+ $('premiumSave').textContent='Save changes';
+ $('premiumAdminMessage').textContent='Editing #'+item.id+' · '+item.fixture;
+ $('premiumAdminForm').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function loadPremiumAdminPicks(){
+ const body=$('premiumAdminRows');body.replaceChildren();
+ try{
+  const data=await api('/api/admin/premium-picks',{cache:'no-store'});
+  premiumRows=data.items||[];
+  for(const item of premiumRows){
+   const tr=document.createElement('tr');
+   const td=value=>{const cell=document.createElement('td');cell.textContent=String(value);return cell};
+   const sel=td(item.selection);
+   if(item.edited_after_open){
+    const note=document.createElement('span');note.className='premiumChange';
+    note.textContent='Updated after window opened'+(item.revised_from?' (was '+item.revised_from+')':'');
+    sel.append(note);
+   }
+   const actions=document.createElement('td');actions.className='actionsRow';
+   actions.append(button('Edit','',()=>editPremiumPick(item)));
+   actions.append(button(item.enabled?'Unpublish':'Republish',item.enabled?'danger':'primary',async()=>{
+     if(item.enabled&&!confirm('Unpublish '+item.fixture+' from eligible member dashboards?'))return;
+     try{
+      await api('/api/admin/premium-picks/'+item.id+'/visibility',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({enabled:!item.enabled})
+      });
+      feedback(item.enabled?'Match unpublished.':'Match republished.');
+      await loadPremiumAdminPicks();
+     }catch(error){feedback(error.message,true)}
+   }));
+   tr.append(td(item.season+' / MD '+item.matchday),td(item.fixture),sel,
+     td(item.date_eat+' · '+item.window_open_eat+'–'+item.window_close_eat),
+     td(item.enabled?'PUBLISHED':'UNPUBLISHED'),actions);
+   body.append(tr);
+  }
+  if(!premiumRows.length)body.appendChild((()=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=6;td.textContent='No matches yet.';tr.append(td);return tr})());
+ }catch(e){$('premiumAdminMessage').textContent='Unable to load premium picks: '+e.message;}
+}
+$('premiumAdminForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const fixture=$('premiumFixture').value.trim().toUpperCase().replace(/[–]/g,'-');
+ const sides=fixture.split('-').map(s=>s.trim());
+ let selection=$('premiumSelection').value;
+ if(selection==='home'||selection==='away'){
+  if(sides.length!==2||!sides[0]||!sides[1]){
+   $('premiumAdminMessage').textContent='Enter HOME – AWAY before choosing a winner.';return;
+  }
+  selection=(selection==='home'?sides[0]:sides[1])+' WIN';
+ }
+ const payload={
+   date_eat:$('premiumDate').value,season:$('premiumSeason').value.trim(),
+   matchday:Number($('premiumMD').value),fixture:$('premiumFixture').value.trim(),
+   selection,alarm_eat:$('premiumAlarm').value,window_open_eat:$('premiumOpen').value,
+   window_close_eat:$('premiumClose').value,enabled:$('premiumEnabled').checked
+ };
+ const btn=$('premiumSave');btn.disabled=true;
+ try{
+  const path=premiumEditId?'/api/admin/premium-picks/'+premiumEditId:'/api/admin/premium-picks';
+  await api(path,{method:premiumEditId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  feedback(premiumEditId?'Premium pick updated.':'Premium pick published.');
+  newPremiumPick();await loadPremiumAdminPicks();
+ }catch(e){$('premiumAdminMessage').textContent='Could not save: '+e.message;feedback(e.message,true)}
+ finally{btn.disabled=false}
+});
+$('premiumCancel').addEventListener('click',newPremiumPick);
+$('premiumRefresh').addEventListener('click',loadPremiumAdminPicks);
+newPremiumPick();
 
 async function loadWinProofReviews(){
  const area=$('adminWinProofList');area.replaceChildren();

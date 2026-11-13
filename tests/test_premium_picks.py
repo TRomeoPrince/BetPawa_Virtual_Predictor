@@ -3,10 +3,12 @@
 The UI and prediction-engine data are intentionally kept separate.
 """
 import unittest
+import tempfile
+from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from backend import premium_picks
+from backend import premium_picks, access
 
 
 class PremiumPickTests(unittest.TestCase):
@@ -22,6 +24,9 @@ class PremiumPickTests(unittest.TestCase):
         self.assertEqual(rows[3]["selection"], "Win/loss pattern")
         self.assertEqual(rows[5]["fixture"], "TOT – CHE")
         self.assertEqual(rows[6]["fixture"], "CRY – AST")
+        self.assertEqual(rows[7]["selection"],"BTTS / Over 2.5")
+        self.assertTrue(rows[7]["edited_after_open"])
+        self.assertEqual(rows[7]["revised_from"],"BRE WIN")
 
     def test_clock_status_and_expiry_are_eat(self):
         now = lambda h, m: datetime(2026, 11, 13, h, m, tzinfo=premium_picks.EAT)
@@ -106,6 +111,74 @@ class PremiumPickTests(unittest.TestCase):
         with patch.object(main, "_require_account", return_value=vip_user):
             self.assertEqual(api.get("/api/premium-picks").status_code, 200)
         api.close()
+
+
+
+class PremiumAdminCrudTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.db_patch=patch.object(access,"DB",Path(self.temp.name)/"premium.sqlite")
+        self.db_patch.start()
+        premium_picks._RESULTS.clear()
+        premium_picks._ATTEMPTS.clear()
+
+    def tearDown(self):
+        premium_picks._RESULTS.clear()
+        premium_picks._ATTEMPTS.clear()
+        self.db_patch.stop()
+        self.temp.cleanup()
+
+    def test_edit_current_match_and_keep_after_open_disclosure(self):
+        entries=premium_picks.list_entries()
+        self.assertEqual(len(entries),9)
+        md1=next(p for p in entries if p["season"]=="139446" and p["matchday"]==1)
+        self.assertEqual(md1["selection"],"BTTS / Over 2.5")
+        self.assertEqual(md1["revised_from"],"BRE WIN")
+        self.assertTrue(md1["edited_after_open"])
+        data={k:md1[k] for k in ("date_eat","season","matchday","fixture","selection",
+             "alarm_eat","window_open_eat","window_close_eat","enabled")}
+        data["selection"]="BRE WIN"
+        changed=premium_picks.save_entry(data,1,md1["id"])
+        self.assertEqual(changed["selection"],"BRE WIN")
+        self.assertTrue(changed["edited_after_open"])
+        self.assertEqual(changed["revised_from"],"BRE WIN")
+        # Store persists across independent connections; no duplicate seed.
+        self.assertEqual(len(premium_picks.list_entries()),9)
+
+    def test_admin_create_unpublish_and_republish(self):
+        item={
+            "date_eat":"2026-11-15","season":"139460","matchday":3,
+            "fixture":"MUN – LIV","selection":"BTTS YES",
+            "alarm_eat":"19:57","window_open_eat":"20:00","window_close_eat":"20:05",
+            "enabled":True,
+        }
+        made=premium_picks.save_entry(item,1)
+        self.assertEqual(len(premium_picks.list_entries()),10)
+        self.assertEqual(made["kind"],"pick")
+        self.assertEqual(made["selection"],"BTTS YES")
+        self.assertTrue(premium_picks.toggle_entry(made["id"],1,False)["enabled"] is False)
+        self.assertEqual(len(premium_picks.list_entries()),9)
+        self.assertTrue(premium_picks.toggle_entry(made["id"],1,True)["enabled"])
+        self.assertEqual(len(premium_picks.list_entries()),10)
+        with self.assertRaisesRegex(ValueError,"already exists"):
+            premium_picks.save_entry(item,1)
+
+    def test_validation_and_grade_cached_per_selection(self):
+        entry={
+            "date_eat":"2026-11-15","season":"139460","matchday":3,
+            "fixture":"BRE – SUN","selection":"BTTS / Over 2.5",
+            "alarm_eat":"19:57","window_open_eat":"20:00","window_close_eat":"20:05",
+        }
+        good=premium_picks.save_entry(entry,1)
+        self.assertFalse(good["edited_after_open"])
+        self.assertEqual(premium_picks._grade(good,[{"home":"Brentford","away":"Sunderland",
+                 "ft_home":1,"ft_away":1}])["status"],"mixed")
+        item=dict(entry,fixture="BRE – BRE")
+        with self.assertRaises(ValueError):
+            premium_picks.save_entry(item,1)
+        item=dict(entry,selection="BRE WIN")
+        self.assertEqual(premium_picks._grade(item,[{"home":"Brentford","away":"Sunderland",
+                 "ft_home":1,"ft_away":1}])["status"],"lost")
 
 
 if __name__ == "__main__":

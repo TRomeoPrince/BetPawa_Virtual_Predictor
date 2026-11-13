@@ -412,6 +412,22 @@ class PromotionToggle(BaseModel):
     enabled: bool
 
 
+class PremiumPickAdminBody(BaseModel):
+    date_eat: str
+    season: str
+    matchday: int
+    fixture: str
+    selection: str
+    alarm_eat: str
+    window_open_eat: str
+    window_close_eat: str
+    enabled: bool = True
+
+
+class PremiumPickToggleBody(BaseModel):
+    enabled: bool
+
+
 class FreeReleaseBody(BaseModel):
     starts_at: str | None = None
     ends_at: str | None = None
@@ -987,6 +1003,50 @@ def api_purchase_quote(plan_code: str, response: Response, promo_code: str = "")
         return growth.quote(plan_code, promo_code)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+
+
+@app.get("/api/admin/premium-picks")
+def api_admin_list_premium_picks(request: Request, response: Response):
+    _require_admin(request)
+    response.headers["Cache-Control"]="private, no-store"
+    return {"items":premium_picks.list_entries(include_disabled=True),"timezone":"Africa/Kampala"}
+
+
+@app.post("/api/admin/premium-picks")
+def api_admin_create_premium_pick(payload: PremiumPickAdminBody, request: Request, response: Response):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        item=premium_picks.save_entry(payload.model_dump(),int(admin["id"]))
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True,"item":item}
+
+
+@app.put("/api/admin/premium-picks/{entry_id}")
+def api_admin_edit_premium_pick(entry_id: int, payload: PremiumPickAdminBody, request: Request, response: Response):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        item=premium_picks.save_entry(payload.model_dump(),int(admin["id"]),entry_id)
+    except ValueError as exc:
+        raise HTTPException(400,str(exc))
+    return {"ok":True,"item":item}
+
+
+@app.post("/api/admin/premium-picks/{entry_id}/visibility")
+def api_admin_toggle_premium_pick(entry_id: int, payload: PremiumPickToggleBody, request: Request, response: Response):
+    admin=_require_admin(request)
+    _verify_write_origin(request)
+    response.headers["Cache-Control"]="no-store"
+    try:
+        item=premium_picks.toggle_entry(entry_id,int(admin["id"]),payload.enabled)
+    except ValueError as exc:
+        raise HTTPException(404,str(exc))
+    return {"ok":True,"item":item}
 
 
 @app.get("/api/premium-picks")

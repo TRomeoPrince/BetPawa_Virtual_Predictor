@@ -183,6 +183,12 @@ function displayPremiumPicks(items){
     const tr=document.createElement('tr');
     const selection=makeCell(item.selection,item.kind==='watch'?'premiumWatch':'premiumPick');
     if(item.kind==='watch')selection.title='Pattern research only; no winner selection';
+    if(item.edited_after_open){
+      const note=document.createElement('small');
+      note.style.cssText='display:block;font-size:11px;color:#90600c;font-weight:700;white-space:normal;max-width:230px';
+      note.textContent=(item.revised_from?'Revised from '+item.revised_from+' · ':'')+'Updated after betting opened';
+      selection.appendChild(note);
+    }
     const status=makeCell('');
     const pill=document.createElement('span');
     pill.className='premiumStatus '+(item.status||'');
