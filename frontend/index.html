@@ -20,6 +20,24 @@ header{background:rgba(246,249,241,.94);border-bottom:1px solid var(--line)}.nav
 footer{padding:35px 0 45px;border-top:1px solid var(--line);margin-top:50px}.foot{display:flex;justify-content:space-between;gap:25px;flex-wrap:wrap;font-size:13px;color:var(--muted);line-height:1.7}
 @media(max-width:860px){.patternPartnerCall{align-items:flex-start;flex-direction:column}.hero{grid-template-columns:1fr;gap:35px;padding:55px 0}.preview{max-width:600px;width:100%}.featureGrid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr}.finalCta{align-items:flex-start;flex-direction:column}}@media(max-width:580px){.wrap{padding:0 17px}.nav{min-height:70px}.links a:not(.button){display:none}.brand{font-size:17px}.hero h1{font-size:44px}.featureGrid{grid-template-columns:1fr}.tiles{gap:9px}.tile{padding:14px}.finalCta{padding:28px}.finalCta h2{font-size:29px}}
 .responsibleFooter{border-top:1px solid var(--line);padding:17px 0 0;margin-top:22px;display:flex;flex-wrap:wrap;gap:8px 25px;font-size:14px;line-height:1.6;color:var(--ink)}.responsibleFooter strong{font-weight:850}
+
+.winProofSection{padding:50px 0 66px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#f0f6ec;overflow:hidden}
+.winProofIntro{display:flex;align-items:end;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.winProofIntro h2{font-size:clamp(28px,3.5vw,42px);letter-spacing:-.045em;margin:8px 0}
+.winProofIntro p{color:var(--muted);line-height:1.65;max-width:660px;margin:0}
+.proofWindow{overflow:hidden;width:100%;margin-top:26px}
+.proofTrack{display:flex;width:max-content;align-items:stretch}
+.proofGroup{display:flex;gap:16px;padding-right:16px}
+.proofTrack.moving{animation:proofSlide 34s linear infinite}
+.proofWindow:hover .proofTrack{animation-play-state:paused}
+@keyframes proofSlide{to{transform:translateX(-50%)}}
+.winCard{width:275px;flex:0 0 275px;background:#fff;border:1px solid #d7e7d4;border-radius:18px;overflow:hidden;box-shadow:0 10px 27px #154d3510}
+.winCard img{display:block;width:100%;height:190px;object-fit:contain;background:#e6f1e3;cursor:zoom-in}
+.winCard figcaption{padding:14px 16px;font-weight:900;color:#17694c;font-size:14px}
+.winCard small{display:block;font-size:11px;color:#5c7467;font-weight:500;margin-top:5px;line-height:1.5}
+.winProofEmpty{margin-top:24px;padding:24px;border:1px dashed #b7d2b7;border-radius:16px;background:#fff;color:var(--muted);font-size:14px}
+.winProofFoot{font-size:12px;color:var(--muted);margin-top:17px;line-height:1.65}
+@media(prefers-reduced-motion:reduce){.proofTrack.moving{animation:none}.proofWindow{overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -28,6 +46,12 @@ footer{padding:35px 0 45px;border-top:1px solid var(--line);margin-top:50px}.foo
 <section class="wrap hero"><div><div class="eyebrow"><span class="dot"></span> Virtual football research dashboard</div><h1>Follow the patterns.<br><span>Track the results.</span></h1><p class="lead">Explore historical-pattern predictions across goal totals, BTTS and match outcomes. Build your own combo and follow what actually happened, all in one private dashboard.</p><div class="cta"><a class="button" href="/signup">Create free account <span aria-hidden="true">→</span></a><a class="button alt" href="/login">Sign in</a></div><p class="fine">Register for access to public previews whenever they're released, or choose a VIP plan and upload proof for manual payment verification. Historical performance does not guarantee future results.</p></div>
 <div class="preview" aria-label="Illustration of available dashboard sections"><div class="previewTop"><b>Prediction workspace</b><span>Interface preview</span></div><div class="mockTitle">Explore by market</div><div class="tiles"><div class="tile"><div class="symbol" aria-hidden="true">↗</div><strong>Overs</strong><small>Goal totals</small></div><div class="tile"><div class="symbol" aria-hidden="true">↘</div><strong>Unders</strong><small>Goal totals</small></div><div class="tile"><div class="symbol" aria-hidden="true">⇄</div><strong>BTTS</strong><small>Both teams score</small></div><div class="tile"><div class="symbol" aria-hidden="true">✓</div><strong>Wins</strong><small>Match outcomes</small></div></div><div class="previewBottom"><div><strong>My Combo</strong><br><span>Save picks and review outcomes</span></div><strong aria-hidden="true">↗</strong></div></div></section>
 <section id="features" class="section"><div class="wrap"><div class="sectionHead"><div class="kicker">Your workspace</div><h2>Useful insights, without the clutter.</h2><p>Predictions, matchday fixtures and your own tracked results stay organized by market.</p></div><div class="featureGrid"><article class="feature"><div class="symbol" aria-hidden="true">◈</div><h3>Market-specific picks</h3><p>View qualifying predictions by league and market. Some markets may have no picks when no rule qualifies.</p></article><article class="feature"><div class="symbol" aria-hidden="true">☷</div><h3>My Combo</h3><p>Select the predictions you want to follow and revisit their final results.</p></article><article class="feature"><div class="symbol" aria-hidden="true">◷</div><h3>Personal performance</h3><p>See won, lost and pending outcomes for your saved prediction history.</p></article></div></div></section>
+
+<section id="win-proof" class="winProofSection" aria-label="Win Proof">
+ <div class="wrap winProofIntro"><div><div class="kicker">Our community</div><h2>Win Proof</h2><p>A moving gallery of screenshots shared by BPV members. Each post is reviewed for public display before appearing here.</p></div><a class="button alt" href="/client">Share your win</a></div>
+ <div class="proofWindow" id="proofWindow"><div class="proofTrack" id="proofTrack"></div></div>
+ <div class="wrap"><div id="winProofEmpty" class="winProofEmpty" hidden>No member screenshots have been approved yet. Signed-in members can submit their wins from the dashboard.</div><div class="winProofFoot">Member-submitted screenshots are not independent verification of a bet or payout. Results vary; historical wins do not guarantee future outcomes. Please hide personal and financial details before sharing.</div></div>
+</section>
 <section id="how" class="section"><div class="wrap"><div class="sectionHead"><div class="kicker">Getting started</div><h2>Three steps to your dashboard.</h2></div><div class="steps"><div class="step"><div class="number">01 / INVITATION</div><h3>Receive your account</h3><p>Choose a subscription from the public purchase page.</p></div><div class="step"><div class="number">02 / SUBSCRIPTION</div><h3>Choose an access period</h3><p>Pay through the listed receiving account and upload your receipt.</p></div><div class="step"><div class="number">03 / EXPLORE</div><h3>Start tracking</h3><p>After approval, use your emailed activation link to access your private dashboard.</p></div></div></div></section>
 <section class="section plans"><div class="wrap"><div class="sectionHead"><div class="kicker">Flexible access</div><h2>Choose a duration that suits you.</h2><p>Available subscription periods are shown below. Pay using the listed instructions, upload proof, and await manual verification.</p></div><div class="planGrid"><span class="plan">Daily · UGX 5,000</span><span class="plan">Weekly · UGX 20,000</span><span class="plan">Monthly · UGX 60,000</span><span class="plan">Yearly · UGX 500,000</span><span class="plan">Lifetime · UGX 1,000,000</span></div><p class="planNote">All plans include morning, afternoon and evening sessions: 5 matchdays per session, 15 matchdays per day. Transfers require manual verification before access.</p><a class="button" href="/purchase">View prices &amp; payment methods →</a></div></section>
 <section class="section"><div class="wrap">
@@ -40,5 +64,35 @@ footer{padding:35px 0 45px;border-top:1px solid var(--line);margin-top:50px}.foo
 <section class="section"><div class="wrap"><div class="finalCta"><div><h2>Already have an account?</h2><p>Sign in to manage your subscription and explore your markets.</p></div><a class="button" href="/login">Sign in securely <span aria-hidden="true">→</span></a></div></div></section>
 </main>
 <footer><div class="wrap foot"><span>© BetPawa Predictor · Independent virtual-football analysis tool</span><span>Not affiliated with or endorsed by betPawa. Predictions are informational, not betting advice or guaranteed outcomes.</span></div><div class="wrap responsibleFooter" aria-label="Responsible betting and age warning"><strong>You have to be 25 years and above to bet.</strong><span>Betting is addictive and can be psychologically harmful.</span></div></footer>
+
+<script>
+(async function loadWinProofGallery(){
+ const track=document.getElementById('proofTrack'),empty=document.getElementById('winProofEmpty');
+ try{
+  const res=await fetch('/api/win-proofs',{cache:'no-store'});
+  if(!res.ok)throw Error('gallery');
+  const list=(await res.json()).items||[];
+  if(!list.length){empty.hidden=false;return;}
+  const makeGroup=(duplicated=false)=>{
+   const group=document.createElement('div');group.className='proofGroup';
+   if(duplicated)group.setAttribute('aria-hidden','true');
+   for(const item of list){
+    const fig=document.createElement('figure');fig.className='winCard';fig.style.margin='0';
+    const pic=document.createElement('img');pic.loading='lazy';pic.src=item.image_url;
+    pic.alt='Member-submitted win screenshot from '+item.username;
+    pic.addEventListener('click',()=>window.open(pic.src,'_blank','noopener'));
+    const caption=document.createElement('figcaption');
+    caption.textContent='Won by @'+item.username;
+    const small=document.createElement('small');small.textContent='Member submitted · reviewed for public display';
+    caption.appendChild(small);fig.append(pic,caption);group.appendChild(fig);
+   }
+   return group;
+  };
+  track.appendChild(makeGroup());
+  if(list.length>=3){track.appendChild(makeGroup(true));track.classList.add('moving')}
+  else document.getElementById('proofWindow').style.overflowX='auto';
+ }catch(e){empty.hidden=false;empty.textContent='Win Proof gallery is unavailable at the moment.';}
+})();
+</script>
 </body>
 </html>

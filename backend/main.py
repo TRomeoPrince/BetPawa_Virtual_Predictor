@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -318,6 +318,16 @@ def _market_category(expected: str | None) -> str | None:
     if "HOME WIN" in value or "AWAY WIN" in value or value in {"HOME", "AWAY"}:
         return "wins"
     return None
+
+
+
+class WinProofSubmission(BaseModel):
+    image_base64: str
+    consent: bool = False
+
+
+class WinProofReview(BaseModel):
+    decision: str
 
 
 class SelectionUpdate(BaseModel):
@@ -1475,6 +1485,77 @@ def api_admin_review_subscription(
 def api_admin_strategies(request: Request):
     _require_admin(request)
     return {"strategies": _admin_strategy_catalog()}
+
+
+
+@app.get("/api/win-proofs")
+def api_win_proofs():
+    """Public, approved-only user-submitted win screenshot gallery."""
+    return {"items": win_proofs.public_gallery()}
+
+
+@app.get("/api/win-proofs/{proof_id}/image")
+def api_win_proof_image(proof_id: int, request: Request):
+    viewer = _session_account(request)
+    path = win_proofs.image_path(
+        proof_id, viewer_id=int(viewer["id"]) if viewer else None,
+        is_admin=bool(viewer and viewer.get("role") == "admin"),
+    )
+    if not path:
+        raise HTTPException(404, "Screenshot not found.")
+    return FileResponse(
+        path, media_type="image/webp",
+        headers={"Cache-Control": "private, max-age=60", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.get("/api/win-proofs/mine")
+def api_my_win_proofs(request: Request):
+    account = _require_account(request)
+    return {"items": win_proofs.mine(int(account["id"]))}
+
+
+@app.post("/api/win-proofs")
+def api_submit_win_proof(payload: WinProofSubmission, request: Request):
+    account = _require_account(request)
+    _verify_write_origin(request)
+    try:
+        ident = win_proofs.submit(int(account["id"]), payload.image_base64, payload.consent)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "id": ident, "status": "pending"}
+
+
+@app.delete("/api/win-proofs/{proof_id}")
+def api_delete_my_win_proof(proof_id: int, request: Request):
+    account = _require_account(request)
+    _verify_write_origin(request)
+    try:
+        win_proofs.delete_own(proof_id, int(account["id"]))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return {"ok": True}
+
+
+@app.get("/api/admin/win-proofs")
+def api_admin_win_proofs(request: Request, response: Response, status: str = "all"):
+    _require_admin(request)
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        return {"items": win_proofs.admin_list(status)}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/admin/win-proofs/{proof_id}/review")
+def api_admin_review_win_proof(proof_id: int, payload: WinProofReview, request: Request):
+    account = _require_admin(request)
+    _verify_write_origin(request)
+    try:
+        win_proofs.review(proof_id, payload.decision, int(account["id"]))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True}
 
 
 @app.get("/api/status")
