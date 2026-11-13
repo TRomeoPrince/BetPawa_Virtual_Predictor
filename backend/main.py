@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -967,6 +967,18 @@ def api_purchase_quote(plan_code: str, response: Response, promo_code: str = "")
         return growth.quote(plan_code, promo_code)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+
+
+@app.get("/api/premium-picks")
+def api_premium_picks(request: Request, response: Response):
+    """Curated picks are visible to VIP and to members during active Free Access."""
+    account = _require_account(request)
+    response.headers["Cache-Control"] = "private, no-store"
+    if not _is_vip(account):
+        # Preserve existing email-based Free Access eligibility and release timing.
+        if not account.get("email") or not free_access.active_release():
+            raise HTTPException(403, "VIP or an active Free Access release is required.")
+    return {"ok": True, **premium_picks.snapshot()}
 
 
 @app.get("/api/free-access/status")
