@@ -30,6 +30,20 @@
 .premiumStatus.window{background:#d5f3d8;color:#17694c}
 .premiumFoot{margin:12px 0 0;color:#677c6e;font-size:12px;line-height:1.6}
 @media(max-width:570px){.premiumSection{padding:16px}.premiumSection h2{font-size:22px}}
+
+.winSubmitPanel{margin-top:26px;padding:23px;border-radius:19px;border:1px solid #d1e4d0;background:#fff}
+.winSubmitPanel h2{margin:6px 0;font-size:23px;letter-spacing:-.03em}
+.winProofForm{display:flex;gap:13px;flex-wrap:wrap;align-items:end;margin:18px 0}
+.winProofForm label.fileChoice{font-size:13px;font-weight:800}
+.winProofForm input[type=file]{display:block;width:min(100%,340px);margin-top:7px;padding:10px;border:1px solid #d2e4d0;border-radius:10px}
+.winProofAgree{display:flex;align-items:flex-start;gap:8px;flex-basis:100%;color:#4f695b;font-size:13px;line-height:1.55}
+.winProofAgree input{width:17px;height:17px;margin:2px 0 0}
+.winProofRow{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}
+.winProofOwn{border:1px solid #dae7d7;background:#f7fbf5;padding:10px;border-radius:12px;display:flex;align-items:center;gap:12px}
+.winProofOwn img{width:67px;height:70px;object-fit:contain;background:#e6f0e5;border-radius:7px}
+.winProofOwn div{font-size:12px;line-height:1.6;color:#486b59}
+.winProofOwn button{font-size:12px;padding:7px 9px;margin-top:5px}
+.winProofHelp{font-size:12px;line-height:1.6;color:#667b70}
 </style>
 </head>
 <body>
@@ -50,6 +64,18 @@
   <tbody id="premiumPicksRows"></tbody>
  </table></div>
  <p class="premiumFoot">BTTS / Over 2.5 indicates two alternative markets, not a guaranteed combination. “Win/loss pattern” is a research watch, not a winner pick. Alarm times are reference reminders, not automatic notifications. Historical patterns do not guarantee results; no bets are placed through this page.</p>
+</section>
+
+<section id="winProofSubmit" class="winSubmitPanel" aria-label="Submit Win Proof">
+ <div class="eyebrow">Community showcase</div><h2>Share Your Win · Win Proof</h2>
+ <p class="winProofHelp">Upload your own winning screenshot (JPG, PNG or WebP, up to 3 MB). Please crop out phone numbers, account numbers, payment references and balances you don't want public. An administrator must approve it before it appears in the homepage gallery.</p>
+ <form id="winProofForm" class="winProofForm">
+  <label class="fileChoice">Choose screenshot<input id="winProofFile" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+  <label class="winProofAgree"><input id="winProofConsent" type="checkbox" required> I own this screenshot and agree that it may be shown publicly with my username after review.</label>
+  <button class="btn primary" type="submit">Submit win screenshot</button>
+ </form>
+ <div id="winProofMessage" class="feedback" aria-live="polite"></div>
+ <div id="myWinProofs" class="winProofRow" aria-live="polite"></div>
 </section>
 <section id="picksHub" class="picksHub" aria-label="My Picks Hub"><div><div class="eyebrow">All your selections in one place</div><h2>My Picks Hub</h2><p>Latest combo · Overs · Unders · BTTS · Wins · Selection history · Personal bet journal</p></div><a class="btn primary" href="/client/picks">Open My Picks Hub →</a><div id="picksPreview" class="picksPreview" aria-live="polite"><div class="muted">Loading your saved selections…</div></div><div id="picksRecent" class="picksRecent"></div></section>
 <section class="section"><div class="sectionHead"><div><h2>Explore prediction markets</h2><p>Open a market to see available matchday fixtures, qualifying picks and your tracked results.</p></div></div><div class="markets">
@@ -130,6 +156,47 @@ async function loadPremiumPicks(){
   }
 }
 
+
+async function refreshMyWinProofs(){
+ const box=$('myWinProofs');box.replaceChildren();
+ try{
+  const result=await api('/api/win-proofs/mine',{cache:'no-store'});
+  for(const item of (result.items||[])){
+   const card=document.createElement('div');card.className='winProofOwn';
+   const img=document.createElement('img');img.src=item.image_url;img.alt='Your win screenshot';
+   const detail=document.createElement('div');
+   const label=document.createElement('strong');label.textContent='@'+item.username+' · '+item.status.toUpperCase();
+   const remove=document.createElement('button');remove.className='btn';remove.type='button';remove.textContent='Remove';
+   remove.addEventListener('click',async()=>{
+    if(!confirm('Remove this screenshot from Win Proof?'))return;
+    try{await api('/api/win-proofs/'+item.id,{method:'DELETE'});await refreshMyWinProofs()}
+    catch(e){showFeedback('winProofMessage',e.message,true)}
+   });
+   detail.append(label,document.createElement('div'),remove);card.append(img,detail);box.append(card);
+  }
+  if(!(result.items||[]).length)box.textContent='No screenshots submitted yet.';
+ }catch(e){box.textContent='Could not load your screenshots.'}
+}
+$('winProofForm').addEventListener('submit',async(event)=>{
+ event.preventDefault();
+ const file=$('winProofFile').files[0];
+ if(!file||file.size>3*1024*1024){showFeedback('winProofMessage','Choose an image smaller than 3 MB.',true);return}
+ if(!$('winProofConsent').checked){showFeedback('winProofMessage','Please confirm ownership and consent.',true);return}
+ const button=$('winProofForm').querySelector('button[type=submit]');
+ button.disabled=true;
+ try{
+  const encoded=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('Could not read screenshot'));
+   reader.readAsDataURL(file);
+  });
+  await api('/api/win-proofs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image_base64:encoded,consent:true})});
+  showFeedback('winProofMessage','Screenshot submitted for admin review. Only approved posts appear on the homepage.');
+  $('winProofForm').reset();await refreshMyWinProofs();
+ }catch(e){showFeedback('winProofMessage',e.message,true)}
+ finally{button.disabled=false}
+});
+
 function showFeedback(id,message,error=false){const el=$(id);el.textContent=message;el.className='feedback '+(error?'error':'success')}
 function showAccount(){
   const sub=account.subscription||{},admin=account.role==='admin';
@@ -197,6 +264,7 @@ async function load(){
     account=(await api('/api/auth/me')).account;
     if(account.must_change_password){location.assign('/password-setup');return}
     showAccount();
+    refreshMyWinProofs();
     loadPremiumPicks();
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);

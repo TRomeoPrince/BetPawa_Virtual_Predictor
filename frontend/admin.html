@@ -24,6 +24,7 @@
 <button type="button" class="btn" data-tab="clients">Clients &amp; Invitations</button>
 <button type="button" class="btn" data-tab="requests">Requests</button><button type="button" class="btn" data-tab="purchases">Payment Requests</button>
 <button type="button" class="btn" data-tab="free-releases">Free Access</button><button type="button" class="btn" data-tab="referral-wallets">Referral Wallets</button><button type="button" class="btn" data-tab="promotions">Promotions</button><button type="button" class="btn" data-tab="strategies">Strategies</button><button type="button" class="btn" data-tab="pattern-partners">Pattern Partners</button>
+<button type="button" class="btn" data-tab="win-proofs">Win Proof</button>
 <button type="button" class="btn" data-tab="security">Security</button>
 </nav>
 <section id="overview" class="tab panel">
@@ -136,6 +137,14 @@
 <div id="partnerReviewList" class="grid" aria-live="polite">Loading pattern applications…</div>
 </section>
 <section id="strategies" class="tab panel hidden"><h2>Private strategy catalog</h2><div class="form"><input id="strategySearch" placeholder="Filter league, market, ID…" aria-label="Filter strategies"></div><div id="strategyList"></div></section>
+
+<section id="win-proofs" class="tab panel hidden">
+ <h2>Win Proof · Review Member Screenshots</h2>
+ <p class="hint">Screenshots are member claims. Before approval, check that no phone numbers, account IDs, bank details or other sensitive data appear. Approval only authorizes public display; it is not independent verification of a payout or betting result.</p>
+ <div class="form"><button class="btn primary" type="button" id="refreshWinProofs">Refresh submissions</button>
+  <select id="winProofFilter" aria-label="Filter win proofs"><option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
+ <div id="adminWinProofList" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
+</section>
 <section id="security" class="tab panel hidden"><h2>Administrator password</h2><p class="muted">Use a unique password of at least 12 characters. Changing it signs out all your sessions.</p><form id="securityForm" class="form"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="New password (12+)" required><button type="submit" class="btn primary">Change password</button></form></section>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 </main>
@@ -160,6 +169,7 @@ function showTab(name){
  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('hidden',el.id!==name));
  if(name==='overview')loadAnalytics();
+ if(name==='win-proofs')loadWinProofReviews();
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
 const wholeUGX=x=>'UGX '+Number(x||0).toLocaleString('en-UG');
@@ -609,6 +619,38 @@ function renderStrategies(){
   card.append(heading,code,summary,trigger,detail);$('strategyList').append(card);
  }
 }
+
+async function loadWinProofReviews(){
+ const area=$('adminWinProofList');area.replaceChildren();
+ try{
+  const result=await api('/api/admin/win-proofs?status='+encodeURIComponent($('winProofFilter').value));
+  for(const item of (result.items||[])){
+   const card=document.createElement('div');card.className='strategy';
+   const image=document.createElement('img');image.src=item.image_url;image.alt='Win proof from '+item.username;
+   image.style.cssText='display:block;width:100%;height:190px;object-fit:contain;background:#e6f1e3;border-radius:9px;cursor:zoom-in';
+   image.addEventListener('click',()=>window.open(item.image_url,'_blank','noopener'));
+   const title=document.createElement('h4');title.textContent='Won by @'+item.username;
+   const meta=document.createElement('p');meta.className='hint';meta.textContent='ID #'+item.id+' · '+item.status.toUpperCase()+' · '+fmt(item.created_at);
+   const approve=button('Approve','primary',async()=>await decideWinProof(item.id,'approved'));
+   const reject=button(item.status==='approved'?'Unpublish':'Reject','danger',async()=>await decideWinProof(item.id,'rejected'));
+   approve.disabled=item.status==='approved';
+   reject.disabled=item.status==='rejected';
+   const actions=document.createElement('div');actions.className='actionsRow';actions.append(approve,reject);
+   card.append(image,title,meta,actions);area.append(card);
+  }
+  if(!(result.items||[]).length)area.textContent='No screenshots in this status.';
+ }catch(e){area.textContent='Unable to load screenshots: '+e.message}
+}
+async function decideWinProof(id,decision){
+ if(decision==='approved'&&!confirm('Approve public display of this image and username? Confirm it contains no sensitive personal or payment data.'))return;
+ try{
+  await api('/api/admin/win-proofs/'+id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})});
+  feedback(decision==='approved'?'Win proof approved for the homepage.':'Win proof hidden/rejected.');await loadWinProofReviews();
+ }catch(e){feedback(e.message,true)}
+}
+$('refreshWinProofs').addEventListener('click',loadWinProofReviews);
+$('winProofFilter').addEventListener('change',loadWinProofReviews);
+
 async function load(){
  try{
   const me=await api('/api/auth/me');
