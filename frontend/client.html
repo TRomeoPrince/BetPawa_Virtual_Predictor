@@ -10,6 +10,26 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}button,input{font:inherit}a{color:inherit}.wrap{max-width:1140px;margin:0 auto;padding:0 22px}.topbar{background:#fff;border-bottom:1px solid var(--line)}.topinner{min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:16px}.logo{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:950}.mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--green);color:#fff;letter-spacing:-.07em}.actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:11px 15px;font-weight:850;cursor:pointer}.btn:hover{border-color:#9cc8aa}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn:disabled{opacity:.55;cursor:not-allowed}.main{padding-top:37px;padding-bottom:60px}.eyebrow{color:var(--green);font-size:12px;font-weight:950;letter-spacing:.13em;text-transform:uppercase}.title{font-size:clamp(30px,4.6vw,45px);letter-spacing:-.05em;margin:10px 0 5px}.muted{color:var(--muted)}.preview{margin:20px 0;padding:13px 16px;background:#fff9e7;border:1px solid #ead9ac;color:#80590c;border-radius:13px;font-weight:700}.picksHub{background:#eaf4e5;border:1px solid #c7ddc3;border-radius:21px;padding:25px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:23px}.picksHub h2{font-size:25px;margin:6px 0;letter-spacing:-.04em}.picksHub p{color:var(--muted);font-size:14px;line-height:1.6;margin:0}.picksHub .btn{white-space:nowrap}.picksPreview{width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:5px}.pickMini{background:#fff;border:1px solid #d5e5d1;border-radius:13px;padding:14px;text-decoration:none}.pickMini b{display:block;font-size:22px;color:var(--green)}.pickMini span{font-size:12px;color:var(--muted);font-weight:750}.picksRecent{width:100%;display:flex;flex-wrap:wrap;gap:8px}.picksRecent span{background:#fff;border:1px solid #d5e5d1;border-radius:9px;padding:9px 11px;font-size:12px;color:var(--ink)}@media(max-width:570px){.picksPreview{grid-template-columns:repeat(2,1fr)}}.statusCard{background:linear-gradient(120deg,#17694c,#164733);border-radius:23px;color:#fff;padding:28px;display:flex;justify-content:space-between;align-items:center;gap:25px;flex-wrap:wrap;margin-top:27px}.statusCard .muted{color:#d2e7d9}.statusCard h2{margin:9px 0;font-size:26px;letter-spacing:-.03em}.statusCard p{margin:0;line-height:1.65}.pill{display:inline-flex;border-radius:999px;padding:8px 12px;font-weight:950;font-size:12px;letter-spacing:.04em}.pill.active{background:#e0f5d9;color:#18583a}.pill.inactive{background:#ffe7e7;color:#8f2935}.pill.pending{background:#fff0c4;color:#77530d}.section{margin-top:33px}.sectionHead{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:15px}.sectionHead h2{font-size:24px;letter-spacing:-.035em;margin:0}.sectionHead p{margin:6px 0 0;font-size:14px;color:var(--muted);line-height:1.6}.markets{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}.market{display:flex;flex-direction:column;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:22px;min-height:190px;transition:transform .15s,border-color .15s}.market:hover{transform:translateY(-2px);border-color:#9ac5a7}.market .symbol{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--soft);color:var(--green);font-size:23px}.market h3{font-size:22px;margin:16px 0 5px}.market p{font-size:13px;line-height:1.5;color:var(--muted);margin:0}.market .open{color:var(--green);font-size:13px;font-weight:900;margin-top:auto;padding-top:17px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:23px}.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}.plan{border:1px solid var(--line);background:#fcfefa;border-radius:15px;padding:17px}.plan h3{font-size:18px;margin:0 0 5px}.plan .muted{font-size:13px}.plan .btn{width:100%;margin-top:14px}.notice{margin-top:12px;color:var(--amber);font-size:13px;font-weight:750;line-height:1.6;min-height:20px}.requestList{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}.request{background:var(--soft);padding:10px 12px;border-radius:10px;font-size:13px}.request strong{color:var(--green)}.securityForm{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:15px}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:7px}.field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink)}.field input:focus{outline:2px solid #a5d2b1}.feedback{margin-top:13px;font-size:14px;font-weight:800;min-height:19px}.feedback.error{color:var(--red)}.feedback.success{color:var(--green)}footer{border-top:1px solid var(--line);padding:22px 0;color:var(--muted);font-size:12px;line-height:1.6}
 @media(max-width:950px){.markets{grid-template-columns:repeat(2,1fr)}.plans{grid-template-columns:repeat(2,1fr)}.securityForm{grid-template-columns:1fr 1fr}.securityForm .btn{grid-column:1/-1}}@media(max-width:570px){.wrap{padding:0 16px}.main{padding-top:26px}.markets,.plans,.securityForm{grid-template-columns:1fr}.securityForm .btn{grid-column:auto}.market{min-height:165px}.statusCard{padding:22px}.panel{padding:18px}.actions .btn{padding:9px 11px;font-size:13px}}
 .responsibleFooter{display:flex;flex-wrap:wrap;gap:8px 25px;border-top:1px solid var(--line);margin-top:15px;padding-top:15px;line-height:1.6}.responsibleFooter strong{font-weight:850}
+
+.premiumSection{margin-top:25px;background:#fff;border:1px solid #c7dfcc;border-radius:20px;padding:23px;box-shadow:0 12px 34px #244c2710}
+.premiumHeader{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.premiumEyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:#17694c;font-weight:900}
+.premiumSection h2{margin:6px 0 4px;font-size:clamp(22px,3vw,28px);letter-spacing:-.035em}
+.premiumInfo{font-size:13px;color:#5e7568;line-height:1.6;margin:0}
+.premiumTableWrap{max-width:100%;overflow:auto;border:1px solid #dce7da;border-radius:12px}
+.premiumTable{width:100%;border-collapse:collapse;min-width:710px}
+.premiumTable th,.premiumTable td{padding:12px 10px;border-bottom:1px solid #e5eee3;text-align:left;font-size:13px;white-space:nowrap}
+.premiumTable th{background:#f2f8ef;color:#486e56;font-weight:850}
+.premiumTable tr:last-child td{border-bottom:0}
+.premiumTable td.fixture{font-weight:850;color:#173c2b}
+.premiumPick{font-weight:850;color:#17694c}
+.premiumWatch{color:#976615}
+.premiumStatus{display:inline-block;border-radius:8px;padding:5px 8px;font-size:11px;font-weight:900;background:#edf5e9;color:#17694c}
+.premiumStatus.closed{background:#f0f1ef;color:#707c74}
+.premiumStatus.soon{background:#fff0ca;color:#895b0d}
+.premiumStatus.window{background:#d5f3d8;color:#17694c}
+.premiumFoot{margin:12px 0 0;color:#677c6e;font-size:12px;line-height:1.6}
+@media(max-width:570px){.premiumSection{padding:16px}.premiumSection h2{font-size:22px}}
 </style>
 </head>
 <body>
@@ -18,6 +38,19 @@
 <div class="eyebrow">Client workspace</div><h1 class="title">Your prediction dashboard</h1><div id="welcome" class="muted">Loading your account…</div>
 <div id="preview" class="preview" hidden>Admin preview — you are viewing the same workspace clients use. Your admin account has full access.</div>
 <section class="statusCard" aria-label="Subscription status"><div><div class="eyebrow" style="color:#c6eacb">Your access</div><h2 id="planTitle">Checking subscription…</h2><p id="subText" class="muted"></p></div><span id="subPill" class="pill inactive">CHECKING</span></section>
+
+<section id="premiumPicksSection" class="premiumSection" aria-label="VIP Top Recommended Premium Picks" hidden>
+ <div class="premiumHeader"><div>
+  <div class="premiumEyebrow">VIP shortlist · available during Free Access</div>
+  <h2>VIP Top Recommended Premium Picks</h2>
+  <p class="premiumInfo">Friday, 13 November 2026 · English Virtual League · Uganda time (EAT)</p>
+ </div><button type="button" class="btn" id="refreshPremiumPicks">Refresh picks</button></div>
+ <div class="premiumTableWrap"><table class="premiumTable" aria-label="Scheduled premium selections">
+  <thead><tr><th>Season</th><th>MD</th><th>Fixture</th><th>Selection</th><th>Alarm</th><th>Betting window</th><th>Status</th></tr></thead>
+  <tbody id="premiumPicksRows"></tbody>
+ </table></div>
+ <p class="premiumFoot">BTTS / Over 2.5 indicates two alternative markets, not a guaranteed combination. “Win/loss pattern” is a research watch, not a winner pick. Alarm times are reference reminders, not automatic notifications. Historical patterns do not guarantee results; no bets are placed through this page.</p>
+</section>
 <section id="picksHub" class="picksHub" aria-label="My Picks Hub"><div><div class="eyebrow">All your selections in one place</div><h2>My Picks Hub</h2><p>Latest combo · Overs · Unders · BTTS · Wins · Selection history · Personal bet journal</p></div><a class="btn primary" href="/client/picks">Open My Picks Hub →</a><div id="picksPreview" class="picksPreview" aria-live="polite"><div class="muted">Loading your saved selections…</div></div><div id="picksRecent" class="picksRecent"></div></section>
 <section class="section"><div class="sectionHead"><div><h2>Explore prediction markets</h2><p>Open a market to see available matchday fixtures, qualifying picks and your tracked results.</p></div></div><div class="markets">
 <a class="market" href="/client/overs"><span class="symbol" aria-hidden="true">↗</span><h3>Overs</h3><p>Goal-over predictions and ranked picks.</p><span class="open">Explore Overs →</span></a>
@@ -65,6 +98,38 @@ async function api(url,options){
   if(!response.ok)throw new Error(data.detail||'Request failed. Please try again.');
   return data;
 }
+
+function displayPremiumPicks(items){
+  const section=$('premiumPicksSection'),body=$('premiumPicksRows');
+  body.replaceChildren();
+  if(!items.length){section.hidden=true;return}
+  const makeCell=(text,cls='')=>{const cell=document.createElement('td');cell.textContent=String(text);if(cls)cell.className=cls;return cell};
+  const statuses={upcoming:'UPCOMING',soon:'ALARM TIME',window:'WINDOW OPEN',closed:'ENDED'};
+  items.forEach(item=>{
+    const tr=document.createElement('tr');
+    const selection=makeCell(item.selection,item.kind==='watch'?'premiumWatch':'premiumPick');
+    if(item.kind==='watch')selection.title='Pattern research only; no winner selection';
+    const status=makeCell('');
+    const pill=document.createElement('span');
+    pill.className='premiumStatus '+(item.status||'');
+    pill.textContent=statuses[item.status]||'SCHEDULED';
+    status.append(pill);
+    tr.append(makeCell(item.season),makeCell('MD '+item.matchday),makeCell(item.fixture,'fixture'),
+      selection,makeCell(item.alarm_eat),makeCell(item.window_open_eat+'–'+item.window_close_eat),status);
+    body.append(tr);
+  });
+  section.hidden=false;
+}
+async function loadPremiumPicks(){
+  try{
+    const data=await api('/api/premium-picks',{cache:'no-store'});
+    displayPremiumPicks(data.items||[]);
+  }catch(error){
+    // Do not expose VIP-only data after Free Access closes or a session expires.
+    $('premiumPicksSection').hidden=true;
+  }
+}
+
 function showFeedback(id,message,error=false){const el=$(id);el.textContent=message;el.className='feedback '+(error?'error':'success')}
 function showAccount(){
   const sub=account.subscription||{},admin=account.role==='admin';
@@ -132,6 +197,7 @@ async function load(){
     account=(await api('/api/auth/me')).account;
     if(account.must_change_password){location.assign('/password-setup');return}
     showAccount();
+    loadPremiumPicks();
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
     renderPlans((plans.plans||[]).filter(p=>['daily','weekly','monthly','annual','lifetime'].includes(p.code)));
@@ -230,7 +296,9 @@ $('passwordForm').addEventListener('submit',async event=>{
   }catch(error){showFeedback('passwordMessage',error.message,true)}
 });
 $('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
+$('refreshPremiumPicks').addEventListener('click',loadPremiumPicks);
 load();
+setInterval(()=>{if(account&&document.visibilityState==='visible')loadPremiumPicks()},60000);
 
 /* Presence counts only active, visible, signed-in browser tabs. */
 (()=>{
