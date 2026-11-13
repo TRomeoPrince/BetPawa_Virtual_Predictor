@@ -76,6 +76,43 @@ class ReferralWalletTests(unittest.TestCase):
             "approve":True,"verified":verified,
         })
 
+
+    def test_referral_funnel_counts_link_opens_signups_and_verified_paid_only(self):
+        # Referral link opens are counts, not identifiable unique individuals.
+        link=self.owner.get("/api/referrals/me").json()
+        self.assertEqual(self.owner.get("/r/"+link["code"]).status_code,302)
+        self.assertEqual(self.owner.get("/r/"+link["code"]).status_code,302)
+        initial=self.owner.get("/api/referrals/people").json()
+        self.assertEqual(self.owner.get("/api/referrals/me").json()["visits"],2)
+        self.assertEqual(initial["signups"],1)
+        self.assertEqual(initial["paid_referrals"],0)
+        self.assertEqual(initial["people"][0]["username"],"referred")
+        self.assertEqual(initial["people"][0]["status"],"registered")
+        self.assertEqual(initial["people"][0]["earned_ugx"],0)
+        # No one, including the referred member, can view somebody else's funnel.
+        self.assertEqual(self.buyer.get("/api/referrals/people").json()["people"],[])
+        self.assertEqual(self.owner.get("/api/referrals/people?limit=1&offset=1").json()["people"],[])
+        self.assertEqual(self.buy("TX-FUNNEL-0001").status_code,200)
+        self.assertEqual(self.owner.get("/api/referrals/people").json()["paid_referrals"],0)
+        self.login_admin()
+        self.assertEqual(self.approve(1).status_code,200)
+        credited=self.owner.get("/api/referrals/people").json()
+        self.assertEqual(credited["paid_referrals"],1)
+        self.assertEqual(credited["people"][0]["status"],"paid")
+        self.assertEqual(credited["people"][0]["earned_ugx"],4000)
+        self.assertEqual(credited["people"][0]["earned_pc"],400000)
+        self.assertIsNotNone(credited["people"][0]["last_paid_at"])
+        self.assertNotIn("email",credited["people"][0])
+        self.assertNotIn("password",str(credited))
+        self.assertEqual(self.admin.get("/api/referrals/people").status_code,403)
+        self.assertEqual(self.admin.post("/api/admin/referral-commissions/1/reverse",json={
+            "confirmed_refund":True,"reason":"Verified payment refunded",
+        }).status_code,200)
+        reversed=self.owner.get("/api/referrals/people").json()
+        self.assertEqual(reversed["paid_referrals"],0)
+        self.assertEqual(reversed["people"][0]["status"],"uncredited")
+        self.assertEqual(reversed["people"][0]["earned_ugx"],0)
+
     def test_discount_and_every_verified_renewal(self):
         growth.create_promotion("weekly",5000,"WEEKLY5K")
         self.assertEqual(self.buy("TX-WALLET-0001","WEEKLY5K").status_code,200)

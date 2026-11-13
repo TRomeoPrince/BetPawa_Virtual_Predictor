@@ -92,6 +92,80 @@ def connect():
     return con
 
 
+
+def referral_dashboard(account_id: int, limit: int = 25, offset: int = 0) -> dict:
+    """Private, account-scoped referral funnel and credited per-member history.
+
+    A link visit is an anonymous opening, not a uniquely identified person.
+    'paid' means at least one verified referral commission remains credited after
+    recorded reversals. Cash-outs do not change which member generated a credit.
+    Never expose referred members' email, password, session or payment details.
+    """
+    account_id = int(account_id)
+    limit = min(100, max(1, int(limit)))
+    offset = max(0, int(offset))
+    con = connect()
+    try:
+        signups = con.execute("""
+            SELECT COUNT(*) FROM referral_profiles p
+            JOIN accounts a ON a.id=p.account_id
+            WHERE p.referred_by=?
+        """, (account_id,)).fetchone()[0]
+        paid = con.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT l.referred_account_id
+                FROM referral_wallet_ledger l
+                JOIN referral_profiles p ON p.account_id=l.referred_account_id
+                JOIN accounts a ON a.id=p.account_id
+                WHERE p.referred_by=? AND l.referrer_account_id=?
+                  AND l.entry_type IN ('commission','reversal')
+                GROUP BY l.referred_account_id
+                HAVING SUM(l.amount_ugx)>0
+            )
+        """, (account_id, account_id)).fetchone()[0]
+        rows = con.execute("""
+            SELECT a.username, p.joined_at, p.vip_converted_at,
+                COALESCE(SUM(CASE WHEN l.entry_type IN ('commission','reversal')
+                                  THEN l.amount_ugx ELSE 0 END),0) AS earned_ugx,
+                COUNT(CASE WHEN l.entry_type='commission' THEN 1 END) AS credited_purchases,
+                MAX(CASE WHEN l.entry_type='commission' THEN l.created_at END) AS last_paid_at
+            FROM referral_profiles p
+            JOIN accounts a ON a.id=p.account_id
+            LEFT JOIN referral_wallet_ledger l
+              ON l.referred_account_id=p.account_id AND l.referrer_account_id=?
+            WHERE p.referred_by=?
+            GROUP BY p.account_id, a.username, p.joined_at, p.vip_converted_at
+            ORDER BY p.joined_at DESC, p.account_id DESC
+            LIMIT ? OFFSET ?
+        """, (account_id, account_id, limit, offset)).fetchall()
+        people = []
+        for row in rows:
+            earned = int(row["earned_ugx"] or 0)
+            # We do not call a reversed or uncredited conversion a paying referral.
+            status = ("paid" if earned > 0 else
+                      "uncredited" if row["vip_converted_at"] else "registered")
+            people.append({
+                "username": row["username"],
+                "registered_at": row["joined_at"],
+                "status": status,
+                "earned_ugx": earned,
+                "earned_pc": earned * 100,
+                "credited_purchases": int(row["credited_purchases"] or 0),
+                "last_paid_at": row["last_paid_at"] if status == "paid" else None,
+            })
+        return {
+            "signups": int(signups),
+            "paid_referrals": int(paid),
+            "offset": offset,
+            "limit": limit,
+            "has_more": offset + len(people) < int(signups),
+            "people": people,
+            "note": "Link visits count opens, not unique people. Only verified purchases with non-reversed commissions contribute to referrals.",
+        }
+    finally:
+        con.close()
+
+
 def _summary_in_transaction(con, account_id):
     entries = con.execute("""
         SELECT

@@ -761,6 +761,16 @@ def api_my_referrals(request: Request):
     return growth.referral_stats(int(account["id"]), origin)
 
 
+@app.get("/api/referrals/people")
+def api_referral_people(request: Request, response: Response, limit: int = 25, offset: int = 0):
+    """Only show the current member's attributed signups and earned commissions."""
+    account = _require_account(request)
+    response.headers["Cache-Control"] = "private, no-store"
+    if account["role"] != "client":
+        raise HTTPException(403, "Referrals are for registered members only.")
+    return referral_wallet.referral_dashboard(int(account["id"]), limit=limit, offset=offset)
+
+
 @app.get("/api/referrals/wallet")
 def api_referral_wallet(request: Request, response: Response):
     account = _require_account(request)
