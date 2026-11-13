@@ -29,3 +29,7 @@
 
 ## English venue-independent exploratory candidate
 Across 21 archived seasons, Chelsea vs Tottenham had BTTS YES **14/18 (77.8%)** when `CHE–TOT`, and **14/18 (77.8%)** when `TOT–CHE`. This interesting equality is **not** proof that the future pairing will maintain 77.8%. Check each future venue separately, report both losses and longest drought, and validate on new seasons.
+
+## New independent fixture-pair audit (13 Nov 2026)
+
+See [the market-specific pair verification](PAIR_MARKETS_2026-11-13.md) for AST–CRY, TOT–CRY, CHE–TOT and BRE–SUN in **both home/away directions**, with raw scores and separately computed validation/recent rates. [Same-match overlap audit](../TESTS/PAIR_MARKET_INTERSECTIONS_2026-11-13.md) lists the occasions when BTTS YES, Over 2.5 and a home/away win simultaneously occurred. This cross-reference does **not** merge the separate market patterns, and none was enabled in the live predictor.

@@ -49,3 +49,7 @@ These are existing code definitions, not re-run in this documentation change. Ev
 - English three-season highest-goal match followed by next-matchday O2.5: include ties/both teams 161/265 (60.75%); original winner/include 98/155 (63.23%). These are **different selection rules** and cannot be combined as one rate.
 - English CHE–TOT: Over 2.5 was **72.2%** with Chelsea home and **72.2%** with Tottenham home in the 21-season archived pairing check; home and away directions must be separately tracked.
 - English AST–CRY: Over 2.5 was **68.8%** when AST hosted CRY versus **38.9%** when CRY hosted AST in the same archive.
+
+## New independent fixture-pair audit (13 Nov 2026)
+
+See [the market-specific pair verification](PAIR_MARKETS_2026-11-13.md) for AST–CRY, TOT–CRY, CHE–TOT and BRE–SUN in **both home/away directions**, with raw scores and separately computed validation/recent rates. [Same-match overlap audit](../TESTS/PAIR_MARKET_INTERSECTIONS_2026-11-13.md) lists the occasions when BTTS YES, Over 2.5 and a home/away win simultaneously occurred. This cross-reference does **not** merge the separate market patterns, and none was enabled in the live predictor.
