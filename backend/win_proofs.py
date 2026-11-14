@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import binascii
 import io
+import zipfile
 import os
 import re
 import secrets
@@ -49,6 +50,11 @@ def connect():
             CHECK(status IN ('pending','approved','rejected'))
         )
     """)
+    # Add an optional label for administrator-curated images while preserving
+    # attribution of ordinary member submissions.
+    existing = {str(row["name"]) for row in con.execute("PRAGMA table_info(win_proofs)").fetchall()}
+    if "caption_override" not in existing:
+        con.execute("ALTER TABLE win_proofs ADD COLUMN caption_override TEXT")
     con.execute("CREATE INDEX IF NOT EXISTS win_proofs_public_idx ON win_proofs(status, reviewed_at DESC, id DESC)")
     con.execute("CREATE INDEX IF NOT EXISTS win_proofs_owner_idx ON win_proofs(account_id, created_at DESC)")
     con.commit()
@@ -123,11 +129,78 @@ def submit(account_id: int, image_base64: str, consent: bool) -> int:
         con.close()
 
 
+
+def import_curated_archive(admin_id: int, archive_base64: str, redaction_confirmed: bool) -> int:
+    """Import reviewed screenshots as BPV community proofs from a small ZIP.
+
+    Public captions never pretend an administrator was the winning bettor.
+    The admin explicitly confirms the screenshots have been privacy-cropped.
+    """
+    if redaction_confirmed is not True:
+        raise ValueError("Confirm that all screenshots hide account balances, bet IDs, and personal information.")
+    if not isinstance(archive_base64, str) or len(archive_base64) > 14_000_000:
+        raise ValueError("The ZIP must be 10 MB or smaller.")
+    if archive_base64.startswith("data:"):
+        prefix, sep, archive_base64 = archive_base64.partition(",")
+        if not sep or prefix.lower() not in ("data:application/zip;base64", "data:application/x-zip-compressed;base64"):
+            raise ValueError("Upload a ZIP archive.")
+    try:
+        raw = base64.b64decode(archive_base64, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise ValueError("The ZIP could not be read.") from exc
+    if len(raw) > 10 * 1024 * 1024:
+        raise ValueError("The ZIP must be 10 MB or smaller.")
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw), "r") as archive:
+            images = [info for info in archive.infolist()
+                      if not info.is_dir() and Path(info.filename).suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")]
+            if not 1 <= len(images) <= 25:
+                raise ValueError("Include 1 to 25 PNG, JPEG, or WebP screenshots.")
+            if any(info.file_size > MAX_UPLOAD_BYTES for info in images):
+                raise ValueError("Every screenshot must be 3 MB or smaller.")
+            sanitized = []
+            for info in images:
+                with archive.open(info) as source:
+                    data = source.read(MAX_UPLOAD_BYTES + 1)
+                if len(data) > MAX_UPLOAD_BYTES:
+                    raise ValueError("Every screenshot must be 3 MB or smaller.")
+                sanitized.append(_decode_image(base64.b64encode(data).decode("ascii")))
+    except (zipfile.BadZipFile, RuntimeError, OSError) as exc:
+        raise ValueError("Upload a valid ZIP containing screenshot images.") from exc
+    con = connect()
+    created = []
+    try:
+        con.execute("BEGIN IMMEDIATE")
+        folder = _folder()
+        folder.mkdir(parents=True, exist_ok=True)
+        for image in sanitized:
+            name = secrets.token_hex(16) + ".webp"
+            path = folder / name
+            with path.open("xb") as dest:
+                dest.write(image)
+            created.append(path)
+            con.execute(
+                """INSERT INTO win_proofs
+                (account_id, image_name, status, created_at, reviewed_at, reviewed_by, caption_override)
+                VALUES (?, ?, 'approved', ?, ?, ?, ?)""",
+                (admin_id, name, _now(), _now(), admin_id, "Community win"),
+            )
+        con.commit()
+        return len(created)
+    except Exception:
+        con.rollback()
+        for path in created:
+            path.unlink(missing_ok=True)
+        raise
+    finally:
+        con.close()
+
+
 def _item(row):
     return {
         "id": int(row["id"]),
         "username": str(row["username"]),
-        "caption": "Won by @" + str(row["username"]),
+        "caption": (str(row["caption_override"]).strip() if "caption_override" in row.keys() and row["caption_override"] else "Won by @" + str(row["username"])),
         "status": str(row["status"]),
         "created_at": str(row["created_at"]),
         "image_url": f"/api/win-proofs/{int(row['id'])}/image",
