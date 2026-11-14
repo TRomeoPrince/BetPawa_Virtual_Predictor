@@ -15,6 +15,7 @@ from .private_rules import (
 )
 from .rules_engine import evaluate_league, grade_pick, evaluate_multimarket_strategy
 from .time_windows import apply_time_confirmation, time_priority
+from .h2h_markets import evaluate_pair_picks
 
 
 @dataclass
@@ -362,6 +363,16 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
                     selected_team=p.get("selected_team"),
                     selected_teams=p.get("selected_teams"),
                 )
+
+    # Exact home/away paired-fixture market research. Each independent Win,
+    # Over and BTTS outcome has a distinct card and separate score grading.
+    for p in evaluate_pair_picks(next_target.get("English", [])):
+        add_support(
+            p["league"], p["target_position"], p["target_home"],
+            p["target_away"], p["target_market"], p["support"],
+            selected_team=p["selected_team"],
+            selected_teams=p["selected_teams"],
+        )
 
     predictions = []
     for item in grouped.values():

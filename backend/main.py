@@ -173,6 +173,7 @@ def _user_id(request: Request, response: Response) -> str:
 def _public_support(support: dict) -> dict:
     allowed = {
         "historical_win_rate", "wins", "tests", "baseline", "edge_pp",
+        "research_status",
         "positive_seasons", "time_status", "time_alignment", "time_alignment_window",
         "time_alignment_note", "time_historical_wins", "time_historical_tests",
         "time_historical_rate", "time_historical_windows",
@@ -1654,6 +1655,38 @@ def status():
         "rules_public": False,
         "mode": "client subscriptions + private admin strategy console",
     }
+
+
+@app.get("/api/recommended-picks")
+def recommended_picks(request: Request):
+    """Read-only next-round cross-market summary; never saves user selections."""
+    account = _require_account(request)
+    is_free = not _is_vip(account)
+    if is_free:
+        if not account.get("email") or free_access.active_release() is None:
+            raise HTTPException(403, "An active subscription or Free release is required.")
+    try:
+        context = feed.prediction_context()
+        if is_free and not _free_round_allowed(context):
+            raise HTTPException(403, "This matchday is not part of an active public release.")
+        predictions = build_prediction(context).get("predictions", [])
+        if is_free:
+            predictions = [
+                p for p in predictions
+                if str(p.get("league", "")).upper() in {"ENGLISH", "EPL", "DUTCH", "NETHERLANDS"}
+                and free_access.allowed_market(_market_category(p.get("expected")))
+            ]
+        return {
+            "ok": True,
+            "season": str(context["season"]),
+            "next_matchday": context["next_matchday"],
+            "predictions": [_public_prediction(p) for p in predictions],
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print("Recommendation service error:", repr(exc))
+        raise HTTPException(502, "Recommendations temporarily unavailable.")
 
 
 @app.post("/api/predict/{category}")

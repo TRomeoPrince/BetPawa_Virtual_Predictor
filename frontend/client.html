@@ -34,6 +34,7 @@
 .premiumStatus.awaiting{background:#f0f1ef;color:#5c6b61}
 .premiumStatus.watch-result{background:#e9f0fa;color:#355a7a}
 .premiumFoot{margin:12px 0 0;color:#677c6e;font-size:12px;line-height:1.6}
+.recMarket{display:inline-block;margin:3px 7px 3px 0;padding:6px 9px;border:1px solid #b9d9c1;border-radius:9px;background:#f1f9ef;color:#185d41;font-size:12px;font-weight:750;text-decoration:none;white-space:normal}.recMarket.recWatch{background:#fff4d9;border-color:#e8d29d;color:#815d18}
 @media(max-width:570px){.premiumSection{padding:16px}.premiumSection h2{font-size:22px}}
 
 .winSubmitPanel{margin-top:26px;padding:23px;border-radius:19px;border:1px solid #d1e4d0;background:#fff}
@@ -85,6 +86,19 @@
   <tbody id="premiumPicksRows"></tbody>
  </table></div>
  <p class="premiumFoot">BTTS / Over 2.5 indicates two alternative markets, not a guaranteed combination. “Win/loss pattern” is a research watch, not a winner pick. Results are checked starting one minute after each betting window closes, then retried every minute until published. Alarm times are reference reminders, not automatic notifications. Historical patterns do not guarantee results; no bets are placed through this page.</p>
+</section>
+
+<section id="modelRecommendationsSection" class="premiumSection" aria-label="Top Recommended Picks by market" hidden>
+ <div class="premiumHeader"><div>
+  <div class="premiumEyebrow">Live model shortlist · independent markets</div>
+  <h2>Top Recommended Picks</h2>
+  <p id="modelRecommendationsMeta" class="premiumInfo">Checking the next published matchday…</p>
+ </div><button type="button" class="btn" id="refreshModelRecommendations">Refresh recommendations</button></div>
+ <div class="premiumTableWrap"><table class="premiumTable" aria-label="Independent model markets">
+  <thead><tr><th>League</th><th>Fixture</th><th>Market selections and historical support</th></tr></thead>
+  <tbody id="modelRecommendationsRows"></tbody>
+ </table></div>
+ <p class="premiumFoot">One match may appear under Wins, Overs and BTTS independently. Market labels link to their own prediction pages; they are not a combined bet. Historical screening, especially on small H2H samples, is exploratory and does not establish a betting edge. Watchlist entries are shown separately from historically screened signals.</p>
 </section>
 
 <section id="winProofSubmit" class="winSubmitPanel" aria-label="Submit Win Proof">
@@ -157,6 +171,79 @@ async function api(url,options){
   return data;
 }
 
+
+function marketCategory(label){
+ const m=String(label||'').toUpperCase();
+ if(m.includes('OVER'))return 'overs';
+ if(m.includes('UNDER'))return 'unders';
+ if(m.includes('BTTS'))return 'btts';
+ if(m.includes('HOME WIN')||m.includes('AWAY WIN'))return 'wins';
+ return null;
+}
+function displayModelRecommendations(data){
+ const section=$('modelRecommendationsSection');
+ const body=$('modelRecommendationsRows');
+ body.replaceChildren();
+ const all=data.predictions||[];
+ const grouped=new Map();
+ for(const pick of all){
+  const category=marketCategory(pick.expected);
+  if(!category)continue;
+  const key=[pick.league,pick.target_home,pick.target_away].join('|');
+  if(!grouped.has(key))grouped.set(key,{
+   league:pick.league,home:pick.target_home,away:pick.target_away,markets:[],
+   best:0,hasPair:false
+  });
+  const item=grouped.get(key);
+  const research=(pick.supports||[]).find(s=>s.research_status);
+  item.hasPair ||= !!research;
+  item.best=Math.max(item.best,Number(pick.top_historical_win_rate||0));
+  item.markets.push({pick,category,research});
+ }
+ const choices=[...grouped.values()].sort((a,b)=>
+  Number(b.hasPair)-Number(a.hasPair)||b.best-a.best
+ ).slice(0,12);
+ const td=(value,cls)=>{
+  const el=document.createElement('td');el.textContent=String(value);
+  if(cls)el.className=cls;return el;
+ };
+ for(const item of choices){
+  const tr=document.createElement('tr'),markets=td('');
+  for(const {pick,category,research} of item.markets){
+   const link=document.createElement('a');
+   link.href='/client/'+category;
+   link.className='recMarket';
+   const label=pick.expected==='HOME WIN'?item.home+' WIN':
+    pick.expected==='AWAY WIN'?item.away+' WIN':pick.expected;
+   const wins=research?.wins??pick.top_wins;
+   const tests=research?.tests??pick.top_tests;
+   const evidence=Number.isInteger(wins)&&Number.isInteger(tests)?
+    ' · '+wins+'/'+tests:'';
+   const kind=research?(research.research_status==='watch'?' · WATCH':' · research'):'';
+   link.textContent=label+evidence+kind;
+   if(research?.research_status==='watch')link.classList.add('recWatch');
+   markets.append(link);
+  }
+  tr.append(td(item.league),td(item.home+' – '+item.away,'fixture'),markets);
+  body.append(tr);
+ }
+ if(!choices.length){
+  const tr=document.createElement('tr'),cell=td('No qualifying markets in the next published matchday.');
+  cell.colSpan=3;tr.append(cell);body.append(tr);
+ }
+ $('modelRecommendationsMeta').textContent=
+  'Season '+data.season+' · Matchday '+data.next_matchday+
+  ' · '+all.length+' independent market selections · Refresh to check the next round.';
+ section.hidden=false;
+}
+async function loadModelRecommendations(){
+ try{
+  const data=await api('/api/recommended-picks',{cache:'no-store'});
+  displayModelRecommendations(data);
+ }catch(e){
+  $('modelRecommendationsSection').hidden=true;
+ }
+}
 
 let premiumScheduledTimer=null;
 function schedulePremiumResultRefresh(items){
@@ -321,6 +408,7 @@ async function load(){
     showAccount();
     refreshMyWinProofs();
     loadPremiumPicks();
+    loadModelRecommendations();
     loadPicksPreview();
     const [plans]=await Promise.all([api('/api/plans'),refreshRequests()]);
     renderPlans((plans.plans||[]).filter(p=>['daily','weekly','monthly','annual','lifetime'].includes(p.code)));
@@ -460,8 +548,9 @@ $('passwordForm').addEventListener('submit',async event=>{
 });
 $('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
 $('refreshPremiumPicks').addEventListener('click',loadPremiumPicks);
+$('refreshModelRecommendations').addEventListener('click',loadModelRecommendations);
 load();
-setInterval(()=>{if(account&&document.visibilityState==='visible')loadPremiumPicks()},60000);
+setInterval(()=>{if(account&&document.visibilityState==='visible'){loadPremiumPicks();loadModelRecommendations()}},60000);
 
 /* Presence counts only active, visible, signed-in browser tabs. */
 (()=>{
