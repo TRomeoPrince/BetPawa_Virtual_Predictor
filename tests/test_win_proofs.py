@@ -4,6 +4,7 @@ import io
 import os
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -74,6 +75,45 @@ class WinProofTests(unittest.TestCase):
         self.assertEqual(self.admin.post(f"/api/admin/win-proofs/{proof_id}/review",json={"decision":"rejected"}).status_code,200)
         self.assertEqual(self.guest.get("/api/win-proofs").json()["items"],[])
         self.assertEqual(self.guest.get(f"/api/win-proofs/{proof_id}/image").status_code,404)
+
+    def test_admin_bulk_import_labels_as_community_without_exposing_admin_as_winner(self):
+        image_bytes = base64.b64decode(screenshot().split(",", 1)[1])
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("private-ready-1.png", image_bytes)
+            archive.writestr("private-ready-2.png", image_bytes)
+            archive.writestr("manifest.json", '{"note":"Not a screenshot; ignore this"}')
+        zip_data = base64.b64encode(stream.getvalue()).decode("ascii")
+        payload = {"archive_base64": zip_data, "redaction_confirmed": True}
+        self.assertIn(
+            self.guest.post("/api/admin/win-proofs/import", json=payload).status_code,
+            (401, 403),
+        )
+        self.assertIn(
+            self.member.post("/api/admin/win-proofs/import", json=payload).status_code,
+            (401, 403),
+        )
+        self.assertEqual(
+            self.admin.post("/api/admin/win-proofs/import",
+                            json={**payload, "redaction_confirmed": False}).status_code,
+            400,
+        )
+        accepted = self.admin.post("/api/admin/win-proofs/import", json=payload)
+        self.assertEqual(accepted.status_code, 200, accepted.text)
+        self.assertEqual(accepted.json()["imported"], 2)
+        public = self.guest.get("/api/win-proofs").json()["items"]
+        self.assertEqual(len(public), 2)
+        self.assertTrue(all(x["caption"] == "Community win" for x in public))
+        self.assertTrue(all(x["caption"] != "Won by @admin" for x in public))
+        self.assertTrue(all(self.guest.get(x["image_url"]).status_code == 200 for x in public))
+
+    def test_bad_curated_archive_does_not_publish_anything(self):
+        invalid = base64.b64encode(b"not a zip").decode("ascii")
+        response = self.admin.post("/api/admin/win-proofs/import", json={
+            "archive_base64": invalid, "redaction_confirmed": True
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.guest.get("/api/win-proofs").json()["items"], [])
 
     def test_wrong_image_and_right_to_remove(self):
         self.assertEqual(self.member.post("/api/win-proofs",json={"image_base64":base64.b64encode(b"hello").decode(),"consent":True}).status_code,400)

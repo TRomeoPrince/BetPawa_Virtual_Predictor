@@ -330,6 +330,11 @@ class WinProofReview(BaseModel):
     decision: str
 
 
+class CuratedWinProofImport(BaseModel):
+    archive_base64: str
+    redaction_confirmed: bool = False
+
+
 class SelectionUpdate(BaseModel):
     season: str
     matchday: str
@@ -1627,6 +1632,19 @@ def api_admin_review_win_proof(proof_id: int, payload: WinProofReview, request: 
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return {"ok": True}
+
+
+@app.post("/api/admin/win-proofs/import")
+def api_import_curated_win_proofs(payload: CuratedWinProofImport, request: Request):
+    account = _require_admin(request)
+    _verify_write_origin(request)
+    try:
+        count = win_proofs.import_curated_archive(
+            int(account["id"]), payload.archive_base64, payload.redaction_confirmed,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "imported": count}
 
 
 @app.get("/api/status")
