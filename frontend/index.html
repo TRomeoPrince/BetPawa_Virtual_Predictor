@@ -79,11 +79,11 @@ footer{padding:35px 0 45px;border-top:1px solid var(--line);margin-top:50px}.foo
    for(const item of list){
     const fig=document.createElement('figure');fig.className='winCard';fig.style.margin='0';
     const pic=document.createElement('img');pic.loading='lazy';pic.src=item.image_url;
-    pic.alt='Member-submitted win screenshot from '+item.username;
+    pic.alt='Reviewed win screenshot: '+(item.caption||item.username);
     pic.addEventListener('click',()=>window.open(pic.src,'_blank','noopener'));
     const caption=document.createElement('figcaption');
-    caption.textContent='Won by @'+item.username;
-    const small=document.createElement('small');small.textContent='Member submitted · reviewed for public display';
+    caption.textContent=item.caption || ('Won by @'+item.username);
+    const small=document.createElement('small');small.textContent='Community shared · reviewed for public display';
     caption.appendChild(small);fig.append(pic,caption);group.appendChild(fig);
    }
    return group;
