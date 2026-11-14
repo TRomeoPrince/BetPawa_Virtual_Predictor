@@ -155,6 +155,13 @@
  <div class="form"><button class="btn primary" type="button" id="refreshWinProofs">Refresh submissions</button>
   <select id="winProofFilter" aria-label="Filter win proofs"><option value="all">All</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
  <div id="adminWinProofList" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></div>
+ <div class="panel" style="margin-top:22px">
+  <h3>Import reviewed Community Win Proofs</h3>
+  <p class="hint">Upload one ZIP file containing 1–25 privacy-cropped PNG, JPEG, or WebP screenshots (up to 10 MB total). Imported images are published in the homepage gallery as <strong>Community win</strong>, without claiming an unknown username. Only import screenshots whose owners permitted publication.</p>
+  <div class="form"><input type="file" id="winProofZip" accept=".zip,application/zip" aria-label="Select ZIP of approved win screenshots"></div>
+  <label class="hint" style="display:flex;align-items:flex-start;gap:10px;margin:12px 0"><input id="winProofRedactionConfirmed" type="checkbox" style="margin-top:2px"><span>I reviewed every screenshot: account balances, bet IDs, emails, phone numbers, and other sensitive details are hidden, and I have permission to publish them.</span></label>
+  <button class="btn primary" id="importWinProofZip" type="button">Import and publish reviewed screenshots</button>
+ </div>
 </section>
 
 <section id="premium-picks" class="tab panel hidden">
@@ -771,7 +778,7 @@ async function loadWinProofReviews(){
    const image=document.createElement('img');image.src=item.image_url;image.alt='Win proof from '+item.username;
    image.style.cssText='display:block;width:100%;height:190px;object-fit:contain;background:#e6f1e3;border-radius:9px;cursor:zoom-in';
    image.addEventListener('click',()=>window.open(item.image_url,'_blank','noopener'));
-   const title=document.createElement('h4');title.textContent='Won by @'+item.username;
+   const title=document.createElement('h4');title.textContent=item.caption || ('Won by @'+item.username);
    const meta=document.createElement('p');meta.className='hint';meta.textContent='ID #'+item.id+' · '+item.status.toUpperCase()+' · '+fmt(item.created_at);
    const approve=button('Approve','primary',async()=>await decideWinProof(item.id,'approved'));
    const reject=button(item.status==='approved'?'Unpublish':'Reject','danger',async()=>await decideWinProof(item.id,'rejected'));
@@ -792,6 +799,30 @@ async function decideWinProof(id,decision){
 }
 $('refreshWinProofs').addEventListener('click',loadWinProofReviews);
 $('winProofFilter').addEventListener('change',loadWinProofReviews);
+$('importWinProofZip').addEventListener('click',async()=>{
+ const file=$('winProofZip').files[0],confirmed=$('winProofRedactionConfirmed').checked;
+ if(!file){feedback('Choose a ZIP of reviewed screenshots first.',true);return;}
+ if(file.size>10*1024*1024){feedback('ZIP must be 10 MB or smaller.',true);return;}
+ if(!confirmed){feedback('Confirm privacy redaction and permission to publish.',true);return;}
+ if(!confirm('Publish the screenshots from this ZIP publicly as Community win? The site cannot independently verify bets or payouts.'))return;
+ const btn=$('importWinProofZip');btn.disabled=true;
+ try{
+  const archive=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>resolve(String(reader.result||'').split(',')[1]||'');
+   reader.onerror=()=>reject(Error('Could not read the ZIP.'));
+   reader.readAsDataURL(file);
+  });
+  const result=await api('/api/admin/win-proofs/import',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({archive_base64:archive,redaction_confirmed:true})
+  });
+  feedback((result.imported||0)+' reviewed community proofs published to the homepage.');
+  $('winProofZip').value='';$('winProofRedactionConfirmed').checked=false;
+  await loadWinProofReviews();
+ }catch(e){feedback(e.message,true)}
+ finally{btn.disabled=false}
+});
 
 async function load(){
  try{
