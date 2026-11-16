@@ -170,8 +170,11 @@ class PremiumAdminCrudTests(unittest.TestCase):
             premium_picks.save_entry(item,1)
 
     def test_validation_and_grade_cached_per_selection(self):
+        # Use a genuinely future fixture: the test must not change outcome
+        # simply because the wall clock passes a hard-coded date.
+        future_date = (datetime.now(premium_picks.EAT) + timedelta(days=7)).date().isoformat()
         entry={
-            "date_eat":"2026-11-15","season":"139460","matchday":3,
+            "date_eat":future_date,"season":"139460","matchday":3,
             "fixture":"BRE – SUN","selection":"BTTS / Over 2.5",
             "alarm_eat":"19:57","window_open_eat":"20:00","window_close_eat":"20:05",
         }
