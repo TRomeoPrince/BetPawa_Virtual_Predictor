@@ -1,6 +1,6 @@
 """Admin-controlled, non-recurring Free prediction release windows.
 
-Admin chooses a start/end (up to 24 hours) and which of Overs, Unders, BTTS
+Admin chooses a start/end (up to one year) and which of Overs, Unders, BTTS
 is free. Legacy releases keep their original five-round time windows. A free
 member never receives VIP history, private rule metadata or unapproved markets.
 """
@@ -15,7 +15,7 @@ from .time_windows import ANCHOR_DATETIME_EAT, EAT, MATCHDAY_MINUTES, estimate_t
 
 FREE_ROUNDS = 5
 ROUND_DELTA = timedelta(minutes=MATCHDAY_MINUTES)
-MAX_WINDOW = timedelta(hours=24)
+MAX_WINDOW = timedelta(days=365)
 FREE_MARKETS = ("overs", "unders", "btts")
 
 
@@ -50,7 +50,7 @@ def _validate_window(start, end):
     if end <= first.astimezone(timezone.utc):
         raise ValueError("End time must include at least one upcoming estimated matchday (5 minutes).")
     if end - start > MAX_WINDOW:
-        raise ValueError("One Free release cannot exceed 24 hours. Schedule another for longer access.")
+        raise ValueError("One Free release cannot exceed 365 days. Choose a shorter end time.")
     return first
 
 
