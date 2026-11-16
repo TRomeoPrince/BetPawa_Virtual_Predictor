@@ -85,10 +85,24 @@
 </section>
 <section id="free-releases" class="tab panel hidden">
 <h2>Public Free access</h2>
-<p class="hint">Choose exactly when access opens and closes (up to 24 hours), and which markets Free members can view. Free predictions remain limited to the EPL and Dutch virtual leagues. No releases are published automatically. Only the availability and selected markets, never your schedule, are shown to members.</p>
+<p class="hint">Choose exactly when Free Access opens and closes—from five matchdays to a week, a month or a custom end date (up to 365 days)—and which markets Free members can view. Free predictions remain limited to the EPL and Dutch virtual leagues. No releases are published automatically. Only the availability and selected markets, never your schedule, are shown to members. This does not affect registration; new accounts can still sign up.</p>
 <div class="form">
 <label>Start (your device's local timezone) <input type="datetime-local" id="freeStart" aria-label="Free release start time"></label>
 <label>End (your device's local timezone) <input type="datetime-local" id="freeEnd" aria-label="Free release end time"></label>
+</div>
+<div class="form" style="align-items:center">
+<label>Quick duration
+<select id="freeQuickDuration" aria-label="Set Free Access duration">
+<option value="">Custom end time</option>
+<option value="1">1 hour</option>
+<option value="24">24 hours</option>
+<option value="72">3 days</option>
+<option value="168">7 days (one week)</option>
+<option value="336">14 days</option>
+<option value="720">30 days</option>
+</select>
+</label>
+<span class="hint">A preset fills End from Start. You can still type any end date within 365 days. Leave End blank for the original five-matchday release.</span>
 </div>
 <fieldset style="border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin:12px 0">
 <legend style="font-weight:850">Free prediction markets — select at least one</legend>
@@ -395,15 +409,17 @@ const localDateTime=iso=>{
 function resetFreeEditor(){
  editingFreeId=null;$('freeStart').value='';$('freeEnd').value='';
  $('freeEnabled').checked=true;
+ $('freeQuickDuration').value='';
  document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=true);
  $('scheduleFree').textContent='Schedule free release';
  $('cancelEditFree').classList.add('hidden');
- $('freeEditNotice').textContent='Leave End blank for five upcoming matchdays; otherwise choose a later end time (maximum 24 hours).';
+ $('freeEditNotice').textContent='Leave End blank for five upcoming matchdays, select a duration preset, or choose a custom end date (up to 365 days).';
 }
 function editFreeRelease(release){
  editingFreeId=release.id;
  $('freeStart').value=localDateTime(release.starts_at);
  $('freeEnd').value=localDateTime(release.ends_at);
+ $('freeQuickDuration').value='';
  $('freeEnabled').checked=!!release.enabled;
  document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=(release.markets||[]).includes(box.value));
  $('scheduleFree').textContent='Save release changes';
@@ -450,6 +466,23 @@ function renderFreeReleases(){
   tr.append(actions);$('freeReleaseRows').append(tr);
  }
 }
+function applyFreeQuickDuration(){
+ const hours=Number($('freeQuickDuration').value);
+ if(!hours)return;
+ const raw=$('freeStart').value;
+ const start=raw?new Date(raw):new Date();
+ if(!Number.isFinite(start.valueOf())){feedback('Choose a valid start date before selecting a duration.',true);return}
+ const end=new Date(start.getTime()+hours*60*60*1000);
+ $('freeEnd').value=localDateTime(end.toISOString());
+}
+$('freeQuickDuration').addEventListener('change',applyFreeQuickDuration);
+$('freeStart').addEventListener('change',()=>{
+ if($('freeQuickDuration').value)applyFreeQuickDuration();
+});
+$('freeEnd').addEventListener('input',()=>{
+ // A manually adjusted end time takes precedence over the selected preset.
+ $('freeQuickDuration').value='';
+});
 function freeDateValue(id){
  const entered=$(id).value;
  if(!entered)return null;

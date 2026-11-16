@@ -94,7 +94,7 @@ class AdminFreeMarketControlTests(unittest.TestCase):
         end = (now + timedelta(days=1, hours=1)).isoformat()
         examples = [
             {"starts_at": start, "ends_at": start, "markets": ["btts"]},
-            {"starts_at": start, "ends_at": (now + timedelta(days=3)).isoformat(), "markets": ["btts"]},
+            {"starts_at": start, "ends_at": (now + timedelta(days=368)).isoformat(), "markets": ["btts"]},
             {"starts_at": start, "ends_at": end, "markets": []},
             {"starts_at": start, "ends_at": end, "markets": ["wins"]},
             {"starts_at": start, "ends_at": end, "markets": ["btts", "wins"]},
@@ -118,6 +118,54 @@ class AdminFreeMarketControlTests(unittest.TestCase):
             json={"markets": []}).status_code, 400)
         self.assertEqual(self.member.patch("/api/admin/free-releases/" + str(good.json()["id"]),
             json={"markets": ["unders"]}).status_code, 403)
+
+    def test_week_long_free_access_and_flexible_edits_keep_signup_open(self):
+        self.login_admin()
+        start = datetime.now(timezone.utc) - timedelta(minutes=1)
+        week_end = start + timedelta(days=7)
+        created = self.admin.post("/api/admin/free-releases", json={
+            "starts_at": start.isoformat(), "ends_at": week_end.isoformat(),
+            "markets": ["btts", "overs", "unders"], "enabled": True,
+        })
+        self.assertEqual(created.status_code, 200, created.text)
+        release_id = created.json()["id"]
+        releases = self.admin.get("/api/admin/free-releases").json()["releases"]
+        self.assertEqual(len(releases), 1)
+        self.assertEqual(releases[0]["state"], "open")
+        self.assertGreater(releases[0]["round_count"], 2000)
+        self.assertEqual(releases[0]["markets"], ["btts", "overs", "unders"])
+        self.assertTrue(free_access.active_release(now=start + timedelta(days=6)))
+        self.assertIsNone(free_access.active_release(now=week_end))
+
+        # Release duration is not a registration control.
+        rejected = self.member.post("/api/auth/signup", json={
+            "username": "test_week_check", "display_name": "Test",
+            "email": "weekly-check@example.com", "password": "StrongEnough2026!",
+            "age_confirmed": False,
+        })
+        self.assertEqual(rejected.status_code, 400, rejected.text)
+        self.assertIn("25 years", rejected.json()["detail"])
+
+        # An administrator can extend an existing release to a custom nine-day
+        # end, including the interval shown in the reported UI screenshot.
+        longer_end = start + timedelta(days=9, minutes=26)
+        edited = self.admin.patch(f"/api/admin/free-releases/{release_id}", json={
+            "ends_at": longer_end.isoformat(), "markets": ["overs"], "enabled": True,
+        })
+        self.assertEqual(edited.status_code, 200, edited.text)
+        updated = self.admin.get("/api/admin/free-releases").json()["releases"][0]
+        self.assertEqual(updated["ends_at"], longer_end.isoformat())
+        self.assertEqual(updated["markets"], ["overs"])
+        self.assertTrue(free_access.active_release(now=start + timedelta(days=8)))
+        self.assertFalse(free_access.allowed_market("btts", now=start + timedelta(days=8)))
+
+        # The cap is a year, not a day; invalid spans still give a clear 400.
+        invalid = self.admin.patch(f"/api/admin/free-releases/{release_id}", json={
+            "ends_at": (start + timedelta(days=366)).isoformat(),
+        })
+        self.assertEqual(invalid.status_code, 400)
+        self.assertIn("365 days", invalid.json()["detail"])
+        self.assertTrue(free_access.active_release(now=start + timedelta(days=8)))
 
     def test_expired_disabled_release_editable_but_not_reenabled_until_retimed(self):
         self.login_admin()
