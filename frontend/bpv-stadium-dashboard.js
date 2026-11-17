@@ -19,84 +19,80 @@
     return result;
   };
   const money = value => Math.round(value).toLocaleString("en-UG", {maximumFractionDigits:0});
-  const symbols = {
-    dashboard:"▦",wins:"♜",live:"ϟ",vip:"♛",
-    market:"▥",proof:"▣",logout:"↪"
-  };
+  // The user's preferred compact pill navigation replaces the redundant
+  // Stadium sidebar and the page-specific navigation. Use real document URLs,
+  // so controls work with keyboard, middle-click, browser back and refresh.
   const shell = el("div","stadium-shell");
   shell.id = "stadium-shell";
-  const sidebar = el("aside","stadium-sidebar");
-  sidebar.setAttribute("aria-label","Stadium dashboard navigation");
-  const sidebarInner = el("div","stadium-sidebar-inner");
-  const brand = el("a","stadium-brand");
-  brand.href = "/client";
-  brand.append(el("span","stadium-brand-mark","BP"));
-  const brandName = el("span","","BetPawa ");
-  brandName.append(el("b","","Predictor"));
-  brand.append(brandName);
-  const tier = el("div","stadium-tier","Account tier: Checking…");
-  tier.id = "stadium-tier";
-  tier.setAttribute("aria-live","polite");
-  const nav = el("nav","stadium-nav");
-  const links = [
-    ["dashboard","Dashboard","/client",!isPicks],
-    ["wins","Client Wins","/client/picks",isPicks],
-    ["live","Live Selections","/client#stadium-recommendations",false],
-    ["vip","VIP Predictions","/client#premiumPicksSection",false],
-    ["market","Market Research","/client#marketResearch",isMarket],
-    ["proof","Win Proof","/client#winProofSubmit",false]
-  ];
+  const nav = el("nav","bpv-pill-nav");
+  nav.setAttribute("aria-label","BPV primary navigation");
   const navAnchors = new Map();
-  for (const [id,label,url,current] of links) {
-    const anchor = el("a",current?"is-current":"");
-    anchor.href = url;
-    if (current) anchor.setAttribute("aria-current","page");
-    const symbol = el("span","stadium-nav-icon",symbols[id]);
-    symbol.setAttribute("aria-hidden","true");
-    anchor.append(symbol,document.createTextNode(label));
+  const menu = [
+    ["dashboard","Dashboard","/client"],
+    ["picks","My Picks Hub","/client/picks"],
+    ["overs","Overs","/client/overs"],
+    ["unders","Unders","/client/unders"],
+    ["btts","BTTS","/client/btts"],
+    ["wins","Wins","/client/wins"],
+    ["proof","Win Proof","/client#winProofSubmit"],
+    ["vip","VIP","/purchase"]
+  ];
+  for (const [key,label,url] of menu) {
+    const anchor=el("a","bpv-pill-link",label);
+    anchor.href=url;
+    if(key==="vip") anchor.title="VIP-only predictions or upgrade plans";
     nav.append(anchor);
-    navAnchors.set(id,anchor);
+    navAnchors.set(key,anchor);
   }
-  // Highlight the destination or active section, not merely the first page
-  // the visitor entered. Plain links remain keyboard-accessible and work
-  // even with script-disabled browser navigation.
-  function activeNavId(){
-    if(isMarket) return "market";
-    if(isPicks) return "wins";
-    switch(location.hash){
-      case "#stadium-recommendations": return "live";
-      case "#premiumPicksSection": return "vip";
-      case "#marketResearch": return "market";
-      case "#winProofSubmit": return "proof";
-      default: return "dashboard";
+  const adminConsole=el("a","bpv-pill-link","Admin");
+  adminConsole.href="/admin";
+  adminConsole.hidden=true;
+  nav.append(adminConsole);
+  const tier=el("span","bpv-pill-tier","Checking access…");
+  tier.setAttribute("aria-live","polite");
+  nav.append(tier);
+  const logOut=el("button","bpv-pill-link bpv-pill-logout","Sign out");
+  logOut.type="button";
+  nav.append(logOut);
+  const navNotice=el("span","bpv-pill-notice","");
+  navNotice.setAttribute("role","status");
+  navNotice.setAttribute("aria-live","polite");
+  nav.append(navNotice);
+  logOut.addEventListener("click",async()=>{
+    logOut.disabled=true;
+    logOut.textContent="Signing out…";
+    try{
+      const response=await fetch("/api/auth/logout",{
+        method:"POST",credentials:"same-origin",cache:"no-store"
+      });
+      if(!response.ok) throw new Error("Could not sign out. Please try again.");
+      location.assign("/login");
+    }catch(error){
+      logOut.disabled=false;
+      logOut.textContent="Sign out";
+      navNotice.textContent=error.message;
     }
+  });
+  function navChoice(){
+    if (isPicks) return "picks";
+    if (isMarket) return page.split("/").pop();
+    if (location.hash==="#winProofSubmit") return "proof";
+    if (location.hash==="#premiumPicksSection") return "vip";
+    return "dashboard";
   }
   function syncNav(){
-    const active=activeNavId();
-    for(const [id,a] of navAnchors){
-      const selected=id===active;
-      a.classList.toggle("is-current",selected);
-      if(selected)a.setAttribute("aria-current",id==="wins"||isMarket?"page":"location");
-      else a.removeAttribute("aria-current");
+    const active=navChoice();
+    for(const [key,anchor] of navAnchors){
+      const chosen=key===active;
+      anchor.classList.toggle("is-active",chosen);
+      if(chosen) anchor.setAttribute("aria-current",key==="proof"||key==="vip"?"location":"page");
+      else anchor.removeAttribute("aria-current");
     }
   }
-  const adminConsole = el("a","","Admin console");
-  adminConsole.href="/admin";
-  adminConsole.style.display="none"; // revealed for administrators only
-  adminConsole.append(el("span","stadium-nav-icon","⚙"));
-  nav.append(adminConsole);
-  const logOut = el("button","","Sign out");
-  logOut.type = "button";
-  logOut.append(el("span","stadium-nav-icon",symbols.logout));
-  logOut.addEventListener("click",async () => {
-    logOut.disabled = true;
-    try {await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"});}
-    finally {location.assign("/login");}
-  });
-  nav.append(logOut);
-  const sidebarNote = el("p","stadium-sidebar-note","Independent virtual-football research. Graded picks are not verified wagers. 25+ only.");
-  sidebarInner.append(brand,tier,nav,sidebarNote);
-  sidebar.append(sidebarInner);
+  // The Market Research and Live Selections labels were redundant navigation
+  // concepts. They now live as the four explicit market tabs, where users can
+  // run Check Predictions against the next published matchday.
+  syncNav();
 
   const overview = el("section","stadium-overview");
   overview.setAttribute("aria-label","Client wins and saved selections");
@@ -106,7 +102,7 @@
   const headingCopy = el("div","");
   headingCopy.append(
     el("h1","","Client Wins & Graded Picks"),
-    el("p","stadium-subtitle","Your own saved selections, genuine outcomes, and private journal.")
+    el("p","stadium-subtitle","Your saved selections and graded results. Use Overs, Unders, BTTS or Wins above to check the next matchday's live predictions.")
   );
   heading.append(headingIcon,headingCopy);
   overview.append(heading);
@@ -221,25 +217,22 @@
   rail.append(calcPanel);
   main.parentElement.insertBefore(shell,main);
   if(isMarket) shell.classList.add("stadium-market-shell");
-  if(isMarket) shell.append(sidebar,main);
-  else shell.append(sidebar,main,rail);
+  if(isMarket) shell.append(nav,main);
+  else shell.append(nav,main,rail);
 
-  // Fragment targets can be inserted after the browser's initial hash scroll,
-  // so resolve them again after building the dashboard, and on hash changes.
-  const allowedSections = new Set([
-    "stadium-recommendations","premiumPicksSection","marketResearch","winProofSubmit"
-  ]);
+  // On same-document hashes, scroll after layout creation; on a later page
+  // navigation a delayed VIP section may become visible after API hydration.
+  const scrollTargets = new Set(["winProofSubmit","premiumPicksSection"]);
   function jumpToSection(){
     syncNav();
-    const id=decodeURIComponent(location.hash.slice(1));
-    if(!allowedSections.has(id)) return;
-    const target=document.getElementById(id);
+    const targetName=location.hash.slice(1);
+    if(!scrollTargets.has(targetName)) return;
+    const target=document.getElementById(targetName);
     if(target && !target.hidden && getComputedStyle(target).display!=="none"){
       target.scrollIntoView({block:"start",behavior:"auto"});
     }
   }
   window.addEventListener("hashchange",jumpToSection);
-  syncNav();
   if(location.hash) requestAnimationFrame(jumpToSection);
 
   function calculate(){
@@ -286,25 +279,32 @@
   }
   async function loadAccount(){
     try{
-      const response=await getJSON("/api/auth/me");
-      const account=response.account||{};
-      const label=account.role==="admin"?"Account Tier — Admin":
-                  account.subscription?.is_active?"Account Tier — VIP Active":
-                  "Account Tier — Free Member";
-      tier.textContent=label;
-      adminConsole.style.display=account.role==="admin"?"flex":"none";
-      // Free members must not be sent to a hidden VIP-only table.
-      // They get the actual upgrade page instead, without leaking VIP data.
-      const vipAllowed=account.role==="admin"||!!account.subscription?.is_active;
+      const data=await getJSON("/api/auth/me");
+      const account=data.account||{};
+      const admin=account.role==="admin";
+      const vip=admin||!!account.subscription?.is_active;
+      tier.textContent=admin?"ADMIN":vip?"VIP":"FREE";
+      tier.title=admin?"Administrator access":vip?"Your VIP subscription is active":"Free membership";
+      adminConsole.hidden=!admin;
       const vipLink=navAnchors.get("vip");
-      if(vipLink){
-        vipLink.href=vipAllowed?"/client#premiumPicksSection":"/purchase";
-        vipLink.title=vipAllowed?"Open VIP picks":"Explore VIP access plans";
+      vipLink.href=vip?"/client#premiumPicksSection":"/purchase";
+      vipLink.title=vip?"View available VIP predictions":"View VIP subscription plans";
+      if(isDashboard && location.hash==="#premiumPicksSection"){
+        if(!vip) location.replace("/purchase");
+        else {
+          const section=document.getElementById("premiumPicksSection");
+          if(section){
+            const observer=new MutationObserver(()=>{
+              if(!section.hidden){jumpToSection();observer.disconnect();}
+            });
+            observer.observe(section,{attributes:true,attributeFilter:["hidden"]});
+            if(!section.hidden){jumpToSection();observer.disconnect();}
+          }
+        }
       }
-      if(isDashboard && location.hash==="#premiumPicksSection" && !vipAllowed){
-        location.replace("/purchase");
-      }
-    }catch(_){tier.textContent="Account tier unavailable";}
+    }catch(_){
+      tier.textContent="Account unavailable";
+    }
   }
   async function loadSaved(){
     try{
