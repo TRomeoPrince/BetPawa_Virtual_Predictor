@@ -39,6 +39,7 @@
   --shadow:var(--bpv-shadow);
   accent-color:var(--bpv-primary);
 }
+:root[data-bpv-theme="light"] { color-scheme:light; }
 :root[data-bpv-theme="dark"] {
   color-scheme:dark;
   --bpv-bg:#111d20;
