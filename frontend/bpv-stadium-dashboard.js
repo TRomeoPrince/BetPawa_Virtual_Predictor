@@ -19,65 +19,139 @@
     return result;
   };
   const money = value => Math.round(value).toLocaleString("en-UG", {maximumFractionDigits:0});
-  // The user's preferred compact pill navigation replaces the redundant
-  // Stadium sidebar and the page-specific navigation. Use real document URLs,
-  // so controls work with keyboard, middle-click, browser back and refresh.
+  // Unified left navigation for every theme. Use real routes and native
+  // anchors; the sidebar is not a decorative mockup or a second top toolbar.
   const shell = el("div","stadium-shell");
   shell.id = "stadium-shell";
-  const nav = el("nav","bpv-pill-nav");
+  const sidebar = el("aside","bpv-sidebar");
+  sidebar.id = "bpv-client-sidebar";
+  sidebar.setAttribute("aria-label","BPV navigation sidebar");
+
+  const brand = el("a","bpv-sidebar-brand");
+  brand.href="/client";
+  brand.append(el("span","bpv-sidebar-logo","BP"));
+  const brandText=el("span","bpv-sidebar-brand-text","BetPawa ");
+  brandText.append(el("b","","Predictor"));
+  brand.append(brandText);
+
+  const closeSidebar=el("button","bpv-sidebar-close","✕");
+  closeSidebar.type="button";
+  closeSidebar.setAttribute("aria-label","Close navigation");
+  closeSidebar.setAttribute("aria-controls","bpv-client-sidebar");
+
+  const sideHeading=el("div","bpv-sidebar-heading");
+  sideHeading.append(brand,closeSidebar);
+
+  const tier=el("span","bpv-sidebar-tier","Checking access…");
+  tier.setAttribute("aria-live","polite");
+  const nav=el("nav","bpv-side-nav");
   nav.setAttribute("aria-label","BPV primary navigation");
-  const navAnchors = new Map();
-  const menu = [
-    ["dashboard","Dashboard","/client"],
-    ["picks","My Picks Hub","/client/picks"],
-    ["overs","Overs","/client/overs"],
-    ["unders","Unders","/client/unders"],
-    ["btts","BTTS","/client/btts"],
-    ["wins","Wins","/client/wins"],
-    ["proof","Win Proof","/client#winProofSubmit"],
-    ["vip","VIP","/purchase"]
+  const navAnchors=new Map();
+  const menu=[
+    ["dashboard","Dashboard","/client","▦"],
+    ["picks","My Picks Hub","/client/picks","▤"],
+    ["overs","Overs","/client/overs","↗"],
+    ["unders","Unders","/client/unders","↘"],
+    ["btts","BTTS","/client/btts","⇄"],
+    ["wins","Wins","/client/wins","✓"],
+    ["proof","Win Proof","/client#winProofSubmit","▣"],
+    ["vip","VIP Predictions","/purchase","♛"]
   ];
-  for (const [key,label,url] of menu) {
-    const anchor=el("a","bpv-pill-link",label);
+  for(const [key,label,url,icon] of menu){
+    const anchor=el("a","bpv-side-link");
     anchor.href=url;
-    if(key==="vip") anchor.title="VIP-only predictions or upgrade plans";
+    anchor.dataset.section=key;
+    if(key==="vip")anchor.title="VIP predictions or subscription plans";
+    const glyph=el("span","bpv-side-icon",icon);
+    glyph.setAttribute("aria-hidden","true");
+    anchor.append(glyph,document.createTextNode(label));
     nav.append(anchor);
     navAnchors.set(key,anchor);
   }
-  const adminConsole=el("a","bpv-pill-link","Admin");
+  const adminConsole=el("a","bpv-side-link");
   adminConsole.href="/admin";
   adminConsole.hidden=true;
+  adminConsole.append(
+    el("span","bpv-side-icon","⚙"),
+    document.createTextNode("Admin console")
+  );
   nav.append(adminConsole);
-  const tier=el("span","bpv-pill-tier","Checking access…");
-  tier.setAttribute("aria-live","polite");
-  nav.append(tier);
-  const logOut=el("button","bpv-pill-link bpv-pill-logout","Sign out");
+
+  const logOut=el("button","bpv-side-link bpv-side-logout","Sign out");
   logOut.type="button";
+  logOut.prepend(el("span","bpv-side-icon","↪"));
   nav.append(logOut);
-  const navNotice=el("span","bpv-pill-notice","");
+  const navNotice=el("span","bpv-side-notice","");
   navNotice.setAttribute("role","status");
   navNotice.setAttribute("aria-live","polite");
   nav.append(navNotice);
+  const sideFooter=el("p","bpv-sidebar-footer",
+    "25+ only · Independent virtual-football analysis. Betting can be psychologically harmful.");
+  sidebar.append(sideHeading,tier,nav,sideFooter);
+
+  // On phones, navigation is an accessible slide-in drawer instead of an
+  // overflowing top bar. Desktop users see the full-height sticky sidebar.
+  const mobileBar=el("div","bpv-mobile-bar");
+  const menuToggle=el("button","bpv-menu-toggle","☰  Menu");
+  menuToggle.type="button";
+  menuToggle.setAttribute("aria-label","Open navigation");
+  menuToggle.setAttribute("aria-controls","bpv-client-sidebar");
+  menuToggle.setAttribute("aria-expanded","false");
+  const mobileBrand=el("a","bpv-mobile-brand","BPV · Predictor");
+  mobileBrand.href="/client";
+  mobileBar.append(menuToggle,mobileBrand);
+  const backdrop=el("button","bpv-sidebar-backdrop","");
+  backdrop.type="button";
+  backdrop.hidden=true;
+  backdrop.setAttribute("aria-label","Close navigation overlay");
+  function closeMenu(restoreFocus=false){
+    const wasOpen=sidebar.classList.contains("bpv-sidebar-open");
+    sidebar.classList.remove("bpv-sidebar-open");
+    menuToggle.setAttribute("aria-expanded","false");
+    backdrop.hidden=true;
+    if(restoreFocus&&wasOpen)menuToggle.focus();
+  }
+  function openMenu(){
+    sidebar.classList.add("bpv-sidebar-open");
+    menuToggle.setAttribute("aria-expanded","true");
+    backdrop.hidden=false;
+    closeSidebar.focus();
+  }
+  menuToggle.addEventListener("click",()=>{
+    if(sidebar.classList.contains("bpv-sidebar-open"))closeMenu(true);
+    else openMenu();
+  });
+  closeSidebar.addEventListener("click",()=>closeMenu(true));
+  backdrop.addEventListener("click",()=>closeMenu(true));
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&sidebar.classList.contains("bpv-sidebar-open")){
+      event.preventDefault();
+      closeMenu(true);
+    }
+  });
+  nav.addEventListener("click",event=>{
+    if(event.target.closest("a"))closeMenu();
+  });
+
   logOut.addEventListener("click",async()=>{
     logOut.disabled=true;
-    logOut.textContent="Signing out…";
+    navNotice.textContent="Signing out…";
     try{
       const response=await fetch("/api/auth/logout",{
         method:"POST",credentials:"same-origin",cache:"no-store"
       });
-      if(!response.ok) throw new Error("Could not sign out. Please try again.");
+      if(!response.ok)throw new Error("Sign out failed. Please try again.");
       location.assign("/login");
     }catch(error){
       logOut.disabled=false;
-      logOut.textContent="Sign out";
       navNotice.textContent=error.message;
     }
   });
   function navChoice(){
-    if (isPicks) return "picks";
-    if (isMarket) return page.split("/").pop();
-    if (location.hash==="#winProofSubmit") return "proof";
-    if (location.hash==="#premiumPicksSection") return "vip";
+    if(isPicks)return "picks";
+    if(isMarket)return page.split("/").pop();
+    if(location.hash==="#winProofSubmit")return "proof";
+    if(location.hash==="#premiumPicksSection")return "vip";
     return "dashboard";
   }
   function syncNav(){
@@ -85,13 +159,10 @@
     for(const [key,anchor] of navAnchors){
       const chosen=key===active;
       anchor.classList.toggle("is-active",chosen);
-      if(chosen) anchor.setAttribute("aria-current",key==="proof"||key==="vip"?"location":"page");
+      if(chosen)anchor.setAttribute("aria-current",key==="proof"||key==="vip"?"location":"page");
       else anchor.removeAttribute("aria-current");
     }
   }
-  // The Market Research and Live Selections labels were redundant navigation
-  // concepts. They now live as the four explicit market tabs, where users can
-  // run Check Predictions against the next published matchday.
   syncNav();
 
   const overview = el("section","stadium-overview");
@@ -216,9 +287,9 @@
   calcPanel.append(calcHead,calc);
   rail.append(calcPanel);
   main.parentElement.insertBefore(shell,main);
-  if(isMarket) shell.classList.add("stadium-market-shell");
-  if(isMarket) shell.append(nav,main);
-  else shell.append(nav,main,rail);
+  if(isMarket)shell.classList.add("stadium-market-shell");
+  if(isMarket)shell.append(mobileBar,backdrop,sidebar,main);
+  else shell.append(mobileBar,backdrop,sidebar,main,rail);
 
   // On same-document hashes, scroll after layout creation; on a later page
   // navigation a delayed VIP section may become visible after API hydration.
@@ -232,7 +303,7 @@
       target.scrollIntoView({block:"start",behavior:"auto"});
     }
   }
-  window.addEventListener("hashchange",jumpToSection);
+  window.addEventListener("hashchange",()=>{closeMenu();jumpToSection();});
   if(location.hash) requestAnimationFrame(jumpToSection);
 
   function calculate(){
