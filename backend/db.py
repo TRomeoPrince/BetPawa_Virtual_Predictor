@@ -40,6 +40,10 @@ def connect():
     )
     """)
 
+    # Additive schedule columns: old worker accounts and selections stay intact.
+    _ensure_column(con, "user_prediction_batches", "round_open_utc", "TEXT")
+    _ensure_column(con, "user_prediction_batches", "round_close_utc", "TEXT")
+
     con.execute("""
     CREATE TABLE IF NOT EXISTS user_predictions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
