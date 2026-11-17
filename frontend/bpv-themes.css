@@ -378,3 +378,286 @@
 @media(prefers-reduced-motion:reduce){
   #bpv-theme-root *{animation:none!important;transition:none!important}
 }
+
+
+/* Stadium Neon — dramatic football-night presentation inspired by the user
+   reference. Pure CSS atmosphere: no external photos, fonts, tracking, or
+   sample predictions. All displayed figures still come from existing APIs. */
+:root[data-bpv-theme="stadium"] {
+  color-scheme:dark;
+  --bpv-bg:#061016;
+  --bpv-surface:#0c1a23;
+  --bpv-raised:#112530;
+  --bpv-border:#2d4853;
+  --bpv-text:#f5fbfd;
+  --bpv-muted:#b4c6ce;
+  --bpv-primary:#08784e;
+  --bpv-link:#00efa0;
+  --bpv-on-primary:#fff;
+  --bpv-highlight:#00f3a1;
+  --bpv-hero:#0c322b;
+  --bpv-hero-end:#061a20;
+  --bpv-danger:#ff8799;
+  --bpv-warning:#ffce52;
+  --bpv-shadow:0 14px 36px rgba(0,0,0,.38);
+  --bpv-positive-bg:#0b3828;
+  --bpv-negative-bg:#40202a;
+  --bpv-warn-bg:#47361a;
+  --bpv-gold:#ffd052;
+  --bpv-stadium-line:#34525e;
+  --green:var(--bpv-link);
+  --green2:var(--bpv-link);
+}
+/* Midnight stands, stadium light bloom and faintly striped pitch at the foot
+   of the viewport. This is decoration, not screenshot-derived image data. */
+:root[data-bpv-theme="stadium"] body {
+  background-color:#061016;
+  background-image:
+    radial-gradient(ellipse 44% 20% at 5% 94%,rgba(32,252,148,.23),transparent 76%),
+    radial-gradient(ellipse 48% 18% at 98% 98%,rgba(30,218,130,.16),transparent 78%),
+    radial-gradient(ellipse 41% 38% at 3% 38%,rgba(15,119,132,.14),transparent 85%),
+    radial-gradient(ellipse 38% 32% at 98% 37%,rgba(27,132,132,.11),transparent 85%),
+    linear-gradient(180deg,#040b13 0%,#071219 55%,#06150f 100%);
+  background-attachment:fixed;
+  color:var(--bpv-text);
+}
+:root[data-bpv-theme="stadium"] body::before {
+  content:"";
+  position:fixed;
+  inset:auto 0 0;
+  height:clamp(70px,15vh,170px);
+  pointer-events:none;
+  z-index:0;
+  opacity:.58;
+  background:
+    linear-gradient(178deg,transparent 4%,rgba(68,241,145,.42) 8%,transparent 10%),
+    repeating-linear-gradient(92deg,transparent 0 55px,rgba(0,213,115,.055) 55px 110px),
+    linear-gradient(180deg,transparent 0%,rgba(14,93,45,.48) 55%,rgba(3,56,30,.76) 100%);
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 45%);
+  mask-image:linear-gradient(to bottom,transparent,#000 45%);
+}
+:root[data-bpv-theme="stadium"] body::after {
+  content:"";
+  position:fixed;
+  pointer-events:none;
+  inset:0;
+  z-index:0;
+  opacity:.45;
+  background-image:
+    linear-gradient(113deg,transparent 14%,rgba(98,227,255,.085) 17%,transparent 20%),
+    linear-gradient(67deg,transparent 78%,rgba(98,227,255,.07) 81%,transparent 84%);
+  background-repeat:no-repeat;
+  background-position:left top,right top;
+  background-size:50vw 60vh,50vw 60vh;
+}
+:root[data-bpv-theme="stadium"] body > :is(main,header,footer,.shell,.responsibleFooter) {
+  position:relative;
+  z-index:1;
+}
+:root[data-bpv-theme="stadium"] :is(header:not(.top),.topbar,.nav,.aside) {
+  border-color:var(--bpv-stadium-line);
+}
+:root[data-bpv-theme="stadium"] :is(.topbar,header:not(.top)) {
+  background:rgba(5,15,22,.91);
+  backdrop-filter:blur(14px);
+}
+:root[data-bpv-theme="stadium"] :is(.panel,.card,.feature,.stat,.plan,.strategy,.pick,.fixtureCard,
+  .journalForm,.analyticsSection,.credentialBox,.winCard,.winProofEmpty,.section,.market,.premiumSection,.details) {
+  color:var(--bpv-text);
+  background:linear-gradient(160deg,rgba(21,37,49,.96),rgba(8,20,30,.97));
+  border:1px solid var(--bpv-border);
+  box-shadow:0 12px 28px rgba(0,0,0,.19),inset 0 1px 0 rgba(169,226,234,.08);
+}
+:root[data-bpv-theme="stadium"] :is(.picksHub,.reward,.patternPartnerCall,.guide,.credentialBox,
+  .journalForm,.analyticsSection,.winProofSection,.miniStat,.winProofEmpty) {
+  color:var(--bpv-text);
+  background:linear-gradient(145deg,#11262c,#0a2128);
+  border-color:var(--bpv-border);
+}
+:root[data-bpv-theme="stadium"] :is(.market,.pickMini,.picksRecent span,.request,.address,.tile) {
+  background:#0d2228;
+  border-color:var(--bpv-border);
+  color:var(--bpv-text);
+}
+:root[data-bpv-theme="stadium"] :is(.stat,.pickMini) {
+  position:relative;
+  overflow:hidden;
+}
+:root[data-bpv-theme="stadium"] :is(.stat,.pickMini)::after {
+  content:"";
+  position:absolute;
+  height:3px;
+  left:12px;right:12px;bottom:0;
+  border-radius:8px 8px 0 0;
+  background:linear-gradient(90deg,transparent,rgba(0,242,144,.8),transparent);
+  box-shadow:0 0 20px rgba(0,234,139,.30);
+  pointer-events:none;
+}
+:root[data-bpv-theme="stadium"] :is(.stat b,.pickMini b,.rate,.market .open,.eyebrow,.kicker,.selection,.signal,.leagueName,.step .number) {
+  color:var(--bpv-link);
+  text-shadow:0 0 14px rgba(0,239,160,.20);
+}
+:root[data-bpv-theme="stadium"] :is(.stat span,.stat small,.pickMini span,.meta,.lead,.sub,.hint,.fine,.note) {
+  color:var(--bpv-muted);
+}
+:root[data-bpv-theme="stadium"] :is(.preview,.statusCard,.finalCta,.hero,.aside) {
+  background:linear-gradient(125deg,rgba(11,60,45,.98),rgba(8,29,37,.98));
+  border:1px solid rgba(0,235,142,.22);
+  color:#f8fffc;
+  box-shadow:0 16px 40px rgba(0,0,0,.23),inset 0 1px 0 rgba(0,255,151,.13);
+}
+:root[data-bpv-theme="stadium"] :is(.hero h1,.statusCard h2,.finalCta h2) {
+  color:#f8fffc;
+}
+:root[data-bpv-theme="stadium"] :is(.hero p,.statusCard p,.finalCta p,.previewTop,.preview .tile small) {
+  color:#c8e7dc;
+}
+:root[data-bpv-theme="stadium"] :is(.button:not(.alt),.btn.primary,.tab[aria-selected="true"],
+  .chip[aria-pressed="true"],.nav a.active,.pickBtn.on,.button.primary) {
+  color:#001a11;
+  border-color:#09e68e;
+  background:linear-gradient(125deg,#00f2a0,#00c97e);
+  font-weight:900;
+  box-shadow:0 4px 16px rgba(0,228,133,.16);
+}
+:root[data-bpv-theme="stadium"] :is(.button.alt,.btn.secondary,.btn:not(.primary):not(.danger),
+  .nav a:not(.active),.nav button,.pickBtn:not(.on),.tab:not([aria-selected="true"]),
+  .chip:not([aria-pressed="true"])) {
+  background:rgba(15,32,41,.91);
+  border-color:#42606d;
+  color:var(--bpv-text);
+}
+:root[data-bpv-theme="stadium"] :is(.tab:not([aria-selected="true"]),.chip:not([aria-pressed="true"]),.btn:hover,.market:hover) {
+  border-color:#2e9475;
+}
+:root[data-bpv-theme="stadium"] :is(.WON,.outcome.WON,.good,.status.ok) {
+  color:#24ffae;
+  background:#063f29;
+  border:1px solid rgba(0,242,146,.43);
+  box-shadow:inset 0 0 14px rgba(0,250,151,.09);
+}
+:root[data-bpv-theme="stadium"] :is(.pill.active,.badge.vip,.tag.vip,.vip,.tier.vip) {
+  color:var(--bpv-gold);
+  background:rgba(77,51,11,.36);
+  border:1px solid rgba(255,193,56,.63);
+  box-shadow:0 0 18px rgba(255,193,56,.08);
+}
+:root[data-bpv-theme="stadium"] :is(.pill.inactive,.bad,.LOST,.outcome.LOST) {
+  background:#42202a;
+  color:#ffc0c9;
+  border:1px solid rgba(255,135,153,.23);
+}
+:root[data-bpv-theme="stadium"] :is(.PENDING,.outcome.PENDING,.pending,.pill.pending) {
+  background:#493918;color:#ffdb85;
+}
+:root[data-bpv-theme="stadium"] :is(.badge,.tag) {
+  color:#25ffaf;
+  background:#0c3b2d;
+  border:1px solid rgba(0,243,161,.25);
+}
+:root[data-bpv-theme="stadium"] :is(table,thead,tbody) {
+  color:var(--bpv-text);
+}
+:root[data-bpv-theme="stadium"] :is(th,td) {
+  border-bottom-color:#294651;
+}
+:root[data-bpv-theme="stadium"] th {
+  color:#d1e3e8;
+  background:rgba(22,37,48,.75);
+}
+:root[data-bpv-theme="stadium"] tbody tr:hover {
+  background:rgba(0,234,151,.06);
+}
+:root[data-bpv-theme="stadium"] :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  color:var(--bpv-text);
+  background:#0b1d27;
+  border:1px solid #43616b;
+}
+:root[data-bpv-theme="stadium"] :is(input:not([type=checkbox]):not([type=radio]),select,textarea):focus {
+  border-color:#00e897;
+  box-shadow:0 0 0 3px rgba(0,239,160,.12);
+}
+:root[data-bpv-theme="stadium"] :is(.previewBottom,.winCard figcaption,.winCard small) {
+  color:var(--bpv-text);
+}
+:root[data-bpv-theme="stadium"] .previewBottom {background:#12252c}
+:root[data-bpv-theme="stadium"] .previewBottom span {color:var(--bpv-muted)}
+:root[data-bpv-theme="stadium"] .winCard img {background:#101d26}
+:root[data-bpv-theme="stadium"] :is(.responsibleFooter,footer) {
+  color:var(--bpv-muted);
+  background:rgba(4,16,19,.65);
+  border-color:var(--bpv-border);
+}
+:root[data-bpv-theme="stadium"] :is(.responsibleFooter strong,footer strong) {color:#e8f1ec}
+/* Page-specific correction for the market's earlier light override. */
+:root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.hero,.section) {
+  background:linear-gradient(145deg,#122531,#091823);
+  color:var(--bpv-text);
+  border-color:var(--bpv-border);
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.card,.fixtureCard,.stat) {
+  background:linear-gradient(135deg,#142633,#0b1c29);
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.rank,.timeBox.UNCONFIRMED) {
+  color:var(--bpv-link);background:#0e2d30;
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="market"] .timeLabel.UNCONFIRMED {color:#c9d6da;background:#27363c}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] .premiumSection {background:linear-gradient(145deg,#142633,#0b1c29)}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] .premiumTableWrap {border-color:var(--bpv-border)}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] .picksHub {background:linear-gradient(140deg,#102b27,#0a2028)}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] .statusCard {background:linear-gradient(115deg,#10472e,#082728)}
+:root[data-bpv-theme="stadium"][data-bpv-page="index"] .plans {background:#0a1b23}
+:root[data-bpv-theme="stadium"][data-bpv-page="index"] .plan {background:#10222c}
+:root[data-bpv-theme="stadium"][data-bpv-page="index"] .winProofSection {background:#0a1b23}
+:root[data-bpv-theme="stadium"][data-bpv-page="index"] .feature {background:#10212b}
+:root[data-bpv-theme="stadium"][data-bpv-page="index"] .finalCta .button {
+  background:linear-gradient(110deg,#00efa1,#00cf8b);
+  color:#001a13;border-color:#00efa1;
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] .hero {background:linear-gradient(120deg,#103d30,#081f2d)}
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] .pick {background:linear-gradient(150deg,#132833,#091c28)}
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] .btn.heroBtn {background:#00ef9f;color:#07241a;border-color:#00ef9f}
+:root[data-bpv-theme="stadium"][data-bpv-page="admin"] :is(.stat,.panel,.strategy) {
+  background:linear-gradient(155deg,#142630,#0a1b25);
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="login"] .aside {background:linear-gradient(152deg,#0d3d2f,#061824)}
+:root[data-bpv-theme="stadium"][data-bpv-page="login"] .mark {
+  background:#0de69a;color:#001e14;
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="signup"] main,
+:root[data-bpv-theme="stadium"][data-bpv-page="partners"] .card,
+:root[data-bpv-theme="stadium"][data-bpv-page="purchase"] .card,
+:root[data-bpv-theme="stadium"][data-bpv-page="password-setup"] .card,
+:root[data-bpv-theme="stadium"][data-bpv-page="activate"] .card,
+:root[data-bpv-theme="stadium"][data-bpv-page="access-link"] .card {
+  color:var(--bpv-text);
+  background:linear-gradient(145deg,#152732,#091b25);
+  border:1px solid var(--bpv-border);
+  box-shadow:var(--bpv-shadow);
+}
+:root[data-bpv-theme="stadium"] #bpv-theme-toggle {
+  background:linear-gradient(120deg,#0a2823,#102532);
+  color:#e4fff4;
+  border:1px solid #05b97c;
+  box-shadow:0 0 20px rgba(0,239,153,.20),0 12px 30px rgba(0,0,0,.33);
+}
+:root[data-bpv-theme="stadium"] #bpv-theme-menu {
+  background:#101e29;color:#f6fbfd;border-color:#2c5657;
+  box-shadow:0 24px 65px rgba(0,0,0,.55),0 0 28px rgba(0,235,148,.12);
+}
+:root[data-bpv-theme="stadium"] #bpv-theme-menu .bpv-theme-option.bpv-is-selected {
+  background:#0b3829;border-color:#00b979;
+}
+#bpv-theme-menu [data-bpv-swatch="stadium"] {
+  background:
+    radial-gradient(circle at 65% 65%,rgba(0,249,154,.4),transparent 54%),
+    linear-gradient(130deg,#03101b 52%,#00ec94 53%);
+}
+/* Keep the action panel on small phones fully usable and free of backdrop noise. */
+@media(max-width:630px){
+  :root[data-bpv-theme="stadium"] body::after{opacity:.20}
+  :root[data-bpv-theme="stadium"] :is(.panel,.section,.card){box-shadow:0 8px 24px rgba(0,0,0,.18)}
+}
+@media(prefers-reduced-motion:reduce){
+  :root[data-bpv-theme="stadium"] :is(.market,.stat,.card,.btn){animation:none;transition:none}
+}
