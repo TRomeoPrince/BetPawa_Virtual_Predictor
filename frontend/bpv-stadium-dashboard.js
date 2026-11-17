@@ -5,10 +5,13 @@
 (() => {
   "use strict";
   const page = location.pathname;
-  if (page !== "/client" && page !== "/client/picks") return;
+  const supportedMarkets = new Set(["overs","unders","btts","wins"]);
+  const isMarket = /^\/client\/(overs|unders|btts|wins)$/.test(page);
+  if (page !== "/client" && page !== "/client/picks" && !isMarket) return;
   const main = document.querySelector("main");
   if (!main || document.getElementById("stadium-shell")) return;
   const isPicks = page === "/client/picks";
+  const isDashboard = page === "/client";
   const el = (tag, className, text) => {
     const result = document.createElement(tag);
     if (className) result.className = className;
@@ -38,11 +41,12 @@
   const links = [
     ["dashboard","Dashboard","/client",!isPicks],
     ["wins","Client Wins","/client/picks",isPicks],
-    ["live","Live Selections","/client/picks?category=all",false],
+    ["live","Live Selections","/client#stadium-recommendations",false],
     ["vip","VIP Predictions","/client#premiumPicksSection",false],
-    ["market","Market Research","/client/overs",false],
-    ["proof","Win Proof","/client#winProofForm",false]
+    ["market","Market Research","/client#marketResearch",isMarket],
+    ["proof","Win Proof","/client#winProofSubmit",false]
   ];
+  const navAnchors = new Map();
   for (const [id,label,url,current] of links) {
     const anchor = el("a",current?"is-current":"");
     anchor.href = url;
@@ -51,7 +55,36 @@
     symbol.setAttribute("aria-hidden","true");
     anchor.append(symbol,document.createTextNode(label));
     nav.append(anchor);
+    navAnchors.set(id,anchor);
   }
+  // Highlight the destination or active section, not merely the first page
+  // the visitor entered. Plain links remain keyboard-accessible and work
+  // even with script-disabled browser navigation.
+  function activeNavId(){
+    if(isMarket) return "market";
+    if(isPicks) return "wins";
+    switch(location.hash){
+      case "#stadium-recommendations": return "live";
+      case "#premiumPicksSection": return "vip";
+      case "#marketResearch": return "market";
+      case "#winProofSubmit": return "proof";
+      default: return "dashboard";
+    }
+  }
+  function syncNav(){
+    const active=activeNavId();
+    for(const [id,a] of navAnchors){
+      const selected=id===active;
+      a.classList.toggle("is-current",selected);
+      if(selected)a.setAttribute("aria-current",id==="wins"||isMarket?"page":"location");
+      else a.removeAttribute("aria-current");
+    }
+  }
+  const adminConsole = el("a","","Admin console");
+  adminConsole.href="/admin";
+  adminConsole.style.display="none"; // revealed for administrators only
+  adminConsole.append(el("span","stadium-nav-icon","⚙"));
+  nav.append(adminConsole);
   const logOut = el("button","","Sign out");
   logOut.type = "button";
   logOut.append(el("span","stadium-nav-icon",symbols.logout));
@@ -127,7 +160,7 @@
     "Selections are graded against match results; this does not verify a placed bet or a payout.");
   tablePanel.append(tableHead,tableScroll,tableDisclaimer);
   overview.append(tablePanel);
-  main.prepend(overview);
+  if (!isMarket) main.prepend(overview);
   main.classList.add("stadium-content");
 
   const rail = el("aside","stadium-rail");
@@ -187,7 +220,27 @@
   calcPanel.append(calcHead,calc);
   rail.append(calcPanel);
   main.parentElement.insertBefore(shell,main);
-  shell.append(sidebar,main,rail);
+  if(isMarket) shell.classList.add("stadium-market-shell");
+  if(isMarket) shell.append(sidebar,main);
+  else shell.append(sidebar,main,rail);
+
+  // Fragment targets can be inserted after the browser's initial hash scroll,
+  // so resolve them again after building the dashboard, and on hash changes.
+  const allowedSections = new Set([
+    "stadium-recommendations","premiumPicksSection","marketResearch","winProofSubmit"
+  ]);
+  function jumpToSection(){
+    syncNav();
+    const id=decodeURIComponent(location.hash.slice(1));
+    if(!allowedSections.has(id)) return;
+    const target=document.getElementById(id);
+    if(target && !target.hidden && getComputedStyle(target).display!=="none"){
+      target.scrollIntoView({block:"start",behavior:"auto"});
+    }
+  }
+  window.addEventListener("hashchange",jumpToSection);
+  syncNav();
+  if(location.hash) requestAnimationFrame(jumpToSection);
 
   function calculate(){
     const amount=Number(stake.value),decimal=Number(odds.value);
@@ -239,6 +292,18 @@
                   account.subscription?.is_active?"Account Tier — VIP Active":
                   "Account Tier — Free Member";
       tier.textContent=label;
+      adminConsole.style.display=account.role==="admin"?"flex":"none";
+      // Free members must not be sent to a hidden VIP-only table.
+      // They get the actual upgrade page instead, without leaking VIP data.
+      const vipAllowed=account.role==="admin"||!!account.subscription?.is_active;
+      const vipLink=navAnchors.get("vip");
+      if(vipLink){
+        vipLink.href=vipAllowed?"/client#premiumPicksSection":"/purchase";
+        vipLink.title=vipAllowed?"Open VIP picks":"Explore VIP access plans";
+      }
+      if(isDashboard && location.hash==="#premiumPicksSection" && !vipAllowed){
+        location.replace("/purchase");
+      }
     }catch(_){tier.textContent="Account tier unavailable";}
   }
   async function loadSaved(){
@@ -305,7 +370,9 @@
   /* The layout doesn't change authorization or grading. It only reads
      information already available to this signed-in BPV account. */
   loadAccount();
-  loadSaved();
-  loadJournal();
-  loadRecommended();
+  if(!isMarket){
+    loadSaved();
+    loadJournal();
+    loadRecommended();
+  }
 })();

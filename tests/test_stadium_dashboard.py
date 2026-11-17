@@ -14,10 +14,10 @@ FRONTEND = ROOT / "frontend"
 
 class StadiumDashboardTests(unittest.TestCase):
     def test_only_client_pages_load_dashboard_shell(self):
-        for page in ("client", "picks"):
+        for page in ("client", "picks", "market"):
             html = (FRONTEND / (page + ".html")).read_text(encoding="utf-8")
             self.assertEqual(html.count('<script defer src="/bpv-stadium-dashboard.js"></script>'), 1)
-        for page in ("index", "signup", "login", "admin", "market"):
+        for page in ("index", "signup", "login", "admin"):
             html = (FRONTEND / (page + ".html")).read_text(encoding="utf-8")
             self.assertNotIn('src="/bpv-stadium-dashboard.js"', html)
 
@@ -39,6 +39,44 @@ class StadiumDashboardTests(unittest.TestCase):
         self.assertIn("loadSaved();", script)
         self.assertIn("loadJournal();", script)
         self.assertIn("loadRecommended();", script)
+
+    def test_every_sidebar_link_has_a_real_destination(self):
+        source = (FRONTEND / "bpv-stadium-dashboard.js").read_text(encoding="utf-8")
+        home = (FRONTEND / "client.html").read_text(encoding="utf-8")
+        for label, path in (
+            ("Dashboard", "/client"),
+            ("Client Wins", "/client/picks"),
+            ("Live Selections", "/client#stadium-recommendations"),
+            ("VIP Predictions", "/client#premiumPicksSection"),
+            ("Market Research", "/client#marketResearch"),
+            ("Win Proof", "/client#winProofSubmit"),
+        ):
+            with self.subTest(label=label):
+                self.assertIn('"' + label + '","' + path + '"', source)
+        for target in ("premiumPicksSection", "marketResearch", "winProofSubmit"):
+            self.assertIn('id="' + target + '"', home)
+        self.assertIn('recs.id="stadium-recommendations"', source)
+        self.assertIn('vipLink.href=vipAllowed?', source)
+        self.assertIn('"/purchase"', source)
+        self.assertIn('adminConsole.href="/admin"', source)
+        self.assertIn('account.role==="admin"?"flex":"none"', source)
+        self.assertIn('window.addEventListener("hashchange",jumpToSection)', source)
+        self.assertIn('scrollIntoView(', source)
+
+    def test_navigation_persists_across_every_market_and_uses_live_routes(self):
+        source = (FRONTEND / "bpv-stadium-dashboard.js").read_text(encoding="utf-8")
+        css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
+        self.assertIn('const isMarket = /^\\/client\\/(overs|unders|btts|wins)$/.test(page)', source)
+        self.assertIn('shell.classList.add("stadium-market-shell")', source)
+        self.assertIn(".stadium-shell.stadium-market-shell", css)
+        self.assertIn(".stadium-market-shell .stadium-content > .nav", css)
+        self.assertIn("grid-template-columns:minmax(0,1fr)", css)
+        self.assertIn("pointer-events:auto", css)
+        with TestClient(main.app, follow_redirects=False) as client:
+            for market in ("overs", "unders", "btts", "wins"):
+                with self.subTest(market=market):
+                    self.assertEqual(client.get("/client/" + market).status_code, 302)
+            self.assertEqual(client.get("/client/unknown-market").status_code, 404)
 
     def test_old_white_client_sections_now_use_theme_variables(self):
         css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
