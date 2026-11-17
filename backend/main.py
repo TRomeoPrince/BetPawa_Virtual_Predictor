@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -1706,11 +1706,18 @@ def recommended_picks(request: Request):
                 if str(p.get("league", "")).upper() in {"ENGLISH", "EPL", "DUTCH", "NETHERLANDS"}
                 and free_access.allowed_market(_market_category(p.get("expected")))
             ]
+        public_predictions = [_public_prediction(p) for p in predictions]
+        featured, research_watches = recommendation_quality.rank_recommendations(public_predictions)
         return {
             "ok": True,
             "season": str(context["season"]),
             "next_matchday": context["next_matchday"],
-            "predictions": [_public_prediction(p) for p in predictions],
+            # Keep the original authorized predictions for other screens.
+            # The homepage/client Featured section reads only these stricter
+            # reviewed results. Each result is a real current-round pick.
+            "predictions": public_predictions,
+            "featured_predictions": featured,
+            "research_watchlist": research_watches,
         }
     except HTTPException:
         raise
