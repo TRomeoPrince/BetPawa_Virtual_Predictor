@@ -1886,3 +1886,115 @@ body:has(.bpv-sidebar) .stadium-content > nav.nav{
     backdrop-filter:none;
   }
 }
+
+
+/* Stadium Glass 2 — visibly translucent, not just dark cards with blur.
+   Provide *detail behind* the glass: soft stadium floodlights, emerald
+   atmosphere and a faint lower pitch. Keep foreground text fully opaque. */
+:root[data-bpv-theme="stadium"] body {
+  background-color:#070c11;
+  background-image:
+    radial-gradient(ellipse 38% 30% at 20% 35%,rgba(0,193,157,.19),transparent 72%),
+    radial-gradient(ellipse 38% 27% at 77% 28%,rgba(34,175,214,.14),transparent 70%),
+    radial-gradient(ellipse 48% 27% at 53% 80%,rgba(4,220,120,.20),transparent 73%),
+    radial-gradient(ellipse 26% 15% at 13% 93%,rgba(2,232,133,.24),transparent 70%),
+    radial-gradient(ellipse 33% 17% at 93% 92%,rgba(32,193,118,.22),transparent 78%),
+    linear-gradient(180deg,#070d14,#0b1820 52%,#071910 100%);
+  background-attachment:fixed;
+}
+:root[data-bpv-theme="stadium"] body::after {
+  opacity:.72;
+  background-image:
+    radial-gradient(ellipse 16% 10% at 3% 10%,rgba(210,253,255,.34),transparent 85%),
+    radial-gradient(ellipse 15% 10% at 98% 12%,rgba(205,254,252,.27),transparent 85%),
+    linear-gradient(122deg,transparent 9%,rgba(88,214,227,.105) 18%,transparent 32%),
+    linear-gradient(63deg,transparent 72%,rgba(89,219,230,.10) 81%,transparent 92%),
+    repeating-linear-gradient(92deg,transparent 0 160px,rgba(4,160,109,.012) 160px 162px);
+  background-position:center;
+  background-size:cover;
+}
+:root[data-bpv-theme="stadium"] body::before {
+  opacity:.62;
+  height:clamp(90px,21vh,235px);
+  background:
+    linear-gradient(to bottom,transparent,rgba(0,26,13,.38) 90%),
+    repeating-linear-gradient(90deg,rgba(14,132,60,.13) 0 62px,rgba(8,88,40,.12) 62px 124px),
+    linear-gradient(180deg,transparent 0%,rgba(11,114,57,.56) 100%);
+}
+/* Panels are 40–60% transparent so atmospheric detail can actually be seen. */
+:root[data-bpv-theme="stadium"] :is(
+  .stadium-table-section,.stadium-side-panel,.card,.panel,.feature,
+  .stat,.plan,.strategy,.section,.market,.pick,.fixtureCard,
+  .journalForm,.analyticsSection,.credentialBox,.winCard,
+  .winProofEmpty,.details,.premiumSection,.picksHub,.winSubmitPanel,
+  .referralMetric,.referralTableWrap,.premiumTableWrap,
+  .winProofSection,.pickMini,.reward,.guide,.patternPartnerCall,.miniStat
+) {
+  background:linear-gradient(145deg,rgba(30,56,67,.57),rgba(8,22,31,.46));
+  border-color:rgba(150,208,213,.22);
+  -webkit-backdrop-filter:blur(10px) saturate(130%);
+  backdrop-filter:blur(10px) saturate(130%);
+  box-shadow:inset 0 1px 0 rgba(225,255,248,.14),0 15px 35px rgba(0,0,0,.17);
+}
+:root[data-bpv-theme="stadium"] .stadium-stat {
+  background:linear-gradient(155deg,rgba(20,102,79,.55),rgba(8,41,48,.48));
+  border-color:rgba(0,227,145,.34);
+  -webkit-backdrop-filter:blur(10px) saturate(132%);
+  backdrop-filter:blur(10px) saturate(132%);
+}
+:root[data-bpv-theme="stadium"] .bpv-sidebar {
+  background:linear-gradient(155deg,rgba(4,22,25,.64),rgba(6,28,27,.57));
+  border-color:rgba(64,183,152,.23);
+  -webkit-backdrop-filter:blur(10px) saturate(122%);
+  backdrop-filter:blur(10px) saturate(122%);
+}
+:root[data-bpv-theme="stadium"] .stadium-rec {
+  background:rgba(12,37,43,.49);
+  border-color:rgba(153,199,201,.22);
+}
+:root[data-bpv-theme="stadium"] :is(.stadium-table th,.premiumTable th,.referralPeople th) {
+  background:rgba(24,46,56,.58);
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] :is(.premiumSection,.picksHub),
+:root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.hero,.section,.card,.fixtureCard,.stat),
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] :is(.hero,.pick),
+:root[data-bpv-theme="stadium"][data-bpv-page="admin"] :is(.stat,.panel,.strategy) {
+  background:linear-gradient(145deg,rgba(27,51,61,.56),rgba(8,25,35,.45));
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] .statusCard {
+  background:linear-gradient(120deg,rgba(12,85,55,.62),rgba(7,44,46,.54));
+}
+/* Row text and source timestamps remain high contrast. */
+:root[data-bpv-theme="stadium"] .stadium-round-time strong {
+  display:block;
+  font-size:12px;
+  font-weight:750;
+  white-space:normal;
+  color:#effff8;
+}
+:root[data-bpv-theme="stadium"] .stadium-round-time .stadium-muted {
+  font-size:10px;
+  color:#c1d9d6;
+}
+:root[data-bpv-theme="stadium"] .stadium-table {
+  min-width:720px;
+}
+@media(max-width:760px){
+  :root[data-bpv-theme="stadium"] .bpv-sidebar{
+    background:rgba(4,22,27,.91);
+  }
+  :root[data-bpv-theme="stadium"] :is(.stadium-table-section,.stadium-side-panel,.section,.card) {
+    background:linear-gradient(145deg,rgba(29,53,62,.76),rgba(8,22,31,.70));
+    -webkit-backdrop-filter:blur(7px) saturate(120%);
+    backdrop-filter:blur(7px) saturate(120%);
+  }
+}
+@media(prefers-reduced-transparency:reduce) {
+  :root[data-bpv-theme="stadium"] :is(.stadium-stat,.stadium-table-section,.stadium-side-panel,.bpv-sidebar,.card,.panel,.section),
+  :root[data-bpv-theme="stadium"][data-bpv-page="client"] :is(.premiumSection,.picksHub),
+  :root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.hero,.section) {
+    background:rgba(9,25,34,.95);
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+}
