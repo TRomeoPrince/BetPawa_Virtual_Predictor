@@ -559,6 +559,16 @@ def bpv_theme_styles():
     )
 
 
+@app.get("/bpv-stadium-dashboard.js")
+def bpv_stadium_dashboard_script():
+    """Read-only presentation code; all account data stays behind existing APIs."""
+    return FileResponse(
+        ROOT / "frontend" / "bpv-stadium-dashboard.js",
+        media_type="text/javascript; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.get("/bpv-themes.js")
 def bpv_theme_script():
     return FileResponse(
