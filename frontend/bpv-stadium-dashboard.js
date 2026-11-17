@@ -153,7 +153,7 @@
   table.append(thead,tbody);
   tableScroll.append(table);
   const tableDisclaimer = el("p","stadium-disclaimer",
-    "Selections are graded against match results; this does not verify a placed bet or a payout.");
+    "Selections are graded against match results. They are not verified wagers or bookmaker payouts.");
   tablePanel.append(tableHead,tableScroll,tableDisclaimer);
   overview.append(tablePanel);
   if (!isMarket) main.prepend(overview);
