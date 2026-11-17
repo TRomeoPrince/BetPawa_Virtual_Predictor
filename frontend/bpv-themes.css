@@ -1518,3 +1518,215 @@ body:has(.bpv-sidebar) .stadium-content > nav.nav{
     grid-row:2;
   }
 }
+
+
+
+/* BPV Sidebar Refresh — inspired by the user's reference navigation.
+   Keep actual BPV brand, Stadium Neon palette, role/access logic and links.
+   Instead of a separate glowing card, the sidebar visually joins the page:
+   compact 15–16px medium-weight labels, consistent 20px stroke icons and a
+   quiet selected state. All palettes still follow each visitor's theme. */
+:root[data-bpv-theme] .stadium-shell{
+  grid-template-columns:minmax(218px,252px) minmax(0,1fr);
+  column-gap:22px;
+  padding:0 20px 48px 0;
+}
+:root[data-bpv-theme="stadium"] .stadium-shell {
+  grid-template-columns:minmax(218px,252px) minmax(0,1fr) minmax(248px,305px);
+}
+:root[data-bpv-theme] .stadium-shell.stadium-market-shell{
+  grid-template-columns:minmax(218px,252px) minmax(0,1fr);
+}
+:root[data-bpv-theme] .bpv-sidebar{
+  top:0;
+  min-height:calc(100dvh - 12px);
+  max-height:calc(100dvh - 12px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--bpv-border) transparent;
+  gap:11px;
+  border-radius:0;
+  border-width:0 1px 0 0;
+  padding:22px 13px 16px 14px;
+  background:var(--bpv-bg);
+  box-shadow:none;
+  font:550 15px/1.45 Inter,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+}
+:root[data-bpv-theme] .bpv-sidebar-heading{
+  margin:0 0 4px;
+}
+:root[data-bpv-theme] .bpv-sidebar-brand{
+  align-items:center;
+  gap:10px;
+  padding:2px 4px;
+  font-size:16.5px;
+  font-weight:720;
+  line-height:1.25;
+  letter-spacing:-.02em;
+}
+:root[data-bpv-theme] .bpv-sidebar-brand-text b{
+  font-weight:750;
+  line-height:1.28;
+}
+:root[data-bpv-theme] .bpv-sidebar-logo{
+  width:38px;
+  height:38px;
+  border-width:1.5px;
+  font-size:16px;
+  font-weight:800;
+}
+:root[data-bpv-theme] .bpv-sidebar-tier{
+  align-self:flex-start;
+  width:auto;
+  max-width:100%;
+  margin:0 0 6px 4px;
+  padding:6px 11px;
+  border-radius:8px;
+  font-size:11px;
+  line-height:1.4;
+  letter-spacing:.035em;
+  font-weight:750;
+}
+:root[data-bpv-theme] .bpv-side-nav{
+  gap:3px;
+}
+:root[data-bpv-theme] .bpv-side-nav .bpv-side-link{
+  min-height:43px;
+  gap:12px;
+  padding:9px 12px;
+  border-radius:10px;
+  font:560 15.5px/1.4 Inter,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  letter-spacing:-.012em;
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+}
+:root[data-bpv-theme] .bpv-side-nav .bpv-side-icon{
+  display:block;
+  width:20px;
+  height:20px;
+  flex:none;
+  color:var(--bpv-muted);
+  stroke:currentColor;
+  stroke-width:1.85;
+}
+:root[data-bpv-theme] .bpv-side-nav .bpv-side-link:hover{
+  background:var(--bpv-raised);
+  border-color:transparent;
+  color:var(--bpv-text);
+}
+:root[data-bpv-theme] .bpv-side-nav .bpv-side-link.is-active{
+  background:var(--bpv-raised);
+  color:var(--bpv-link);
+  border-color:transparent;
+  box-shadow:none;
+  font-weight:650;
+}
+:root[data-bpv-theme] .bpv-side-nav .is-active .bpv-side-icon {
+  color:var(--bpv-link);
+}
+:root[data-bpv-theme] .bpv-side-nav .bpv-side-logout{
+  margin-top:9px;
+  padding-top:11px;
+  border-top:1px solid var(--bpv-border);
+  border-radius:0 0 10px 10px;
+}
+:root[data-bpv-theme] .bpv-sidebar-footer{
+  margin-top:auto;
+  padding:12px 7px 2px;
+  font-size:11.5px;
+  line-height:1.5;
+  font-weight:450;
+  color:var(--bpv-muted);
+}
+:root[data-bpv-theme="stadium"] .bpv-sidebar{
+  background:#04120f;
+  border-color:#153b30;
+  box-shadow:none;
+}
+:root[data-bpv-theme="stadium"] .bpv-sidebar-logo{
+  background:#051f18;
+  color:#eafff7;
+  border-color:#00dc94;
+  box-shadow:none;
+}
+:root[data-bpv-theme="stadium"] .bpv-sidebar-brand-text b{
+  color:#00e5a0;
+}
+:root[data-bpv-theme="stadium"] .bpv-sidebar-tier{
+  border-color:#605122;
+  background:#292716;
+  color:#f2d67b;
+}
+:root[data-bpv-theme="stadium"] .bpv-side-nav .bpv-side-icon{
+  color:#a6c2b7;
+}
+:root[data-bpv-theme="stadium"] .bpv-side-nav .bpv-side-link{
+  color:#d8e6e1;
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+}
+:root[data-bpv-theme="stadium"] .bpv-side-nav .bpv-side-link:hover{
+  color:#f4fff9;
+  background:rgba(0,159,104,.10);
+  border-color:transparent;
+}
+:root[data-bpv-theme="stadium"] .bpv-side-nav .bpv-side-link.is-active{
+  color:#00e6a0;
+  background:rgba(0,190,123,.14);
+  border-color:transparent;
+  box-shadow:none;
+  font-weight:650;
+}
+:root[data-bpv-theme="stadium"] .bpv-side-nav .is-active .bpv-side-icon{
+  color:#00e6a0;
+}
+:root[data-bpv-theme="stadium"] .bpv-sidebar-footer{
+  color:#a2b8af;
+}
+@media(min-width:761px) and (max-width:1180px){
+  :root[data-bpv-theme] .stadium-shell,
+  :root[data-bpv-theme="stadium"] .stadium-shell,
+  :root[data-bpv-theme] .stadium-shell.stadium-market-shell{
+    grid-template-columns:220px minmax(0,1fr);
+    gap:16px;
+    padding:0 14px 42px 0;
+  }
+  :root[data-bpv-theme="stadium"] .stadium-shell .stadium-rail{
+    grid-column:2;
+    grid-row:2;
+  }
+}
+@media(max-width:760px){
+  :root[data-bpv-theme] .stadium-shell,
+  :root[data-bpv-theme="stadium"] .stadium-shell,
+  :root[data-bpv-theme] .stadium-shell.stadium-market-shell{
+    grid-template-columns:minmax(0,1fr);
+    padding:10px 10px 48px;
+    gap:12px;
+  }
+  :root[data-bpv-theme] .stadium-shell .bpv-sidebar{
+    top:0;
+    min-height:0;
+    max-height:100dvh;
+    border-radius:0 16px 16px 0;
+    border-width:0 1px 0 0;
+    padding:18px 13px 15px;
+    box-shadow:0 12px 40px rgba(0,0,0,.30);
+  }
+  :root[data-bpv-theme] .bpv-sidebar-brand{font-size:16px}
+  :root[data-bpv-theme] .bpv-side-nav .bpv-side-link{
+    min-height:46px;
+    font-size:15.5px;
+  }
+  :root[data-bpv-theme] .bpv-menu-toggle{
+    font-size:14px;
+    font-weight:650;
+  }
+  :root[data-bpv-theme] .bpv-mobile-brand{
+    font-size:15px;
+    font-weight:700;
+  }
+}
