@@ -738,8 +738,10 @@ def client_market_page(category: str, request: Request):
         return RedirectResponse("/login", status_code=302)
     if account.get("must_change_password"):
         return RedirectResponse("/password-setup", status_code=302)
-    if not _is_vip(account) and not account.get("email"):
-        return RedirectResponse("/client", status_code=302)
+    # The market page itself is presentation-only. Let every signed-in member
+    # inspect a market and see a clear Free/VIP access message instead of
+    # silently bouncing back to /client. Prediction APIs still enforce email,
+    # active Free releases, market permissions and VIP checks independently.
     return _frontend_response(MARKET_PAGE)
 
 
