@@ -1858,3 +1858,31 @@ body:has(.bpv-sidebar) .stadium-content > nav.nav{
     background:linear-gradient(145deg,rgba(24,45,56,.84),rgba(8,23,33,.84));
   }
 }
+
+
+
+/* Page-specific legacy styles had more selector specificity than generic
+   glass cards; keep those sections translucent, too. */
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] :is(.premiumSection,.picksHub,.statusCard),
+:root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.hero,.section,.card,.fixtureCard,.stat),
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] :is(.hero,.pick),
+:root[data-bpv-theme="stadium"][data-bpv-page="admin"] :is(.stat,.panel,.strategy),
+:root[data-bpv-theme="stadium"][data-bpv-page="index"] :is(.plans,.plan,.feature,.winProofSection) {
+  color:var(--bpv-text);
+  background:linear-gradient(145deg,rgba(27,48,58,.76),rgba(9,26,36,.70));
+  border-color:var(--stadium-glass-line);
+  -webkit-backdrop-filter:var(--stadium-glass-blur);
+  backdrop-filter:var(--stadium-glass-blur);
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="client"] .statusCard {
+  background:linear-gradient(120deg,rgba(12,79,54,.76),rgba(8,40,43,.67));
+}
+@media(prefers-reduced-transparency:reduce) {
+  :root[data-bpv-theme="stadium"] :is(.stadium-stat,.stadium-table-section,.stadium-side-panel,.bpv-sidebar,.card,.panel,.section),
+  :root[data-bpv-theme="stadium"][data-bpv-page="client"] :is(.premiumSection,.picksHub),
+  :root[data-bpv-theme="stadium"][data-bpv-page="market"] :is(.hero,.section) {
+    background:rgba(10,25,35,.95);
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+}
