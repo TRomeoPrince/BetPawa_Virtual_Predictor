@@ -557,7 +557,7 @@ def bpv_theme_styles():
     return FileResponse(
         ROOT / "frontend" / "bpv-themes.css",
         media_type="text/css; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -567,7 +567,7 @@ def bpv_round_times_script():
     return FileResponse(
         ROOT / "frontend" / "bpv-round-times.js",
         media_type="text/javascript; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -577,7 +577,7 @@ def bpv_stadium_dashboard_script():
     return FileResponse(
         ROOT / "frontend" / "bpv-stadium-dashboard.js",
         media_type="text/javascript; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -586,7 +586,7 @@ def bpv_theme_script():
     return FileResponse(
         ROOT / "frontend" / "bpv-themes.js",
         media_type="text/javascript; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
