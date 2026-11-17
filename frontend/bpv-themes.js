@@ -6,13 +6,14 @@
     {id:"system", name:"Follow Device", detail:"Light or dark automatically", sample:"system"},
     {id:"light", name:"Botanical Light", detail:"Clean, natural and bright", sample:"light"},
     {id:"dark", name:"Midnight", detail:"Deep, calm and focused", sample:"dark"},
+    {id:"stadium", name:"Stadium Neon", detail:"Floodlights, emerald glow and VIP gold", sample:"stadium"},
     {id:"forest", name:"Forest", detail:"Fresh leaves and pine", sample:"forest"},
     {id:"ocean", name:"Ocean", detail:"Clear blue and sea glass", sample:"ocean"},
     {id:"sunset", name:"Sunset", detail:"Warm peach and terracotta", sample:"sunset"},
     {id:"violet", name:"Royal Violet", detail:"Lavender and amethyst", sample:"violet"}
   ];
   var COLORS = {
-    light:"#f6f9f1",dark:"#111d20",forest:"#edf5e9",
+    light:"#f6f9f1",dark:"#111d20",stadium:"#061016",forest:"#edf5e9",
     ocean:"#eaf5fa",sunset:"#fff3e9",violet:"#f4f0fc"
   };
   function valid(id) {return OPTIONS.some(function(item){return item.id === id;});}
@@ -51,7 +52,7 @@
     current = resolved(name);
     document.documentElement.setAttribute("data-bpv-theme",current);
     document.documentElement.setAttribute("data-bpv-choice",selected);
-    document.documentElement.style.colorScheme = current === "dark" ? "dark" : "light";
+    document.documentElement.style.colorScheme = (current === "dark" || current === "stadium") ? "dark" : "light";
     var themeMeta = document.querySelector('meta[name="theme-color"]');
     if(themeMeta) themeMeta.setAttribute("content", COLORS[current]);
     if(persist) save(selected);
