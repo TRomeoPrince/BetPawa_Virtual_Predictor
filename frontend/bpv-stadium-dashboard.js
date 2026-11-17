@@ -250,7 +250,7 @@
   const view = el("a","","View Markets");
   view.href = "/client/overs";
   recActions.append(copy,view);
-  const recDis = el("p","stadium-disclaimer","These are historical-pattern research selections, not guaranteed outcomes or bookmaker offers.");
+  const recDis = el("p","stadium-disclaimer","Featured only when exact home/away, selected market and separate historical checks align. Small samples; no sure wins or verified betting edge. BRE–SUN is excluded.");
   recPanel.append(recHead,recs,recActions,recDis);
   rail.append(recPanel);
 
@@ -403,25 +403,33 @@
   async function loadRecommended(){
     try{
       const data=await getJSON("/api/recommended-picks");
-      const predictions=(data.predictions||[]).filter(p=>
+      const predictions=(data.featured_predictions||[]).filter(p=>
         p && p.expected && p.target_home && p.target_away);
       recs.replaceChildren();
       if(!predictions.length){
-        recs.append(el("p","stadium-empty","No qualifying research picks in the current published matchday."));
+        const watched=(data.research_watchlist||[]).length;
+        recs.append(el("p","stadium-empty",
+          "No historically stronger head-to-head selection matches this published matchday."+
+          (watched?" "+watched+" other H2H signal(s) remain watch-only.":"")+
+          " No selection is guaranteed."));
         return;
       }
       const rows=predictions.slice(0,6);
       for(const item of rows){
         const card=el("div","stadium-rec");
         const fixture=String(item.target_home)+" vs "+String(item.target_away);
+        const evidence=item.research_evidence||{};
+        const sample=Number.isFinite(evidence.validation_tests)?
+          " · Historical validation "+evidence.validation_wins+"/"+evidence.validation_tests+
+          " · Recent "+evidence.recent_wins+"/"+evidence.recent_tests:"";
         card.append(el("strong","",fixture),
                     el("span","stadium-rec-market",item.expected),
                     el("small","","Season "+String(data.season||"—")+
-                      " · MD "+String(data.next_matchday||"—")+" · "+String(item.league||"Virtual Football")));
+                      " · MD "+String(data.next_matchday||"—")+" · "+String(item.league||"Virtual Football")+sample));
         recs.append(card);
       }
       copyText=rows.map(p=>p.target_home+" vs "+p.target_away+
-        " — "+p.expected+" ("+p.league+")").join("\n");
+        " — "+p.expected+" ("+p.league+", historical research only)").join("\n");
       copy.disabled=false;
     }catch(error){
       recs.replaceChildren(el("p","stadium-empty",
