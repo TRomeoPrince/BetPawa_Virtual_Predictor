@@ -160,15 +160,19 @@ def save_user_prediction_batch(user_id: str, result: dict[str, Any]):
 
     con.execute("""
     INSERT INTO user_prediction_batches
-      (user_id, season, matchday, target_round_id, candidate_count, checked_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+      (user_id, season, matchday, target_round_id, candidate_count, checked_at,
+       round_open_utc, round_close_utc)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id, season, matchday) DO UPDATE SET
       target_round_id=excluded.target_round_id,
       candidate_count=excluded.candidate_count,
-      checked_at=excluded.checked_at
+      checked_at=excluded.checked_at,
+      round_open_utc=COALESCE(excluded.round_open_utc,user_prediction_batches.round_open_utc),
+      round_close_utc=COALESCE(excluded.round_close_utc,user_prediction_batches.round_close_utc)
     """, (
         user_id, season, matchday, result.get("next_round_id"),
         len(predictions), now,
+        result.get("next_round_open_utc"),result.get("next_round_close_utc"),
     ))
 
     for p in predictions:
