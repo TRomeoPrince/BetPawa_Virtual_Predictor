@@ -77,7 +77,8 @@ class ClientSiteTests(unittest.TestCase):
         self.login("membertwo", second_password)
         other_history = self.client.get("/api/client/subscription-requests").json()
         self.assertEqual(other_history["requests"], [])
-        self.assertEqual(self.client.get("/client/overs").status_code, 302)
+        self.assertEqual(self.client.get("/client/overs").status_code, 200)
+        self.assertEqual(self.client.post("/api/predict/overs").status_code, 403)
         self.assertFalse(access.get_account(first["id"])["subscription"]["is_active"])
 
     def test_history_is_market_scoped_and_combo_stats_are_selected_only(self):
