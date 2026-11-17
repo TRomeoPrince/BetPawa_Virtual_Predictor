@@ -126,6 +126,8 @@ def _free_market_result(public_result):
         "next_matchday": public_result.get("next_matchday"),
         "latest_completed_matchday": public_result.get("latest_completed_matchday"),
         "next_round_id": public_result.get("next_round_id"),
+        "next_round_open_utc": public_result.get("next_round_open_utc"),
+        "next_round_close_utc": public_result.get("next_round_close_utc"),
         "next_target": {k: v for k, v in fixtures.items() if k.upper() in allowed},
         "predictions": [p for p in public_result.get("predictions", [])
                         if str(p.get("league", "")).upper() in allowed],
@@ -555,7 +557,17 @@ def bpv_theme_styles():
     return FileResponse(
         ROOT / "frontend" / "bpv-themes.css",
         media_type="text/css; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.get("/bpv-round-times.js")
+def bpv_round_times_script():
+    """Format source-scheduled round windows; never expose private selections."""
+    return FileResponse(
+        ROOT / "frontend" / "bpv-round-times.js",
+        media_type="text/javascript; charset=utf-8",
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -565,7 +577,7 @@ def bpv_stadium_dashboard_script():
     return FileResponse(
         ROOT / "frontend" / "bpv-stadium-dashboard.js",
         media_type="text/javascript; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -574,7 +586,7 @@ def bpv_theme_script():
     return FileResponse(
         ROOT / "frontend" / "bpv-themes.js",
         media_type="text/javascript; charset=utf-8",
-        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "no-cache, max-age=0, must-revalidate", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -1712,6 +1724,8 @@ def recommended_picks(request: Request):
             "ok": True,
             "season": str(context["season"]),
             "next_matchday": context["next_matchday"],
+            "next_round_open_utc": context.get("next_round_open_utc"),
+            "next_round_close_utc": context.get("next_round_close_utc"),
             # Keep the original authorized predictions for other screens.
             # The homepage/client Featured section reads only these stricter
             # reviewed results. Each result is a real current-round pick.

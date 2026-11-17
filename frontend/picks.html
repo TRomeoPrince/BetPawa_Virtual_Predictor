@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <script src="/bpv-themes.js"></script>
+<script src="/bpv-round-times.js"></script>
 <script defer src="/bpv-stadium-dashboard.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -102,8 +103,13 @@ function renderPick(item){
   const detail=node('div','meta');
   detail.textContent=item.league+' · Season '+item.season+' / Matchday '+item.matchday;
   card.append(detail);
+  const timing=window.BPVRoundTime?.savedPick(item)||
+    {label:'Expected play',text:'Not available',note:'No schedule'};
+  const schedule=node('div','meta',timing.label+': '+timing.text);
+  schedule.title=timing.note;
+  card.append(schedule);
   if(item.outcome==='PENDING'){
-    card.append(node('div','meta','Result pending'+(item.estimated_target_time_eat?' · Est. '+item.estimated_target_time_eat+' EAT':'')));
+    card.append(node('div','meta','Result pending'));
   }else{
     card.append(node('div','meta','Full-time score: '+item.ft_home+'–'+item.ft_away+' · Graded '+dateText(item.graded_at)));
   }

@@ -111,6 +111,7 @@ def get_picks(user_id, category="all", scope="latest", outcome="all", limit=50, 
             SELECT p.id, p.season, p.matchday, p.league, p.target_home,
               p.target_away, p.expected, p.outcome, p.ht_home, p.ht_away,
               p.ft_home, p.ft_away, p.estimated_target_time_eat,
+              b.round_open_utc, b.round_close_utc,
               p.time_status, p.created_at, p.graded_at
             FROM user_predictions p
             LEFT JOIN user_prediction_batches b ON

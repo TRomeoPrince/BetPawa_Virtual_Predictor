@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <script src="/bpv-themes.js"></script>
+<script src="/bpv-round-times.js"></script>
 <script defer src="/bpv-stadium-dashboard.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -235,8 +236,11 @@ function displayModelRecommendations(data){
   const tr=document.createElement('tr'),cell=td('No stronger archived H2H matches for this published matchday. We do not fill this list with weaker picks.');
   cell.colSpan=3;tr.append(cell);body.append(tr);
  }
+ const roundWindow=window.BPVRoundTime?.roundWindow(
+  data.next_round_open_utc,data.next_round_close_utc);
  $('modelRecommendationsMeta').textContent=
   'Season '+data.season+' · Matchday '+data.next_matchday+
+  (roundWindow?' · Expected play window: '+roundWindow.text:' · Source round time unavailable')+
   ' · '+all.length+' historically screened featured selections'+
   (watches.length?' · '+watches.length+' watch-only signals not featured':'')+
   ' · Venue direction and sample size matter; these are not sure wins. Refresh for the next round.';

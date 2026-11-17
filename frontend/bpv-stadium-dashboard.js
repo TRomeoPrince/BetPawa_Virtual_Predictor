@@ -244,7 +244,7 @@
   table.setAttribute("aria-label","Your saved BPV selections");
   const thead = el("thead","");
   const hr = el("tr","");
-  for (const col of ["Virtual matchup","Prediction market","Season / MD","Status"]){
+  for (const col of ["Virtual matchup","Prediction market","Season / MD","Expected play (EAT)","Status"]){
     hr.append(el("th","",col));
   }
   thead.append(hr);
@@ -252,7 +252,7 @@
   tbody.id = "stadium-picks-rows";
   const initialRow = el("tr","");
   const initialCell = el("td","","Loading saved selections…");
-  initialCell.colSpan = 4;
+  initialCell.colSpan = 5;
   initialRow.append(initialCell);
   tbody.append(initialRow);
   table.append(thead,tbody);
@@ -354,7 +354,7 @@
   function showEmpty(message){
     tbody.replaceChildren();
     const tr=el("tr",""),td=el("td","",message);
-    td.colSpan=4;td.className="stadium-empty";
+    td.colSpan=5;td.className="stadium-empty";
     tr.append(td);tbody.append(tr);
   }
   function showPicks(items){
@@ -370,10 +370,16 @@
       game.append(el("strong","",display),el("span","stadium-muted",item.league||"Virtual Football"));
       const selection=el("td","",item.expected||"—");
       const when=el("td","","Season "+String(item.season||"—")+" / "+String(item.matchday||"—"));
+      const roundTime=window.BPVRoundTime?.savedPick(item)||
+        {text:"Not available",label:"Expected play",note:"No schedule"};
+      const whenPlays=el("td","stadium-round-time");
+      whenPlays.title=roundTime.note;
+      whenPlays.append(el("strong","",roundTime.text),
+        el("span","stadium-muted",roundTime.label));
       const state=String(item.outcome||"PENDING").toUpperCase();
       const status=el("td","");
       status.append(el("span","stadium-status "+(state==="WON"?"won":state==="LOST"?"lost":"pending"),state));
-      tr.append(game,selection,when,status);
+      tr.append(game,selection,when,whenPlays,status);
       tbody.append(tr);
     }
   }
@@ -449,6 +455,8 @@
         return;
       }
       const rows=predictions.slice(0,6);
+      const roundWindow=window.BPVRoundTime?.roundWindow(
+        data.next_round_open_utc,data.next_round_close_utc);
       for(const item of rows){
         const card=el("div","stadium-rec");
         const fixture=String(item.target_home)+" vs "+String(item.target_away);
@@ -459,7 +467,9 @@
         card.append(el("strong","",fixture),
                     el("span","stadium-rec-market",item.expected),
                     el("small","","Season "+String(data.season||"—")+
-                      " · MD "+String(data.next_matchday||"—")+" · "+String(item.league||"Virtual Football")+sample));
+                      " · MD "+String(data.next_matchday||"—")+
+                      (roundWindow?" · Round "+roundWindow.text:" · Round time unavailable")+
+                      " · "+String(item.league||"Virtual Football")+sample));
         recs.append(card);
       }
       copyText=rows.map(p=>p.target_home+" vs "+p.target_away+

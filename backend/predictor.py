@@ -430,6 +430,8 @@ def build_prediction(context: dict[str, Any]) -> dict[str, Any]:
         "latest_completed_matchday": context["latest_completed_matchday"],
         "next_matchday": context["next_matchday"],
         "next_round_id": context.get("next_round_id"),
+        "next_round_open_utc": context.get("next_round_open_utc"),
+        "next_round_close_utc": context.get("next_round_close_utc"),
         "alignment_scope": context["alignment_scope"],
         "leagues": leagues,
         "predictions": predictions,
