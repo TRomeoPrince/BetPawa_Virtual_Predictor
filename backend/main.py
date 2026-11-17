@@ -550,6 +550,24 @@ def _frontend_response(path: Path):
     )
 
 
+@app.get("/bpv-themes.css")
+def bpv_theme_styles():
+    return FileResponse(
+        ROOT / "frontend" / "bpv-themes.css",
+        media_type="text/css; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.get("/bpv-themes.js")
+def bpv_theme_script():
+    return FileResponse(
+        ROOT / "frontend" / "bpv-themes.js",
+        media_type="text/javascript; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.get("/")
 def home():
     """Public marketing page; private dashboards remain behind authentication."""
