@@ -878,7 +878,22 @@ class BetPawaFeed:
         current_pairs = self._pairs_by_league(current_normalized)
         latest_source = current_normalized[-1]
 
+        # Source-provided betting-round window. Keep precise UTC timestamps
+        # separate from the legacy model-derived estimated_target_time_eat.
+        # tradingTime boundaries describe the round window, not an asserted
+        # individual fixture kickoff time.
+        target_trading = target.get("tradingTime") or {}
+        open_ts = _parse_ts(target_trading.get("start"))
+        close_ts = _parse_ts(target_trading.get("end"))
         result = {
+            "next_round_open_utc": (
+                datetime.fromtimestamp(open_ts, timezone.utc).isoformat()
+                if open_ts is not None else None
+            ),
+            "next_round_close_utc": (
+                datetime.fromtimestamp(close_ts, timezone.utc).isoformat()
+                if close_ts is not None else None
+            ),
             "season": current.get("id"),
             "latest_completed_matchday": source_idx + 1,
             "next_matchday": source_idx + 2,
