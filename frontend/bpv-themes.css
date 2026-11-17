@@ -163,8 +163,8 @@
   color:var(--bpv-on-primary);
   border-color:var(--bpv-primary);
 }
-:root[data-bpv-theme] :is(.eyebrow,.kicker,.selection,.market,.rate,.logo,.back,.badge,.brand,a:not(.button):not(.btn):not(.nav a):not(.logo):not(.brand)) {
-  color:inherit;
+:root[data-bpv-theme] :is(.kicker,.selection,.rate,.back,.code) {
+  color:var(--bpv-link);
 }
 :root[data-bpv-theme] :is(.muted,.hint,.sub,.lead,.meta,.note,.fine,.empty,.section p) {
   color:var(--bpv-muted);
@@ -193,7 +193,6 @@
   color:inherit;
 }
 /* Avoid turning the Picks Hub and Market hero illustrations into paper cards. */
-:root[data-bpv-theme] [data-bpv-page=""] {display:initial}
 :root[data-bpv-theme] .hero .actions .heroBtn {
   background:var(--bpv-highlight);
   color:#173629;
