@@ -1,5 +1,10 @@
 """Regression tests for stricter, honest next-round H2H recommendations."""
 import unittest
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+
+from backend import main
 
 from backend.recommendation_quality import rank_recommendations
 
@@ -63,6 +68,35 @@ class ConservativeRecommendationsTests(unittest.TestCase):
         ]
         self.assertEqual(rank_recommendations(data), ([], []))
         self.assertEqual(rank_recommendations([]), ([], []))
+
+    def test_featured_endpoint_returns_only_actual_authorized_next_round_picks(self):
+        all_picks = [
+            pick("Tottenham", "Chelsea", "BTTS YES"),
+            pick("Brentford", "Sunderland", "HOME WIN"),
+            pick("Crystal Palace", "Tottenham", "BTTS YES"),
+        ]
+        context = {"season": "139446", "next_matchday": 6}
+        with patch.object(main, "_require_account", return_value={"role": "admin"}), \
+             patch.object(main.feed, "prediction_context", return_value=context), \
+             patch.object(main, "build_prediction", return_value={"predictions": all_picks}):
+            with TestClient(main.app, follow_redirects=False) as client:
+                response = client.get("/api/recommended-picks")
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(len(body["predictions"]), 3)
+        self.assertEqual(len(body["featured_predictions"]), 1)
+        self.assertEqual(body["featured_predictions"][0]["target_home"], "Tottenham")
+        self.assertEqual(len(body["research_watchlist"]), 1)
+        self.assertEqual(body["research_watchlist"][0]["target_home"], "Crystal Palace")
+        self.assertEqual(body["featured_predictions"][0]["research_evidence"]["validation_tests"], 9)
+
+    def test_featured_endpoint_does_not_bypass_free_access(self):
+        with patch.object(main, "_require_account", return_value={
+            "role": "client", "email": "", "subscription": {"is_active": False}
+        }):
+            with TestClient(main.app, follow_redirects=False) as client:
+                response = client.get("/api/recommended-picks")
+        self.assertEqual(response.status_code, 403)
 
     def test_no_future_score_or_fake_odds_needed(self):
         item = pick("Tottenham", "Chelsea", "BTTS YES")
