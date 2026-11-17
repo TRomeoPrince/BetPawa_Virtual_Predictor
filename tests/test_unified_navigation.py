@@ -29,7 +29,7 @@ class NavigationRoutingTests(unittest.TestCase):
         access.DB, db.DB = self.original
         self.tmp.cleanup()
 
-    def test_all_pill_nav_destinations_are_real_for_signed_in_member(self):
+    def test_all_sidebar_destinations_are_real_for_signed_in_member(self):
         registered = self.client.post("/api/auth/signup", json={
             "username": "navvisitor",
             "display_name": "Nav Visitor",
@@ -64,7 +64,7 @@ class NavigationRoutingTests(unittest.TestCase):
         response = self.client.get("/bpv-stadium-dashboard.js")
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("set-cookie", response.headers)
-        self.assertIn("bpv-pill-nav", response.text)
+        self.assertIn("bpv-sidebar", response.text)
         self.assertNotIn("76.4%", response.text)
 
 
