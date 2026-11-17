@@ -101,7 +101,7 @@
   <thead><tr><th>League</th><th>Fixture</th><th>Market selections and historical support</th></tr></thead>
   <tbody id="modelRecommendationsRows"></tbody>
  </table></div>
- <p class="premiumFoot">One match may appear under Wins, Overs and BTTS independently. Market labels link to their own prediction pages; they are not a combined bet. Historical screening, especially on small H2H samples, is exploratory and does not establish a betting edge. Watchlist entries are shown separately from historically screened signals.</p>
+ <p class="premiumFoot">Featured research requires the exact home/away fixture and specific selection with historical validation (at least 70% over 8 or more matches) and a separate small recent check. BTTS, Overs and Wins remain independent. CRY–TOT requires further verification; BRE–SUN is excluded. No result or return is guaranteed, and unavailable matches are not invented.</p>
 </section>
 
 <section id="winProofSubmit" class="winSubmitPanel" aria-label="Submit Win Proof">
@@ -187,7 +187,8 @@ function displayModelRecommendations(data){
  const section=$('modelRecommendationsSection');
  const body=$('modelRecommendationsRows');
  body.replaceChildren();
- const all=data.predictions||[];
+ const all=data.featured_predictions||[];
+ const watches=data.research_watchlist||[];
  const grouped=new Map();
  for(const pick of all){
   const category=marketCategory(pick.expected);
@@ -218,11 +219,11 @@ function displayModelRecommendations(data){
    link.className='recMarket';
    const label=pick.expected==='HOME WIN'?item.home+' WIN':
     pick.expected==='AWAY WIN'?item.away+' WIN':pick.expected;
-   const wins=research?.wins??pick.top_wins;
-   const tests=research?.tests??pick.top_tests;
+   const wins=pick.research_evidence?.validation_wins??research?.wins??pick.top_wins;
+   const tests=pick.research_evidence?.validation_tests??research?.tests??pick.top_tests;
    const evidence=Number.isInteger(wins)&&Number.isInteger(tests)?
     ' · '+wins+'/'+tests:'';
-   const kind=research?(research.research_status==='watch'?' · WATCH':' · research'):'';
+   const kind=pick.research_evidence?' · screened H2H':' · research';
    link.textContent=label+evidence+kind;
    if(research?.research_status==='watch')link.classList.add('recWatch');
    markets.append(link);
@@ -231,12 +232,14 @@ function displayModelRecommendations(data){
   body.append(tr);
  }
  if(!choices.length){
-  const tr=document.createElement('tr'),cell=td('No qualifying markets in the next published matchday.');
+  const tr=document.createElement('tr'),cell=td('No stronger archived H2H matches for this published matchday. We do not fill this list with weaker picks.');
   cell.colSpan=3;tr.append(cell);body.append(tr);
  }
  $('modelRecommendationsMeta').textContent=
   'Season '+data.season+' · Matchday '+data.next_matchday+
-  ' · '+all.length+' independent market selections · Refresh to check the next round.';
+  ' · '+all.length+' historically screened featured selections'+
+  (watches.length?' · '+watches.length+' watch-only signals not featured':'')+
+  ' · Venue direction and sample size matter; these are not sure wins. Refresh for the next round.';
  section.hidden=false;
 }
 async function loadModelRecommendations(){

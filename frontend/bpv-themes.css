@@ -1491,3 +1491,30 @@ body:has(.bpv-sidebar) .stadium-content > nav.nav{
     transition:none;
   }
 }
+
+
+
+/* Fix blank /client/{overs,unders,btts,wins} pages. A legacy Stadium
+   selector assigned market main to grid column 1, row 2 (under sidebar).
+   Override that more-specific rule for the current sidebar grid. */
+:root[data-bpv-theme="stadium"] .stadium-shell.stadium-market-shell .stadium-content,
+:root[data-bpv-theme]:not([data-bpv-theme="stadium"]) .stadium-shell.stadium-market-shell .stadium-content {
+  grid-column:2;
+  grid-row:1;
+  min-width:0;
+  width:100%;
+  display:block;
+}
+/* Prevent historical .hero/.section selector collisions from burying their
+   market controls when the real page is moved into the grid. */
+:root[data-bpv-theme] .stadium-market-shell .stadium-content > :is(.top,.hero,.section,#marketAccessHint,#backendWarn) {
+  position:relative;
+  z-index:1;
+}
+@media(max-width:760px){
+  :root[data-bpv-theme="stadium"] .stadium-shell.stadium-market-shell .stadium-content,
+  :root[data-bpv-theme]:not([data-bpv-theme="stadium"]) .stadium-shell.stadium-market-shell .stadium-content {
+    grid-column:1;
+    grid-row:2;
+  }
+}
