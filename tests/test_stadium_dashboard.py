@@ -137,6 +137,27 @@ class StadiumDashboardTests(unittest.TestCase):
         self.assertIn('min-height:46px;', css)
         self.assertNotIn('el("span","bpv-side-icon"', script)
 
+    def test_stadium_is_translucent_glass_not_opaque_black(self):
+        css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
+        self.assertIn("Stadium Neon — TRANSLUCENT GLASS treatment", css)
+        self.assertIn('--stadium-glass:rgba(18,32,43,.72)', css)
+        self.assertIn('--stadium-glass-blur:blur(16px) saturate(124%)', css)
+        self.assertIn("backdrop-filter:var(--stadium-glass-blur)", css)
+        self.assertIn("rgba(29,50,62,.77)", css)
+        self.assertIn("rgba(9,23,33,.71)", css)
+        self.assertIn("rgba(23,82,72,.68)", css)
+        self.assertIn("rgba(11,35,44,.68)", css)
+        self.assertIn("background:rgba(11,30,39,.61)", css)
+        self.assertIn('rgba(7,20,30,.78)', css)
+        # Every glass selector must remain opt-in for Stadium Neon.
+        start = css.index("Stadium Neon — TRANSLUCENT GLASS treatment")
+        glass = css[start:]
+        self.assertNotIn(':root[data-bpv-theme="light"]', glass)
+        self.assertNotIn(':root[data-bpv-theme="forest"]', glass)
+        self.assertIn(':root[data-bpv-theme="stadium"] .stadium-stat', glass)
+        self.assertIn(':root[data-bpv-theme="stadium"] .bpv-sidebar', glass)
+        self.assertIn("@media (max-width:760px)", glass)
+
     def test_market_page_access_is_explained_without_changing_prediction_gate(self):
         market = (FRONTEND / "market.html").read_text(encoding="utf-8")
         self.assertIn('id="marketAccessHint"', market)
