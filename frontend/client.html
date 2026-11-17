@@ -266,7 +266,18 @@ function schedulePremiumResultRefresh(items){
 function displayPremiumPicks(items){
   const section=$('premiumPicksSection'),body=$('premiumPicksRows');
   body.replaceChildren();
-  if(!items.length){section.hidden=true;return}
+  if(!items.length){
+    // Show a real empty state for VIP/admin users. Without this, the VIP
+    // navigation points to a hidden section and appears unresponsive.
+    const eligible=account&&(account.role==='admin'||(account.subscription||{}).is_active);
+    if(!eligible){section.hidden=true;return}
+    const tr=document.createElement('tr'),td=document.createElement('td');
+    td.colSpan=8;td.textContent='No VIP predictions have been published yet. Use Refresh picks to check again.';
+    td.className='premiumInfo';
+    tr.append(td);body.append(tr);
+    section.hidden=false;
+    return;
+  }
   const makeCell=(text,cls='')=>{const cell=document.createElement('td');cell.textContent=String(text);if(cls)cell.className=cls;return cell};
   const statuses={upcoming:'UPCOMING',soon:'ALARM TIME',window:'WINDOW OPEN',closed:'ENDED',awaiting:'RESULT PENDING',won:'WON',lost:'LOST',mixed:'MIXED', 'watch-result':'FT RECORDED'};
   items.forEach(item=>{
