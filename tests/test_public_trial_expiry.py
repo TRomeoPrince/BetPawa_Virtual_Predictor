@@ -97,8 +97,9 @@ class PublicTrialExpiryTests(unittest.TestCase):
         self.assertEqual(self.http.post("/api/auth/login",json={
             "username":"PUBLIC TRIAL","password":"AdminChosenTrialPassword2026!","age_confirmed":True
         }).status_code,200)
-        self.assertEqual(self.http.get("/client/overs").status_code,302)
-        self.assertEqual(self.http.get("/client/overs").headers["location"],"/client")
+        # A market page remains navigable, but expiry still blocks prediction data.
+        self.assertEqual(self.http.get("/client/overs").status_code,200)
+        self.assertEqual(self.http.post("/api/predict/overs").status_code,403)
         self.assertFalse(self.http.get("/api/auth/me").json()["account"]["subscription"]["is_active"])
 
     def test_invalid_expiry_and_ordinary_username_protected(self):
