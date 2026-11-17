@@ -1116,3 +1116,19 @@ body:has(.bpv-pill-nav) .topbar #logout {display:none!important}
 @media(prefers-reduced-motion:reduce){
   .bpv-pill-nav .bpv-pill-link{transition:none}
 }
+
+
+/* Market access: explanatory notices rather than silent redirects or
+   misleading inactive buttons. Prediction API permissions remain unchanged. */
+.marketAccessHint {
+  background:var(--bpv-warn-bg);
+  color:var(--bpv-text);
+  border:1px solid var(--bpv-border);
+  border-radius:12px;
+  padding:13px 16px;
+  margin:12px 0 16px;
+  font-size:13px;
+  line-height:1.6;
+}
+.marketAccessHint[hidden]{display:none!important}
+.marketAccessHint a{font-weight:850;color:var(--bpv-link);text-underline-offset:3px}
