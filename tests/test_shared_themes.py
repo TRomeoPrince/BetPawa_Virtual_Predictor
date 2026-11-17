@@ -14,7 +14,7 @@ PAGES = (
     "index", "login", "signup", "client", "admin", "market", "picks",
     "purchase", "partners", "activate", "access-link", "password-setup",
 )
-COLOR_THEMES = ("light", "dark", "forest", "ocean", "sunset", "violet")
+COLOR_THEMES = ("light", "dark", "stadium", "forest", "ocean", "sunset", "violet")
 
 
 class SharedThemesTests(unittest.TestCase):
@@ -52,6 +52,23 @@ class SharedThemesTests(unittest.TestCase):
         self.assertIn("localStorage.setItem", script)
         self.assertIn("aria-pressed", script)
         self.assertIn('event.key === "Escape"', script)
+
+    def test_stadium_theme_matches_football_night_reference_without_demo_data(self):
+        css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
+        js = (FRONTEND / "bpv-themes.js").read_text(encoding="utf-8")
+        self.assertIn(':root[data-bpv-theme="stadium"]', css)
+        self.assertIn("Stadium Neon", js)
+        self.assertIn('id:"stadium"', js)
+        self.assertIn('[data-bpv-swatch="stadium"]', css)
+        self.assertIn('--bpv-gold:#ffd052', css)
+        self.assertIn('radial-gradient', css)
+        self.assertIn("current === \"stadium\"", js)
+        # A theme is cosmetic; odds, ROI, streaks and win rates must not
+        # be planted as fictional examples into real user dashboards.
+        self.assertNotIn("76.4%", css)
+        self.assertNotIn("76.4%", js)
+        self.assertNotIn("1,284", css)
+        self.assertNotIn("1,284", js)
 
     def test_public_assets_correct_mime_and_no_auth_required(self):
         with TestClient(main.app, follow_redirects=False) as client:
