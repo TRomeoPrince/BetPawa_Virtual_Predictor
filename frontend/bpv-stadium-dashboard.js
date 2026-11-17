@@ -80,6 +80,11 @@
       else a.removeAttribute("aria-current");
     }
   }
+  const adminConsole = el("a","","Admin console");
+  adminConsole.href="/admin";
+  adminConsole.style.display="none"; // revealed for administrators only
+  adminConsole.append(el("span","stadium-nav-icon","⚙"));
+  nav.append(adminConsole);
   const logOut = el("button","","Sign out");
   logOut.type = "button";
   logOut.append(el("span","stadium-nav-icon",symbols.logout));
@@ -287,6 +292,7 @@
                   account.subscription?.is_active?"Account Tier — VIP Active":
                   "Account Tier — Free Member";
       tier.textContent=label;
+      adminConsole.style.display=account.role==="admin"?"flex":"none";
       // Free members must not be sent to a hidden VIP-only table.
       // They get the actual upgrade page instead, without leaking VIP data.
       const vipAllowed=account.role==="admin"||!!account.subscription?.is_active;
