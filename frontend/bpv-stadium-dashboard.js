@@ -47,23 +47,57 @@
   const nav=el("nav","bpv-side-nav");
   nav.setAttribute("aria-label","BPV primary navigation");
   const navAnchors=new Map();
+  // Consistent 20px outline icons instead of mixed-weight Unicode glyphs.
+  // These local SVG paths avoid external icon fonts and render on all devices.
+  const iconPaths=Object.freeze({
+    dashboard:["M3 3h7v7H3z","M14 3h7v7h-7z","M14 14h7v7h-7z","M3 14h7v7H3z"],
+    picks:["M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"],
+    overs:["m22 7-8.5 8.5-5-5L2 17","M16 7h6v6"],
+    unders:["m22 17-8.5-8.5-5 5L2 7","M16 17h6v-6"],
+    btts:["m8 3-4 4 4 4","M4 7h16","m16 21 4-4-4-4","M20 17H4"],
+    wins:["M8 21h8","M12 17v4","M7 3h10v7a5 5 0 0 1-10 0V3Z","M7 5H4v3a4 4 0 0 0 4 4","M17 5h3v3a4 4 0 0 1-4 4"],
+    proof:["M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z","M8 8h.01","m3 17 5-5 4 4 3-3 6 6"],
+    vip:["m2 8 5 4 5-7 5 7 5-4-2 11H4L2 8Z","M4 19h16"],
+    admin:["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z","M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.94 1.94-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.52V21h-2.74v-.05a1.65 1.65 0 0 0-1-1.52 1.65 1.65 0 0 0-1.82.33l-.06.06-1.94-1.94.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.52-1H5v-2.74h.05a1.65 1.65 0 0 0 1.52-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06 1.94-1.94.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.52V5h2.74v.05a1.65 1.65 0 0 0 1 1.52 1.65 1.65 0 0 0 1.82-.33l.06-.06 1.94 1.94-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.52 1H20v2.74h-.05a1.65 1.65 0 0 0-1.52 1Z"],
+    logout:["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4","M16 17l5-5-5-5","M21 12H9"]
+  });
+  function navIcon(name){
+    const namespace="http://www.w3.org/2000/svg";
+    const svg=document.createElementNS(namespace,"svg");
+    svg.setAttribute("class","bpv-side-icon");
+    svg.setAttribute("viewBox","0 0 24 24");
+    svg.setAttribute("width","20");
+    svg.setAttribute("height","20");
+    svg.setAttribute("fill","none");
+    svg.setAttribute("stroke","currentColor");
+    svg.setAttribute("stroke-width","1.85");
+    svg.setAttribute("stroke-linecap","round");
+    svg.setAttribute("stroke-linejoin","round");
+    svg.setAttribute("focusable","false");
+    svg.setAttribute("aria-hidden","true");
+    for(const d of iconPaths[name]||[]){
+      const path=document.createElementNS(namespace,"path");
+      path.setAttribute("d",d);
+      svg.append(path);
+    }
+    return svg;
+  }
   const menu=[
-    ["dashboard","Dashboard","/client","▦"],
-    ["picks","My Picks Hub","/client/picks","▤"],
-    ["overs","Overs","/client/overs","↗"],
-    ["unders","Unders","/client/unders","↘"],
-    ["btts","BTTS","/client/btts","⇄"],
-    ["wins","Wins","/client/wins","✓"],
-    ["proof","Win Proof","/client#winProofSubmit","▣"],
-    ["vip","VIP Predictions","/purchase","♛"]
+    ["dashboard","Dashboard","/client","dashboard"],
+    ["picks","My Picks Hub","/client/picks","picks"],
+    ["overs","Overs","/client/overs","overs"],
+    ["unders","Unders","/client/unders","unders"],
+    ["btts","BTTS","/client/btts","btts"],
+    ["wins","Wins","/client/wins","wins"],
+    ["proof","Win Proof","/client#winProofSubmit","proof"],
+    ["vip","VIP Predictions","/purchase","vip"]
   ];
   for(const [key,label,url,icon] of menu){
     const anchor=el("a","bpv-side-link");
     anchor.href=url;
     anchor.dataset.section=key;
     if(key==="vip")anchor.title="VIP predictions or subscription plans";
-    const glyph=el("span","bpv-side-icon",icon);
-    glyph.setAttribute("aria-hidden","true");
+    const glyph=navIcon(icon);
     anchor.append(glyph,document.createTextNode(label));
     nav.append(anchor);
     navAnchors.set(key,anchor);
@@ -72,14 +106,14 @@
   adminConsole.href="/admin";
   adminConsole.hidden=true;
   adminConsole.append(
-    el("span","bpv-side-icon","⚙"),
+    navIcon("admin"),
     document.createTextNode("Admin console")
   );
   nav.append(adminConsole);
 
   const logOut=el("button","bpv-side-link bpv-side-logout","Sign out");
   logOut.type="button";
-  logOut.prepend(el("span","bpv-side-icon","↪"));
+  logOut.prepend(navIcon("logout"));
   nav.append(logOut);
   const navNotice=el("span","bpv-side-notice","");
   navNotice.setAttribute("role","status");

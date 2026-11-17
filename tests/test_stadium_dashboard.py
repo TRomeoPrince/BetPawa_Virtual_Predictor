@@ -113,6 +113,30 @@ class StadiumDashboardTests(unittest.TestCase):
         self.assertIn('transform:translateX(-110%)', css)
         self.assertIn('@media(max-width:760px)', css)
 
+    def test_sidebar_refinement_has_uniform_outline_icons_and_readable_text(self):
+        script = (FRONTEND / "bpv-stadium-dashboard.js").read_text(encoding="utf-8")
+        css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
+        self.assertIn('function navIcon(name)', script)
+        self.assertIn('document.createElementNS(namespace,"svg")', script)
+        self.assertIn('svg.setAttribute("width","20")', script)
+        self.assertIn('svg.setAttribute("stroke-width","1.85")', script)
+        self.assertIn('svg.setAttribute("aria-hidden","true")', script)
+        for key in ("dashboard", "picks", "overs", "unders", "btts",
+                    "wins", "proof", "vip", "admin", "logout"):
+            self.assertIn(key + ':[', script)
+        self.assertIn('anchor.append(glyph,document.createTextNode(label))', script)
+        self.assertIn('navIcon("admin")', script)
+        self.assertIn('navIcon("logout")', script)
+        self.assertIn("BPV Sidebar Refresh", css)
+        self.assertIn('font:560 15.5px/1.4 Inter', css)
+        self.assertIn('font-weight:650', css)
+        self.assertIn('border-radius:0;', css)
+        self.assertIn('box-shadow:none;', css)
+        self.assertIn('background:rgba(0,190,123,.14)', css)
+        self.assertIn('@media(max-width:760px)', css)
+        self.assertIn('min-height:46px;', css)
+        self.assertNotIn('el("span","bpv-side-icon"', script)
+
     def test_market_page_access_is_explained_without_changing_prediction_gate(self):
         market = (FRONTEND / "market.html").read_text(encoding="utf-8")
         self.assertIn('id="marketAccessHint"', market)
