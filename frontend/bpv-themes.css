@@ -661,3 +661,312 @@
 @media(prefers-reduced-motion:reduce){
   :root[data-bpv-theme="stadium"] :is(.market,.stat,.card,.btn){animation:none;transition:none}
 }
+
+
+/* Dynamic appearance for client sections that previously hard-coded #fff
+   (win submissions, referrals, premium tables). These rules apply to EVERY
+   user-selected theme, including Stadium Neon, rather than a global switch. */
+:root[data-bpv-theme] :is(.winSubmitPanel,.referralMetric,.premiumSection,.referralTableWrap,.premiumTableWrap) {
+  color:var(--bpv-text);
+  background:var(--bpv-surface);
+  border-color:var(--bpv-border);
+}
+:root[data-bpv-theme] :is(.winProofOwn,.referralTag,.recMarket) {
+  color:var(--bpv-text);
+  background:var(--bpv-raised);
+  border-color:var(--bpv-border);
+}
+:root[data-bpv-theme] :is(.winProofOwn img,.winProofForm input[type="file"]) {
+  background:var(--bpv-raised);
+  color:var(--bpv-text);
+  border-color:var(--bpv-border);
+}
+:root[data-bpv-theme] :is(.winProofAgree,.winProofOwn div,.winProofHelp,
+  .referralMetric span,.referralExplanation,.premiumInfo,.premiumFoot,
+  .premiumWatch,.referralPeople th,.premiumTable th) {
+  color:var(--bpv-muted);
+}
+:root[data-bpv-theme] :is(.referralMetric strong,.premiumEyebrow,.premiumPick,
+  .premiumTable td.fixture) {color:var(--bpv-link)}
+:root[data-bpv-theme] :is(.referralPeople th,.premiumTable th){
+  background:var(--bpv-raised);border-color:var(--bpv-border);
+}
+:root[data-bpv-theme] :is(.referralPeople td,.premiumTable td) {
+  border-color:var(--bpv-border);color:var(--bpv-text);
+}
+:root[data-bpv-theme] .referralTag.paid {background:var(--bpv-positive-bg);color:var(--bpv-link)}
+:root[data-bpv-theme] .referralTag.uncredited {background:var(--bpv-warn-bg);color:var(--bpv-warning)}
+:root[data-bpv-theme] .recMarket.recWatch {background:var(--bpv-warn-bg);color:var(--bpv-warning)}
+:root[data-bpv-theme] .premiumStatus.won {background:var(--bpv-positive-bg);color:var(--bpv-link)}
+:root[data-bpv-theme] .premiumStatus.lost {background:var(--bpv-negative-bg);color:var(--bpv-danger)}
+:root[data-bpv-theme] .premiumStatus.soon,
+:root[data-bpv-theme] .premiumStatus.mixed {background:var(--bpv-warn-bg);color:var(--bpv-warning)}
+:root[data-bpv-theme] .premiumStatus.closed,
+:root[data-bpv-theme] .premiumStatus.awaiting {background:var(--bpv-raised);color:var(--bpv-muted)}
+:root[data-bpv-theme] .premiumStatus.window,
+:root[data-bpv-theme] .premiumStatus.open {background:var(--bpv-positive-bg);color:var(--bpv-link)}
+
+/* Screenshot-inspired dashboard, rendered only if THIS visitor chooses
+   Stadium Neon. All original account, journal, market and referral controls
+   remain in place and all other themes retain their existing layouts. */
+.stadium-shell{display:contents}
+.stadium-sidebar,.stadium-rail,.stadium-overview{display:none}
+:root[data-bpv-theme="stadium"] .stadium-shell{
+  display:grid;
+  width:min(100%,1910px);
+  margin:auto;
+  padding:20px 18px 55px;
+  gap:18px;
+  align-items:start;
+  grid-template-columns:minmax(218px,248px) minmax(0,1fr) minmax(248px,305px);
+}
+:root[data-bpv-theme="stadium"] body:has(.stadium-shell)>.topbar,
+:root[data-bpv-theme="stadium"] body:has(.stadium-shell)>header:not(.topbar) {display:none}
+:root[data-bpv-theme="stadium"] .stadium-sidebar,
+:root[data-bpv-theme="stadium"] .stadium-rail{display:flex;flex-direction:column;gap:15px;min-width:0}
+:root[data-bpv-theme="stadium"] .stadium-sidebar {
+  position:sticky;top:18px;
+  min-height:min(865px,calc(100vh - 36px));
+  padding:20px 12px;
+  border:1px solid #1c3941;border-radius:18px;
+  background:linear-gradient(165deg,#07131c,#0a2024 70%,#102a23);
+  box-shadow:inset 0 1px 0 #1e4541,0 15px 38px #0006;
+  overflow:hidden;
+}
+:root[data-bpv-theme="stadium"] .stadium-sidebar:after{
+  content:"";height:100px;position:absolute;bottom:0;left:0;right:0;pointer-events:none;
+  background:repeating-linear-gradient(95deg,transparent 0 24px,#11a5650a 24px 48px),
+    radial-gradient(ellipse at bottom,#00e88955,transparent 75%);
+}
+:root[data-bpv-theme="stadium"] .stadium-brand{
+  display:flex;gap:11px;align-items:center;padding:5px 9px 16px;
+  text-decoration:none;color:#f4faff;font-weight:900;font-size:17px;letter-spacing:-.03em;
+}
+:root[data-bpv-theme="stadium"] .stadium-brand-mark{
+  flex:none;width:41px;height:41px;display:grid;place-items:center;
+  border:2px solid #00f6a1;border-radius:50%;font-style:italic;
+  color:#fff;background:#071b21;box-shadow:0 0 20px #00e89a2b;
+}
+:root[data-bpv-theme="stadium"] .stadium-brand b{color:#00efa0}
+:root[data-bpv-theme="stadium"] .stadium-tier{
+  padding:12px 11px;border-radius:10px;border:1px solid #b17c20;
+  color:#ffd95c;background:#2a2417;margin:0 6px 15px;
+  font-size:12px;font-weight:800;text-align:center;
+}
+:root[data-bpv-theme="stadium"] .stadium-nav{display:grid;gap:6px;position:relative;z-index:1}
+:root[data-bpv-theme="stadium"] .stadium-nav a,
+:root[data-bpv-theme="stadium"] .stadium-nav button {
+  color:#dfedf0;display:flex;align-items:center;gap:11px;min-height:45px;
+  padding:12px 13px;border-radius:11px;border:1px solid transparent;
+  background:transparent;text-align:left;text-decoration:none;
+  font-weight:700;font-size:13px;cursor:pointer;
+}
+:root[data-bpv-theme="stadium"] .stadium-nav :is(a,button):hover {
+  background:#15332e;border-color:#195746;color:#fff;
+}
+:root[data-bpv-theme="stadium"] .stadium-nav .is-current{
+  background:linear-gradient(90deg,#075b3d,#083329);
+  color:#fff;border-color:#0cc67e;box-shadow:inset 3px 0 0 #00ffaa;
+}
+:root[data-bpv-theme="stadium"] .stadium-nav .stadium-nav-icon{
+  display:grid;place-items:center;flex:none;width:23px;
+  color:#00ef9a;font-size:17px;
+}
+:root[data-bpv-theme="stadium"] .stadium-sidebar-note {
+  margin-top:auto;font-size:11px;color:#b7c8cd;line-height:1.5;
+  padding:19px 11px 85px;position:relative;z-index:1;
+}
+:root[data-bpv-theme="stadium"] .stadium-content.wrap {
+  max-width:none;margin:0;padding:0;min-width:0;
+}
+:root[data-bpv-theme="stadium"] .stadium-content.main {padding-top:0}
+:root[data-bpv-theme="stadium"] .stadium-overview {display:block;margin-bottom:20px}
+:root[data-bpv-theme="stadium"] .stadium-overview h1 {
+  color:#f8fdff;letter-spacing:-.05em;font-size:clamp(24px,2.8vw,38px);
+  line-height:1.2;margin:4px 0 5px;font-weight:900;
+}
+:root[data-bpv-theme="stadium"] .stadium-overview .stadium-subtitle{margin:0;color:#aebfc9;font-size:13px}
+:root[data-bpv-theme="stadium"] .stadium-heading{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+:root[data-bpv-theme="stadium"] .stadium-heading-icon{color:#00f2a0;font-size:26px;filter:drop-shadow(0 0 12px #00e89566)}
+:root[data-bpv-theme="stadium"] .stadium-stats {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;margin:0 0 21px;
+}
+:root[data-bpv-theme="stadium"] .stadium-stat{
+  min-width:0;background:linear-gradient(165deg,#112a2c,#0a2225);
+  border:1px solid #275a4a;border-bottom:3px solid #00b872;
+  border-radius:16px;padding:17px 14px;
+  box-shadow:inset 0 1px 0 #ffffff13,0 12px 20px #0004;
+}
+:root[data-bpv-theme="stadium"] .stadium-stat-label{display:block;color:#d4e2e4;font-size:12px;line-height:1.3;font-weight:700}
+:root[data-bpv-theme="stadium"] .stadium-stat-value{
+  display:block;font-size:clamp(22px,2.5vw,32px);font-weight:900;
+  letter-spacing:-.05em;line-height:1.3;margin:9px 0 0;color:#f9fffc;
+}
+:root[data-bpv-theme="stadium"] .stadium-stat-value.positive{color:#00f2a0}
+:root[data-bpv-theme="stadium"] .stadium-stat-value.negative{color:#ff9cab}
+:root[data-bpv-theme="stadium"] .stadium-stat-foot{display:block;font-size:10px;color:#a6bdc0;margin-top:5px}
+:root[data-bpv-theme="stadium"] .stadium-table-section,
+:root[data-bpv-theme="stadium"] .stadium-side-panel{
+  color:#edf8f9;background:linear-gradient(155deg,#13232e,#091620);
+  border:1px solid #304955;border-radius:16px;overflow:hidden;
+  box-shadow:0 12px 28px #0005;
+}
+:root[data-bpv-theme="stadium"] .stadium-panel-header {
+  padding:17px 18px;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;border-bottom:1px solid #2e4851;
+}
+:root[data-bpv-theme="stadium"] .stadium-panel-header h2 {
+  margin:0;font-weight:850;font-size:16px;letter-spacing:-.02em;color:#f6fdff;
+}
+:root[data-bpv-theme="stadium"] .stadium-panel-header small{
+  color:#acc2ca;font-size:11px
+}
+:root[data-bpv-theme="stadium"] .stadium-table-scroll {max-width:100%;overflow:auto}
+:root[data-bpv-theme="stadium"] .stadium-table{
+  width:100%;border-collapse:collapse;min-width:545px;
+  text-align:left;font-size:12px;color:#e6f0f2;
+}
+:root[data-bpv-theme="stadium"] .stadium-table th{
+  padding:13px 12px;background:#172735;color:#d7e1e5;
+  border-bottom:1px solid #33505a;font-size:11px;
+}
+:root[data-bpv-theme="stadium"] .stadium-table td{
+  padding:13px 12px;border-bottom:1px solid #293f4b;
+  vertical-align:middle;color:#e7f4f5;
+}
+:root[data-bpv-theme="stadium"] .stadium-table tr:last-child td{border-bottom:0}
+:root[data-bpv-theme="stadium"] .stadium-table td strong{color:#fff}
+:root[data-bpv-theme="stadium"] .stadium-muted {color:#a8bec6;font-size:11px;display:block;margin-top:4px}
+:root[data-bpv-theme="stadium"] .stadium-status {
+  border-radius:7px;padding:5px 7px;display:inline-block;
+  font-weight:850;font-size:10px;border:1px solid #4b6570;color:#e7f3f7;
+}
+:root[data-bpv-theme="stadium"] .stadium-status.won{
+  background:#093b29;color:#00ffae;border-color:#00b976;
+}
+:root[data-bpv-theme="stadium"] .stadium-status.lost{
+  background:#44232b;color:#ffc3c9;border-color:#98515d;
+}
+:root[data-bpv-theme="stadium"] .stadium-status.pending{
+  background:#3b341d;color:#ffdb7d;border-color:#8a7334;
+}
+:root[data-bpv-theme="stadium"] .stadium-empty{
+  color:#acc3c8;padding:22px 18px;line-height:1.6;font-size:13px;
+}
+:root[data-bpv-theme="stadium"] .stadium-rail {
+  position:sticky;top:18px;max-height:calc(100vh - 36px);
+  overflow-y:auto;padding-bottom:6px;scrollbar-width:thin;
+}
+:root[data-bpv-theme="stadium"] .stadium-rail .stadium-panel-header{padding:16px}
+:root[data-bpv-theme="stadium"] .stadium-recs{display:grid;gap:8px;padding:12px}
+:root[data-bpv-theme="stadium"] .stadium-rec{
+  background:#0a1b25;border:1px solid #263f4a;
+  padding:12px;border-radius:11px;
+}
+:root[data-bpv-theme="stadium"] .stadium-rec strong{color:#f6fbff;font-size:12px}
+:root[data-bpv-theme="stadium"] .stadium-rec .stadium-rec-market{
+  font-weight:750;color:#00ee9f;font-size:11px;margin-top:4px;display:block
+}
+:root[data-bpv-theme="stadium"] .stadium-rec small{
+  display:block;font-size:10px;color:#9fb7bd;margin-top:5px;line-height:1.35
+}
+:root[data-bpv-theme="stadium"] .stadium-recs-actions{
+  display:flex;gap:8px;padding:0 12px 13px;
+}
+:root[data-bpv-theme="stadium"] .stadium-recs-actions :is(button,a){
+  border:1px solid #215e4c;border-radius:9px;flex:1;
+  text-decoration:none;background:#123027;color:#dcf9ea;
+  padding:10px 6px;font-size:11px;font-weight:850;text-align:center;cursor:pointer;
+}
+:root[data-bpv-theme="stadium"] .stadium-recs-actions button{
+  background:linear-gradient(130deg,#00efa0,#00c37f);color:#07241a;
+}
+:root[data-bpv-theme="stadium"] .stadium-calc {padding:15px}
+:root[data-bpv-theme="stadium"] .stadium-calc label {
+  display:grid;color:#c9dade;font-size:11px;font-weight:800;gap:6px;margin-bottom:14px
+}
+:root[data-bpv-theme="stadium"] .stadium-calc input {
+  min-width:0;width:100%;padding:11px 10px;border-radius:9px;
+  color:#fff;background:#0d1e28;border:1px solid #47606b;
+}
+:root[data-bpv-theme="stadium"] .stadium-calc-result{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+  padding:12px;border-radius:12px;border:1px solid #0d9962;
+  background:#0c352b;margin-top:7px
+}
+:root[data-bpv-theme="stadium"] .stadium-calc-result div {min-width:0}
+:root[data-bpv-theme="stadium"] .stadium-calc-result small {
+  display:block;color:#c3e5d3;font-size:10px;margin-bottom:5px;
+}
+:root[data-bpv-theme="stadium"] .stadium-calc-result b {
+  color:#04f1a0;font-size:16px;word-break:break-word;
+}
+:root[data-bpv-theme="stadium"] .stadium-disclaimer{
+  font-size:11px;line-height:1.6;padding:0 14px 13px;
+  color:#a9bfc7;
+}
+:root[data-bpv-theme="stadium"] .stadium-content > .eyebrow:first-child,
+:root[data-bpv-theme="stadium"] .stadium-content > .eyebrow:first-child + h1,
+:root[data-bpv-theme="stadium"] .stadium-content > .eyebrow:first-child + h1 + #welcome {
+  display:none;
+}
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] .stadium-content>.hero,
+:root[data-bpv-theme="stadium"][data-bpv-page="picks"] .stadium-content>.stats{
+  display:none;
+}
+/* The existing dashboard sections remain below the new overview so wallet,
+   referrals, win proof submissions, selection filters and journals still work. */
+:root[data-bpv-theme="stadium"] .stadium-content > :is(.premiumSection,.picksHub,.winSubmitPanel,.section,.referralFunnel) {
+  margin-top:20px;
+}
+@media(max-width:1320px){
+  :root[data-bpv-theme="stadium"] .stadium-shell{
+    grid-template-columns:210px minmax(0,1fr) 265px;
+    gap:13px;padding:15px 12px 42px;
+  }
+  :root[data-bpv-theme="stadium"] .stadium-sidebar{padding:15px 7px}
+  :root[data-bpv-theme="stadium"] .stadium-stats{gap:8px}
+  :root[data-bpv-theme="stadium"] .stadium-stat{padding:14px 10px}
+}
+@media(max-width:1050px){
+  :root[data-bpv-theme="stadium"] .stadium-shell{
+    grid-template-columns:minmax(0,1fr) 285px;
+    gap:14px;
+  }
+  :root[data-bpv-theme="stadium"] .stadium-sidebar {
+    grid-column:1/-1;position:static;min-height:0;padding:12px 14px;
+  }
+  :root[data-bpv-theme="stadium"] .stadium-sidebar:after,
+  :root[data-bpv-theme="stadium"] .stadium-sidebar-note{display:none}
+  :root[data-bpv-theme="stadium"] .stadium-sidebar-inner {
+    display:flex;align-items:center;flex-wrap:wrap;gap:9px
+  }
+  :root[data-bpv-theme="stadium"] .stadium-brand{padding:0 8px}
+  :root[data-bpv-theme="stadium"] .stadium-tier{margin:0}
+  :root[data-bpv-theme="stadium"] .stadium-nav{
+    display:flex;flex-wrap:wrap;gap:4px
+  }
+  :root[data-bpv-theme="stadium"] .stadium-nav a,
+  :root[data-bpv-theme="stadium"] .stadium-nav button{
+    min-height:39px;padding:9px 10px
+  }
+  :root[data-bpv-theme="stadium"] .stadium-rail{position:static;max-height:none}
+}
+@media(max-width:800px){
+  :root[data-bpv-theme="stadium"] .stadium-shell{grid-template-columns:minmax(0,1fr)}
+  :root[data-bpv-theme="stadium"] .stadium-content{grid-row:2}
+  :root[data-bpv-theme="stadium"] .stadium-rail{grid-row:3;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  :root[data-bpv-theme="stadium"] .stadium-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  :root[data-bpv-theme="stadium"] .stadium-nav{overflow-x:auto;flex-wrap:nowrap;width:100%}
+  :root[data-bpv-theme="stadium"] .stadium-nav :is(a,button){white-space:nowrap}
+}
+@media(max-width:610px){
+  :root[data-bpv-theme="stadium"] .stadium-shell{padding:9px 10px 50px;gap:12px}
+  :root[data-bpv-theme="stadium"] .stadium-brand{font-size:14px}
+  :root[data-bpv-theme="stadium"] .stadium-brand-mark{width:33px;height:33px}
+  :root[data-bpv-theme="stadium"] .stadium-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  :root[data-bpv-theme="stadium"] .stadium-rail{grid-template-columns:1fr}
+  :root[data-bpv-theme="stadium"] .stadium-heading{margin-bottom:14px}
+  :root[data-bpv-theme="stadium"] .stadium-overview h1{font-size:26px}
+}
