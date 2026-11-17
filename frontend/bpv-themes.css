@@ -970,3 +970,31 @@
   :root[data-bpv-theme="stadium"] .stadium-heading{margin-bottom:14px}
   :root[data-bpv-theme="stadium"] .stadium-overview h1{font-size:26px}
 }
+
+
+/* Stadium navigation is part of the actual client interface, not a decorative
+   mockup. Keep it visible on each market page and let existing form/filter
+   logic continue to own the central content. */
+:root[data-bpv-theme="stadium"] .stadium-shell.stadium-market-shell {
+  grid-template-columns:minmax(218px,248px) minmax(0,1fr);
+}
+:root[data-bpv-theme="stadium"] .stadium-market-shell .stadium-content {
+  min-width:0;
+}
+:root[data-bpv-theme="stadium"] .stadium-market-shell .stadium-content > .nav {
+  display:none;
+}
+:root[data-bpv-theme="stadium"] .stadium-nav a,
+:root[data-bpv-theme="stadium"] .stadium-nav button {
+  pointer-events:auto;
+  position:relative;
+  z-index:2;
+}
+:root[data-bpv-theme="stadium"] :is(#stadium-recommendations,#premiumPicksSection,#marketResearch,#winProofSubmit) {
+  scroll-margin-top:22px;
+}
+@media(max-width:1050px){
+  :root[data-bpv-theme="stadium"] .stadium-shell.stadium-market-shell{
+    grid-template-columns:minmax(0,1fr);
+  }
+}
