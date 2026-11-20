@@ -1744,6 +1744,7 @@ def recommended_picks(request: Request):
             "predictions": public_predictions,
             "featured_predictions": featured,
             "research_watchlist": research_watches,
+            "reviewed_h2h_patterns": recommendation_quality.reviewed_h2h_catalog(),
         }
     except HTTPException:
         raise
