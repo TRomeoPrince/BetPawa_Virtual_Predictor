@@ -93,3 +93,45 @@ def rank_recommendations(predictions):
         str(p.get("target_home", "")), str(p.get("expected", "")),
     ))
     return featured, watchlist
+
+
+# The exact market-specific H2H research the site owner asked to feature.
+# This is an archive/watchlist, NOT a stream of scheduled live fixtures.
+_REVIEW_ORDER = [
+    ("TOT", "CHE", "BTTS YES"),
+    ("TOT", "CHE", "OVER 2.5 FT"),
+    ("CHE", "TOT", "OVER 2.5 FT"),
+    ("TOT", "CRY", "HOME WIN"),
+    ("TOT", "CRY", "OVER 2.5 FT"),
+    ("TOT", "CRY", "BTTS YES"),
+    ("AST", "CRY", "HOME WIN"),
+    ("AST", "CRY", "OVER 2.5 FT"),
+    ("CRY", "TOT", "BTTS YES"),
+]
+
+
+def reviewed_h2h_catalog():
+    """Display reviewed pairs transparently when no qualifying live game exists.
+
+    Historical data must never be mistaken for an actual scheduled match.
+    Markets, venue direction, and smaller watch-only sample remain explicit.
+    """
+    result = []
+    for key in _REVIEW_ORDER:
+        evidence = _EVIDENCE.get(key) or _WATCH_EVIDENCE.get(key)
+        if not evidence or (key[0], key[1]) in _EXCLUDED_PAIRS:
+            continue
+        wins, tests, recent_wins, recent_tests = evidence
+        result.append({
+            "home": key[0],
+            "away": key[1],
+            "market": key[2],
+            "validation_wins": wins,
+            "validation_tests": tests,
+            "recent_wins": recent_wins,
+            "recent_tests": recent_tests,
+            "tier": "watch-only" if key in _WATCH_EVIDENCE else "historical-reviewed",
+            "scheduled": False,
+            "note": "Past H2H evidence only; NOT a currently verified fixture or guaranteed outcome.",
+        })
+    return result
