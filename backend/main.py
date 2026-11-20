@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality, current_seasons
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -1697,6 +1697,18 @@ def status():
         "rules_public": False,
         "mode": "client subscriptions + private admin strategy console",
     }
+
+
+@app.get("/api/virtual/season-status")
+def virtual_season_status(request: Request):
+    """Actual season/round windows for signed-in members; no predicted games."""
+    _require_account(request)
+    try:
+        actual, _, _ = feed._catalog()
+        return current_seasons.current_season_status(actual)
+    except Exception as exc:
+        print("Live virtual season status unavailable:", repr(exc))
+        raise HTTPException(503, "Current betPawa season feed unavailable.")
 
 
 @app.get("/api/recommended-picks")
