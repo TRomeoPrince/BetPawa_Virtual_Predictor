@@ -1998,3 +1998,53 @@ body:has(.bpv-sidebar) .stadium-content > nav.nav{
     backdrop-filter:none;
   }
 }
+
+
+
+/* Source-verified virtual season marker and historic research cards.
+   The current play window stays visually distinct from the archival H2H
+   records; never style a watchlist entry as a live pick. */
+:root[data-bpv-theme="stadium"] .stadium-live-feed {
+  margin:14px 0 19px;
+  padding:11px 15px;
+  border:1px solid rgba(16,212,165,.43);
+  border-radius:11px;
+  background:rgba(10,75,62,.32);
+  color:#d8fff2;
+  -webkit-backdrop-filter:blur(10px);
+  backdrop-filter:blur(10px);
+  font-size:13px;
+  line-height:1.55;
+  font-weight:550;
+}
+:root[data-bpv-theme="stadium"] .stadium-h2h-title{
+  margin:17px 0 9px;
+  font-size:14px;
+  color:#dafef0;
+  font-weight:750;
+  border-top:1px solid rgba(139,197,182,.22);
+  padding-top:16px;
+}
+:root[data-bpv-theme="stadium"] .stadium-h2h-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+:root[data-bpv-theme="stadium"] .stadium-h2h-item{
+  background:rgba(12,25,35,.42);
+  border:1px dashed rgba(153,193,184,.28);
+}
+:root[data-bpv-theme="stadium"] .stadium-h2h-item small{
+  color:#adc7c1;
+  font-size:11px;
+  line-height:1.5;
+}
+:root[data-bpv-theme="stadium"] .stadium-h2h-item .stadium-rec-market{
+  color:#c6e6d9;
+}
+@media(max-width:760px){
+  :root[data-bpv-theme="stadium"] .stadium-live-feed{
+    font-size:12px;
+    padding:11px 12px;
+  }
+}
