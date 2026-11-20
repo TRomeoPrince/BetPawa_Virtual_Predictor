@@ -428,10 +428,16 @@
     if(!live || live.status!=="live")return false;
     const next=data?.next_round_close_utc,open=data?.next_round_open_utc;
     if(!next || !open || !Number.isFinite(Date.parse(next)))return false;
-    const rightSeason=String(data.season)===String(live.current_season) ||
-      (String(data.season)===String(live.upcoming_season)&&live.next_matchday===1);
-    return rightSeason &&
+    const current=String(data.season)===String(live.current_season);
+    const nextSeason=String(data.season)===String(live.upcoming_season) &&
+      Number(data.next_matchday)===1;
+    const matchesCurrent=current &&
+      Number(data.next_matchday)===Number(live.current_matchday) &&
+      String(data.next_round_id)===String(live.active_round?.round_id);
+    const matchesNext=(current || nextSeason) &&
       Number(data.next_matchday)===Number(live.next_matchday) &&
+      String(data.next_round_id)===String(live.next_round?.round_id);
+    return (matchesCurrent||matchesNext) &&
       Date.parse(next)>Date.now() && Date.parse(open)<=Date.parse(next);
   }
   async function loadAccount(){
