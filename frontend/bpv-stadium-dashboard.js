@@ -211,6 +211,11 @@
   );
   heading.append(headingIcon,headingCopy);
   overview.append(heading);
+  const liveFeedStatus=el("div","stadium-live-feed","Checking the official current season…");
+  liveFeedStatus.id="stadium-live-feed";
+  liveFeedStatus.setAttribute("role","status");
+  liveFeedStatus.setAttribute("aria-live","polite");
+  overview.append(liveFeedStatus);
 
   const stats = el("div","stadium-stats");
   stats.setAttribute("aria-label","Your selection statistics");
@@ -233,8 +238,8 @@
 
   const tablePanel = el("section","stadium-table-section");
   const tableHead = el("div","stadium-panel-header");
-  const tableHeadTitle = el("h2","","Saved Selections & Results");
-  const tableHeadLink = el("a","","View picks");
+  const tableHeadTitle = el("h2","","Current & Upcoming Saved Selections");
+  const tableHeadLink = el("a","","All historical picks");
   tableHeadLink.href = "/client/picks";
   tableHeadLink.style.color = "#00f2a0";
   tableHeadLink.style.fontSize = "12px";
@@ -270,8 +275,8 @@
   const recHead = el("div","stadium-panel-header");
   const recTitle = el("div","");
   recTitle.append(
-    el("h2","","Today's Research Picks"),
-    el("small","","Markets from BPV's current feed; no invented odds")
+    el("h2","","Current-Round H2H Picks"),
+    el("small","","Shown only when the actual season and upcoming round are verified")
   );
   recHead.append(recTitle);
   const recs = el("div","stadium-recs");
@@ -284,8 +289,14 @@
   const view = el("a","","View Markets");
   view.href = "/client/overs";
   recActions.append(copy,view);
-  const recDis = el("p","stadium-disclaimer","Featured only when exact home/away, selected market and separate historical checks align. Small samples; no sure wins or verified betting edge. BRE–SUN is excluded.");
-  recPanel.append(recHead,recs,recActions,recDis);
+  const h2hHeading=el("h3","stadium-h2h-title","Reviewed H2H patterns to watch");
+  const h2hList=el("div","stadium-h2h-list");
+  h2hList.id="stadium-h2h-watchlist";
+  const h2hNote=el("p","stadium-disclaimer",
+    "Historical research only — these are not confirmed upcoming fixtures. BRE–SUN excluded. No guaranteed wins.");
+  const recDis = el("p","stadium-disclaimer",
+    "Current-round selections require an exact source schedule and venue/market match; copied picks never include archived watchlist entries.");
+  recPanel.append(recHead,recs,recActions,h2hHeading,h2hList,h2hNote,recDis);
   rail.append(recPanel);
 
   const calcPanel = el("section","stadium-side-panel");
@@ -360,7 +371,7 @@
   function showPicks(items){
     tbody.replaceChildren();
     if(!items.length){
-      showEmpty("No saved selections yet. Open a market to save your first pick.");
+      showEmpty("No verified current or upcoming saved selections. Older results are kept in My Picks Hub.");
       return;
     }
     for(const item of items){
@@ -387,6 +398,50 @@
     const response=await fetch(path,{credentials:"same-origin",cache:"no-store"});
     if(!response.ok) throw new Error(response.status===403?"Subscription or released access required":"Data currently unavailable");
     return response.json();
+  }
+  // One source snapshot drives both the dashboard history filter and the
+  // current-round research rail; never treat old saved picks as live.
+  function readSeasonStatus(){
+    return getJSON("/api/virtual/season-status").then(data=>{
+    if(data.status!=="live" || !data.current_season || !data.active_round){
+      liveFeedStatus.textContent="Current virtual season could not be verified. Past selections remain in My Picks Hub.";
+      return null;
+    }
+    const active=window.BPVRoundTime?.roundWindow(
+      data.active_round.round_open_utc,data.active_round.round_close_utc);
+    const upcoming=window.BPVRoundTime?.roundWindow(
+      data.next_round?.round_open_utc,data.next_round?.round_close_utc);
+    liveFeedStatus.textContent=
+      "Official feed · Season "+data.current_season+
+      " · Playing MD "+data.current_matchday+
+      (active?" · "+active.text:"")+
+      (upcoming?" · Next MD "+data.next_matchday+" at "+upcoming.text:" · Next round not confirmed")+
+      " · Verified "+new Date(data.verified_at_utc).toLocaleTimeString("en-UG",{
+        timeZone:"Africa/Kampala",hour:"numeric",minute:"2-digit"
+      })+" EAT";
+    return data;
+  }).catch(()=>{
+    liveFeedStatus.textContent=
+      "Live season feed unavailable — older picks will not be presented as current.";
+    return null;
+    });
+  }
+  let seasonSnapshot=isMarket?Promise.resolve(null):readSeasonStatus();
+  function validLiveRound(data,live){
+    if(!live || live.status!=="live")return false;
+    const next=data?.next_round_close_utc,open=data?.next_round_open_utc;
+    if(!next || !open || !Number.isFinite(Date.parse(next)))return false;
+    const current=String(data.season)===String(live.current_season);
+    const nextSeason=String(data.season)===String(live.upcoming_season) &&
+      Number(data.next_matchday)===1;
+    const matchesCurrent=current &&
+      Number(data.next_matchday)===Number(live.current_matchday) &&
+      String(data.next_round_id)===String(live.active_round?.round_id);
+    const matchesNext=(current || nextSeason) &&
+      Number(data.next_matchday)===Number(live.next_matchday) &&
+      String(data.next_round_id)===String(live.next_round?.round_id);
+    return (matchesCurrent||matchesNext) &&
+      Date.parse(next)>Date.now() && Date.parse(open)<=Date.parse(next);
   }
   async function loadAccount(){
     try{
@@ -419,14 +474,27 @@
   }
   async function loadSaved(){
     try{
-      const data=await getJSON("/api/client/picks?category=all&scope=all&outcome=all&limit=12&offset=0");
-      const s=data.summary||{};
-      const rate=s.win_rate;
+      const [data,live]=await Promise.all([
+        getJSON("/api/client/picks?category=all&scope=all&outcome=all&limit=100&offset=0"),
+        seasonSnapshot
+      ]);
+      const summary=data.summary||{};
+      const rate=summary.win_rate;
       document.getElementById("stadium-win-rate").textContent=
         rate==null?"—":(Number(rate)*100).toFixed(1)+"%";
-      document.getElementById("stadium-win-total").textContent=Number(s.wins||0).toLocaleString("en-UG");
-      document.getElementById("stadium-pick-total").textContent=Number(s.total||0).toLocaleString("en-UG");
-      showPicks(data.items||[]);
+      document.getElementById("stadium-win-total").textContent=
+        Number(summary.wins||0).toLocaleString("en-UG");
+      document.getElementById("stadium-pick-total").textContent=
+        Number(summary.total||0).toLocaleString("en-UG");
+      // Never label unverified, expired, graded, or previous-season
+      // selections as upcoming merely because the user saved them.
+      const current=(data.items||[]).filter(item=>
+        live && live.status==="live" &&
+        String(item.season)===String(live.current_season) &&
+        String(item.outcome||"PENDING").toUpperCase()==="PENDING" &&
+        Number(item.matchday)>=Number(live.current_matchday) &&
+        item.round_close_utc && Date.parse(item.round_close_utc)>Date.now());
+      showPicks(current);
     }catch(error){showEmpty(error.message);}
   }
   async function loadJournal(){
@@ -442,16 +510,44 @@
   let copyText="";
   async function loadRecommended(){
     try{
-      const data=await getJSON("/api/recommended-picks");
-      const predictions=(data.featured_predictions||[]).filter(p=>
-        p && p.expected && p.target_home && p.target_away);
+      const [data,live]=await Promise.all([
+        getJSON("/api/recommended-picks"),seasonSnapshot
+      ]);
+      // Keep exactly the verified market-specific historical patterns
+      // requested by the user even when not scheduled in this matchday.
+      // The archive is visually separate from actual source-backed picks.
+      const catalog=data.reviewed_h2h_patterns||[];
+      h2hList.replaceChildren();
+      for(const item of catalog){
+        const card=el("div","stadium-rec stadium-h2h-item");
+        card.append(
+          el("strong","",item.home+" vs "+item.away),
+          el("span","stadium-rec-market",item.market),
+          el("small","",item.validation_wins+"/"+item.validation_tests+
+            " archived · Recent "+item.recent_wins+"/"+item.recent_tests+
+            " · "+(item.tier==="watch-only"?"Watch only":"Reviewed historical pattern")+
+            " · Not currently scheduled")
+        );
+        h2hList.append(card);
+      }
+      if(!catalog.length){
+        h2hList.append(el("p","stadium-muted","Reviewed H2H archive unavailable."));
+      }
+
       recs.replaceChildren();
-      if(!predictions.length){
-        const watched=(data.research_watchlist||[]).length;
+      copy.disabled=true;
+      copyText="";
+      const sourceVerified=validLiveRound(data,live);
+      const predictions=sourceVerified?(data.featured_predictions||[]).filter(p=>
+        p && p.expected && p.target_home && p.target_away):[];
+      if(!sourceVerified){
         recs.append(el("p","stadium-empty",
-          "No historically stronger head-to-head selection matches this published matchday."+
-          (watched?" "+watched+" other H2H signal(s) remain watch-only.":"")+
-          " No selection is guaranteed."));
+          "No verified upcoming selection: the model response does not match the current source season and unplayed round. Historical H2H research appears below."));
+        return;
+      }
+      if(!predictions.length){
+        recs.append(el("p","stadium-empty",
+          "No reviewed H2H candidate appears in the verified upcoming matchday. The archived patterns below are research, not live picks."));
         return;
       }
       const rows=predictions.slice(0,6);
@@ -459,27 +555,33 @@
         data.next_round_open_utc,data.next_round_close_utc);
       for(const item of rows){
         const card=el("div","stadium-rec");
-        const fixture=String(item.target_home)+" vs "+String(item.target_away);
         const evidence=item.research_evidence||{};
         const sample=Number.isFinite(evidence.validation_tests)?
-          " · Historical validation "+evidence.validation_wins+"/"+evidence.validation_tests+
+          " · Historical "+evidence.validation_wins+"/"+evidence.validation_tests+
           " · Recent "+evidence.recent_wins+"/"+evidence.recent_tests:"";
-        card.append(el("strong","",fixture),
-                    el("span","stadium-rec-market",item.expected),
-                    el("small","","Season "+String(data.season||"—")+
-                      " · MD "+String(data.next_matchday||"—")+
-                      (roundWindow?" · Round "+roundWindow.text:" · Round time unavailable")+
-                      " · "+String(item.league||"Virtual Football")+sample));
+        card.append(
+          el("strong","",item.target_home+" vs "+item.target_away),
+          el("span","stadium-rec-market",item.expected),
+          el("small","","Source verified · Season "+data.season+
+            " · MD "+data.next_matchday+
+            (roundWindow?" · "+roundWindow.text:"")+
+            sample)
+        );
         recs.append(card);
       }
       copyText=rows.map(p=>p.target_home+" vs "+p.target_away+
-        " — "+p.expected+" ("+p.league+", historical research only)").join("\n");
+        " — "+p.expected+" (Season "+data.season+", MD "+data.next_matchday+
+        "; researched, not guaranteed)").join("\n");
       copy.disabled=false;
     }catch(error){
       recs.replaceChildren(el("p","stadium-empty",
         error.message==="Subscription or released access required"?
-        "Recommendations are available with VIP or during an active Free release.":
-        "Recommendations are temporarily unavailable. Try again later."));
+        "Current picks and this research catalog require eligible access.":
+        "Current-round picks cannot be verified right now. Try again later."));
+      h2hList.replaceChildren(el("p","stadium-muted",
+        "H2H research temporarily unavailable."));
+      copy.disabled=true;
+      copyText="";
     }
   }
   copy.addEventListener("click",async()=>{
@@ -497,5 +599,20 @@
     loadSaved();
     loadJournal();
     loadRecommended();
+    // Virtual rounds advance about every five minutes. Re-check the public
+    // source season once a minute, refreshing expensive model results only
+    // when the verified active/next round actually changes.
+    setInterval(async()=>{
+      if(document.visibilityState!=="visible")return;
+      const previous=await seasonSnapshot;
+      seasonSnapshot=readSeasonStatus();
+      const next=await seasonSnapshot;
+      const key=x=>x ? String(x.current_season)+":"+
+        String(x.active_round?.round_id)+":"+String(x.next_round?.round_id) : "unavailable";
+      if(key(previous)!==key(next)){
+        loadSaved();
+        loadRecommended();
+      }
+    },60000);
   }
 })();
