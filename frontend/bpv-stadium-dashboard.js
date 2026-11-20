@@ -401,7 +401,8 @@
   }
   // One source snapshot drives both the dashboard history filter and the
   // current-round research rail; never treat old saved picks as live.
-  const seasonSnapshot=getJSON("/api/virtual/season-status").then(data=>{
+  function readSeasonStatus(){
+    return getJSON("/api/virtual/season-status").then(data=>{
     if(data.status!=="live" || !data.current_season || !data.active_round){
       liveFeedStatus.textContent="Current virtual season could not be verified. Past selections remain in My Picks Hub.";
       return null;
@@ -423,7 +424,9 @@
     liveFeedStatus.textContent=
       "Live season feed unavailable — older picks will not be presented as current.";
     return null;
-  });
+    });
+  }
+  let seasonSnapshot=isMarket?Promise.resolve(null):readSeasonStatus();
   function validLiveRound(data,live){
     if(!live || live.status!=="live")return false;
     const next=data?.next_round_close_utc,open=data?.next_round_open_utc;
@@ -596,5 +599,20 @@
     loadSaved();
     loadJournal();
     loadRecommended();
+    // Virtual rounds advance about every five minutes. Re-check the public
+    // source season once a minute, refreshing expensive model results only
+    // when the verified active/next round actually changes.
+    setInterval(async()=>{
+      if(document.visibilityState!=="visible")return;
+      const previous=await seasonSnapshot;
+      seasonSnapshot=readSeasonStatus();
+      const next=await seasonSnapshot;
+      const key=x=>x ? String(x.current_season)+":"+
+        String(x.active_round?.round_id)+":"+String(x.next_round?.round_id) : "unavailable";
+      if(key(previous)!==key(next)){
+        loadSaved();
+        loadRecommended();
+      }
+    },60000);
   }
 })();
