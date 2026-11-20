@@ -211,6 +211,11 @@
   );
   heading.append(headingIcon,headingCopy);
   overview.append(heading);
+  const liveFeedStatus=el("div","stadium-live-feed","Checking the official current season…");
+  liveFeedStatus.id="stadium-live-feed";
+  liveFeedStatus.setAttribute("role","status");
+  liveFeedStatus.setAttribute("aria-live","polite");
+  overview.append(liveFeedStatus);
 
   const stats = el("div","stadium-stats");
   stats.setAttribute("aria-label","Your selection statistics");
@@ -233,8 +238,8 @@
 
   const tablePanel = el("section","stadium-table-section");
   const tableHead = el("div","stadium-panel-header");
-  const tableHeadTitle = el("h2","","Saved Selections & Results");
-  const tableHeadLink = el("a","","View picks");
+  const tableHeadTitle = el("h2","","Current & Upcoming Saved Selections");
+  const tableHeadLink = el("a","","All historical picks");
   tableHeadLink.href = "/client/picks";
   tableHeadLink.style.color = "#00f2a0";
   tableHeadLink.style.fontSize = "12px";
@@ -270,8 +275,8 @@
   const recHead = el("div","stadium-panel-header");
   const recTitle = el("div","");
   recTitle.append(
-    el("h2","","Today's Research Picks"),
-    el("small","","Markets from BPV's current feed; no invented odds")
+    el("h2","","Current-Round H2H Picks"),
+    el("small","","Shown only when the actual season and upcoming round are verified")
   );
   recHead.append(recTitle);
   const recs = el("div","stadium-recs");
@@ -284,8 +289,14 @@
   const view = el("a","","View Markets");
   view.href = "/client/overs";
   recActions.append(copy,view);
-  const recDis = el("p","stadium-disclaimer","Featured only when exact home/away, selected market and separate historical checks align. Small samples; no sure wins or verified betting edge. BRE–SUN is excluded.");
-  recPanel.append(recHead,recs,recActions,recDis);
+  const h2hHeading=el("h3","stadium-h2h-title","Reviewed H2H patterns to watch");
+  const h2hList=el("div","stadium-h2h-list");
+  h2hList.id="stadium-h2h-watchlist";
+  const h2hNote=el("p","stadium-disclaimer",
+    "Historical research only — these are not confirmed upcoming fixtures. BRE–SUN excluded. No guaranteed wins.");
+  const recDis = el("p","stadium-disclaimer",
+    "Current-round selections require an exact source schedule and venue/market match; copied picks never include archived watchlist entries.");
+  recPanel.append(recHead,recs,recActions,h2hHeading,h2hList,h2hNote,recDis);
   rail.append(recPanel);
 
   const calcPanel = el("section","stadium-side-panel");
@@ -360,7 +371,7 @@
   function showPicks(items){
     tbody.replaceChildren();
     if(!items.length){
-      showEmpty("No saved selections yet. Open a market to save your first pick.");
+      showEmpty("No verified current or upcoming saved selections. Older results are kept in My Picks Hub.");
       return;
     }
     for(const item of items){
