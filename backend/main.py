@@ -1736,6 +1736,7 @@ def recommended_picks(request: Request):
             "ok": True,
             "season": str(context["season"]),
             "next_matchday": context["next_matchday"],
+            "next_round_id": context.get("next_round_id"),
             "next_round_open_utc": context.get("next_round_open_utc"),
             "next_round_close_utc": context.get("next_round_close_utc"),
             # Keep the original authorized predictions for other screens.
