@@ -803,6 +803,11 @@ class BetPawaFeed:
             cached = dict(self._context_cache)
             cached["context_cache_hit"] = True
             cached["catalog_mode"] = catalog_mode
+            # A previously observed quote must never remain a displayed
+            # research candidate once the published trading window closes.
+            close_at = _parse_ts(cached.get("next_round_close_utc"))
+            if close_at is None or close_at <= time.time():
+                cached["double_chance_research"] = []
             return cached
 
         completed_indexes = list(range(0, source_idx + 1))
