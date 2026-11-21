@@ -46,8 +46,11 @@ def from_context(context: dict) -> list[dict]:
             bookmaker_p = float(candidate["bookmaker_probability_pct"])
         except (KeyError, ValueError, TypeError):
             continue
+        # The collector already applied the exact [65%, 80%) band before
+        # rounding this displayed probability to two decimals. Allow the
+        # 0.005-percentage-point boundary rounding here.
         if (not math.isfinite(odds) or odds <= 1 or
-                not math.isfinite(bookmaker_p) or not 65 <= bookmaker_p < 80):
+                not math.isfinite(bookmaker_p) or not 64.995 <= bookmaker_p <= 80.0):
             continue
 
         seen.add(key)
