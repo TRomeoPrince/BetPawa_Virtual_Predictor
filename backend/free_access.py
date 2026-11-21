@@ -64,6 +64,9 @@ def _normalise_markets(markets):
         raise ValueError("Choose Free markets as a list.")
     selected = []
     for code in markets:
+        # Accept the public 1X2 code while storing the legacy internal category.
+        if code == "1x2":
+            code = "wins"
         if not isinstance(code, str) or code not in FREE_MARKETS:
             raise ValueError("Allowed Free markets: Overs, Unders, BTTS, 1X2.")
         if code not in selected:
