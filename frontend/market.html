@@ -40,10 +40,15 @@ body{background:var(--bg);color:var(--txt)}
 </head>
 <body>
 <main class="wrap">
-<nav class="nav"><a href="/client">Dashboard</a><a href="/client/picks">My Picks Hub</a><a href="/client/overs" data-page="overs">Overs</a><a href="/client/unders" data-page="unders">Unders</a><a href="/client/btts" data-page="btts">BTTS</a><a href="/client/wins" data-page="wins">Wins</a><a href="#" id="logoutLink">Sign out</a></nav>
+<nav class="nav"><a href="/client">Dashboard</a><a href="/client/picks">My Picks Hub</a><a href="/client/overs" data-page="overs">Overs</a><a href="/client/unders" data-page="unders">Unders</a><a href="/client/btts" data-page="btts">BTTS</a><a href="/client/1x2" data-page="1x2">1X2</a><a href="#" id="logoutLink">Sign out</a></nav>
 <div class="top"><div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div></div>
 <div id="backendWarn" class="backendWarn"></div>
 <div id="marketAccessHint" class="marketAccessHint" role="status" aria-live="polite" hidden></div>
+<div id="oneXTwoGuide" class="marketAccessHint" hidden>
+ <strong>1X2:</strong> 1 = Home wins · X = Draw · 2 = Away wins.
+ <strong>Double Chance:</strong> 1X = Home or Draw · X2 = Draw or Away · 12 = Either side wins (no draw).
+ Only selections with a qualifying model or current odds-band research signal are displayed.
+</div>
 <section class="hero"><button id="go" class="button">Check predictions</button><span id="msg" class="meta" style="margin-left:9px">Load the next matchday and this market's predictions.</span><div id="overview" class="overview" style="display:none"></div></section>
 <section class="section"><div class="sectionHead"><h2>Next Matchday — Matches Being Played</h2><span id="fixtureMeta" class="meta">Run the market check to load fixtures.</span></div><div id="fixtures" class="fixtureList"><div class="empty">The actual next-round fixtures will appear here after you check predictions.</div></div></section>
 <section class="section"><div class="sectionHead"><h2>Top Ranked Picks</h2><span class="meta">Time alignment → win rate → past wins</span></div><div id="topPicks" class="grid"><div class="empty">Check predictions to rank the strongest picks.</div></div></section>
@@ -56,8 +61,8 @@ body{background:var(--bg);color:var(--txt)}
 </main>
 <footer class="responsibleFooter" aria-label="Responsible betting and age warning"><strong>You have to be 25 years and above to bet.</strong><span>Betting is addictive and can be psychologically harmful.</span></footer><script>
 const $=s=>document.querySelector(s);const page=location.pathname.split('/').filter(Boolean).pop().toLowerCase();
-const config={overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},btts:{title:'BTTS',button:'Check BTTS',desc:'Both Teams To Score predictions only.'},wins:{title:'WINS',button:'Check Wins',desc:'Qualified home/away win predictions only.'}};const cfg=config[page]||config.overs;
-document.title=cfg.title+' · BetPawa Predictor';$('#title').textContent=cfg.title;$('#subtitle').textContent=cfg.desc;$('#go').textContent=cfg.button;$('#currentTitle').textContent='Current '+cfg.title+' predictions';document.querySelectorAll('[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===page));
+const config={overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},btts:{title:'BTTS',button:'Check BTTS',desc:'Both Teams To Score predictions only.'},'1x2':{title:'1X2',button:'Check 1X2',desc:'Full-time 1 / X / 2 and Double Chance 1X / X2 / 12. Each selection uses its own bookmaker market; research candidates only appear when qualified.'}};const cfg=config[page]||config.overs;
+if(page==='1x2')$('#oneXTwoGuide').hidden=false;document.title=cfg.title+' · BetPawa Predictor';$('#title').textContent=cfg.title;$('#subtitle').textContent=cfg.desc;$('#go').textContent=cfg.button;$('#currentTitle').textContent='Current '+cfg.title+' predictions';document.querySelectorAll('[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===page));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const pct=v=>v==null?'—':(Number(v)*100).toFixed(1)+'%';
 async function json(url,opt){const r=await fetch(url,opt);const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={detail:t}}if(r.status===401){location.href='/login';throw new Error('Please sign in.')}if(r.status===403){throw new Error(d.detail||'Active subscription required.')}if(!r.ok)throw new Error(d.detail||t||r.statusText);return d}
 let currentSeason=null,currentMatchday=null,latestPredictions=[],selectedKeys=new Set(),isFree=false;
