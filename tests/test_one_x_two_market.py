@@ -74,6 +74,7 @@ class OneXTwoMarketTests(unittest.TestCase):
                        "subscription": {"is_active": True}}
             try:
                 with patch.object(main, "_require_account", return_value=account), \
+                     patch.object(main, "_session_account", return_value=account), \
                      patch.object(main, "_require_active_access", return_value=account), \
                      patch.object(main.feed, "prediction_context", return_value=context()), \
                      patch.object(main, "build_prediction", return_value={"predictions": []}):
