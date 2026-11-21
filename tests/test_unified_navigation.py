@@ -40,13 +40,13 @@ class NavigationRoutingTests(unittest.TestCase):
         self.assertEqual(registered.status_code, 200, registered.text)
         routes = [
             "/client", "/client/picks", "/client/overs", "/client/unders",
-            "/client/btts", "/client/wins", "/purchase",
+            "/client/btts", "/client/1x2", "/purchase",
         ]
         for route in routes:
             with self.subTest(route=route):
                 response = self.client.get(route)
                 self.assertEqual(response.status_code, 200, response.text[:220])
-        for category in ("overs", "unders", "btts", "wins"):
+        for category in ("overs", "unders", "btts", "1x2", "wins"):
             with self.subTest(market=category):
                 # Pages may be opened; prediction data is still prohibited until
                 # the administrator enables an eligible public Free release.
@@ -54,7 +54,7 @@ class NavigationRoutingTests(unittest.TestCase):
 
     def test_anonymous_users_still_cannot_open_member_pages(self):
         for path in ("/client", "/client/picks", "/client/overs",
-                     "/client/unders", "/client/btts", "/client/wins"):
+                     "/client/unders", "/client/btts", "/client/1x2", "/client/wins"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 302)
