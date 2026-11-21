@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality, current_seasons
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality, current_seasons, double_chance_research
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -304,6 +304,27 @@ def _admin_strategy_catalog() -> list[dict]:
                 strategy["league"], strategy["market"],
                 strategy.get("rule_id") or strategy["strategy_id"],
             )),
+        })
+
+    # E011 is descriptive research, not an approved historical betting edge.
+    for evidence in double_chance_research.research_catalog():
+        rows.append({
+            "strategy_family": "Experimental DC research",
+            "rule_id": "E011.DC." + evidence["selection"],
+            "strategy_name": evidence["label"] + " · odds-band watch",
+            "league": "All virtual leagues",
+            "market": "Double Chance " + evidence["selection"],
+            "wins": evidence["wins"],
+            "tests": evidence["tests"],
+            "win_rate": evidence["win_rate_pct"] / 100,
+            "baseline": evidence["average_bookmaker_probability_pct"] / 100,
+            "edge_pp": round(evidence["win_rate_pct"] - evidence["average_bookmaker_probability_pct"], 2),
+            "positive_seasons": "No independent prospective validation",
+            "trigger": "Current complete, unsuspended DC odds with de-vig probability 65–80%; "
+                       + "historical ROI " + str(evidence["roi_pct"]) + "% (negative). Not a verified profitable model.",
+            "time_windows": None,
+            "research_status": "experimental",
+            "historical_roi_pct": evidence["roi_pct"],
         })
 
     rows.sort(key=lambda x: (x["strategy_family"], x["league"], x["market"], -x["win_rate"]))
@@ -1746,6 +1767,9 @@ def recommended_picks(request: Request):
             "featured_predictions": featured,
             "research_watchlist": research_watches,
             "reviewed_h2h_patterns": recommendation_quality.reviewed_h2h_catalog(),
+            # VIP-only, clearly separate from model-featured selections.
+            "double_chance_research": context.get("double_chance_research", []) if not is_free else [],
+            "double_chance_access": not is_free,
         }
     except HTTPException:
         raise

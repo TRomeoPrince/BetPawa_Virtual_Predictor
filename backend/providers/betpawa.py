@@ -19,6 +19,7 @@ from ..private_rules import (
     MAX_PREVIOUS_SEASONS,
 )
 from ..db import get_cached_round, save_cached_round
+from ..double_chance_research import candidates_for_round
 
 BASE = "https://www.betpawa.ug"
 VIRTUAL_PAGE = BASE + "/virtual-sports?virtualTab=results&resultsTab=matches"
@@ -802,6 +803,11 @@ class BetPawaFeed:
             cached = dict(self._context_cache)
             cached["context_cache_hit"] = True
             cached["catalog_mode"] = catalog_mode
+            # A previously observed quote must never remain a displayed
+            # research candidate once the published trading window closes.
+            close_at = _parse_ts(cached.get("next_round_close_utc"))
+            if close_at is None or close_at <= time.time():
+                cached["double_chance_research"] = []
             return cached
 
         completed_indexes = list(range(0, source_idx + 1))
@@ -885,7 +891,14 @@ class BetPawaFeed:
         target_trading = target.get("tradingTime") or {}
         open_ts = _parse_ts(target_trading.get("start"))
         close_ts = _parse_ts(target_trading.get("end"))
+        # Only expose LIVE, pre-close DC market quotes; never fall back to
+        # guessed prices or previous-round odds for this research stream.
+        dc_candidates = (
+            candidates_for_round(payloads[str(target["id"])], LEAGUE_IDS)
+            if close_ts is not None and close_ts > time.time() else []
+        )
         result = {
+            "double_chance_research": dc_candidates,
             "next_round_open_utc": (
                 datetime.fromtimestamp(open_ts, timezone.utc).isoformat()
                 if open_ts is not None else None
