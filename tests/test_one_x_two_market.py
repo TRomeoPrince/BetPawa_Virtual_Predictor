@@ -77,7 +77,7 @@ class OneXTwoMarketTests(unittest.TestCase):
                      patch.object(main, "_session_account", return_value=account), \
                      patch.object(main, "_require_active_access", return_value=account), \
                      patch.object(main.feed, "prediction_context", return_value=context()), \
-                     patch.object(main, "build_prediction", return_value={"predictions": []}):
+                     patch.object(main, "build_prediction", return_value={"predictions": [], "season": "139510", "next_matchday": 3, "next_round_id": "round-3", "latest_completed_matchday": 2}):
                     with TestClient(main.app, follow_redirects=False) as client:
                         self.assertEqual(client.get("/client/1x2").status_code, 200)
                         old = client.get("/client/wins")
