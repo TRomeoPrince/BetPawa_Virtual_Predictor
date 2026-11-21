@@ -87,6 +87,52 @@ class AdminFreeMarketControlTests(unittest.TestCase):
         self.assertTrue(free_access.allowed_market("overs"))
         self.assertTrue(free_access.allowed_market("unders"))
 
+    def test_admin_can_enable_1x2_without_opening_other_markets(self):
+        self.login_admin()
+        start = datetime.now(timezone.utc) - timedelta(minutes=1)
+        end = start + timedelta(hours=1)
+        created = self.admin.post("/api/admin/free-releases", json={
+            "starts_at": start.isoformat(), "ends_at": end.isoformat(),
+            "markets": ["1x2"], "enabled": True,
+        })
+        self.assertEqual(created.status_code, 200, created.text)
+        release = self.admin.get("/api/admin/free-releases").json()["releases"][0]
+        # Canonical DB code is still "wins"; the member UI uses "1x2".
+        self.assertEqual(release["markets"], ["wins"])
+        self.assertEqual(release["starts_at"], start.isoformat())
+        self.assertEqual(release["ends_at"], end.isoformat())
+        status = self.member.get("/api/free-access/status").json()
+        self.assertTrue(status["open"])
+        self.assertEqual(status["markets"], ["1x2"])
+        self.assertTrue(free_access.allowed_market("wins"))
+        self.assertFalse(free_access.allowed_market("btts"))
+        self.assertEqual(self.member.post("/api/predict/btts").status_code, 403)
+
+        from backend import main
+        with patch.object(main, "_free_round_allowed", return_value=True), \
+             patch.object(main.feed, "prediction_context", return_value={
+                 "season": "139510", "next_matchday": 3,
+                 "completed_rounds_for_grading": [], "next_target": {},
+             }), \
+             patch.object(main, "build_prediction", return_value={
+                 "season": "139510", "next_matchday": 3,
+                 "predictions": [],
+             }), \
+             patch.object(main.one_x_two_market, "from_context",
+                          side_effect=AssertionError("Private E011 research must stay VIP-only")):
+            response = self.member.post("/api/predict/1x2")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()["free"])
+        self.assertEqual(response.json()["predictions"], [])
+        self.assertEqual(response.json()["personal"], {})
+
+        updated = self.admin.patch("/api/admin/free-releases/" + str(created.json()["id"]), json={
+            "markets": ["overs", "wins"], "enabled": True,
+        })
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertEqual(self.member.get("/api/free-access/status").json()["markets"],
+                         ["overs", "1x2"])
+
     def test_reject_invalid_end_market_and_cross_origin_admin_mutations(self):
         self.login_admin()
         now = datetime.now(timezone.utc)
@@ -96,8 +142,8 @@ class AdminFreeMarketControlTests(unittest.TestCase):
             {"starts_at": start, "ends_at": start, "markets": ["btts"]},
             {"starts_at": start, "ends_at": (now + timedelta(days=368)).isoformat(), "markets": ["btts"]},
             {"starts_at": start, "ends_at": end, "markets": []},
-            {"starts_at": start, "ends_at": end, "markets": ["wins"]},
-            {"starts_at": start, "ends_at": end, "markets": ["btts", "wins"]},
+            {"starts_at": start, "ends_at": end, "markets": ["unsupported"]},
+            {"starts_at": start, "ends_at": end, "markets": ["btts", "unsupported"]},
         ]
         for body in examples:
             with self.subTest(body=body):

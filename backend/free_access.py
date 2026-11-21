@@ -1,7 +1,7 @@
 """Admin-controlled, non-recurring Free prediction release windows.
 
-Admin chooses a start/end (up to one year) and which of Overs, Unders, BTTS
-is free. Legacy releases keep their original five-round time windows. A free
+Admin chooses a start/end (up to one year) and which of Overs, Unders,
+BTTS or 1X2 is free. Legacy releases keep their original five-round time windows. A free
 member never receives VIP history, private rule metadata or unapproved markets.
 """
 from __future__ import annotations
@@ -16,7 +16,10 @@ from .time_windows import ANCHOR_DATETIME_EAT, EAT, MATCHDAY_MINUTES, estimate_t
 FREE_ROUNDS = 5
 ROUND_DELTA = timedelta(minutes=MATCHDAY_MINUTES)
 MAX_WINDOW = timedelta(days=365)
-FREE_MARKETS = ("overs", "unders", "btts")
+DEFAULT_FREE_MARKETS = ("overs", "unders", "btts")
+# Internal "wins" is the existing public-facing 1X2 market. Keep legacy
+# releases and unspecified new releases on their original three markets.
+FREE_MARKETS = (*DEFAULT_FREE_MARKETS, "wins")
 
 
 def _now():
@@ -56,13 +59,16 @@ def _validate_window(start, end):
 
 def _normalise_markets(markets):
     if markets is None:
-        return list(FREE_MARKETS)
+        return list(DEFAULT_FREE_MARKETS)
     if not isinstance(markets, (list, tuple)):
         raise ValueError("Choose Free markets as a list.")
     selected = []
     for code in markets:
+        # Accept the public 1X2 code while storing the legacy internal category.
+        if code == "1x2":
+            code = "wins"
         if not isinstance(code, str) or code not in FREE_MARKETS:
-            raise ValueError("Allowed Free markets: Overs, Unders, BTTS.")
+            raise ValueError("Allowed Free markets: Overs, Unders, BTTS, 1X2.")
         if code not in selected:
             selected.append(code)
     if not selected:

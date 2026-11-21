@@ -112,6 +112,7 @@
 <label><input class="freeMarket" type="checkbox" value="btts" checked> BTTS</label>
 <label><input class="freeMarket" type="checkbox" value="overs" checked> OVERS</label>
 <label><input class="freeMarket" type="checkbox" value="unders" checked> UNDERS</label>
+<label><input class="freeMarket" type="checkbox" value="wins"> 1X2</label>
 </div></fieldset>
 <div class="form" style="align-items:center">
 <label><input type="checkbox" id="freeEnabled" checked> Enable this release</label>
@@ -412,7 +413,7 @@ function resetFreeEditor(){
  editingFreeId=null;$('freeStart').value='';$('freeEnd').value='';
  $('freeEnabled').checked=true;
  $('freeQuickDuration').value='';
- document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=true);
+ document.querySelectorAll('input.freeMarket').forEach(box=>box.checked=(box.value!=='wins'));
  $('scheduleFree').textContent='Schedule free release';
  $('cancelEditFree').classList.add('hidden');
  $('freeEditNotice').textContent='Leave End blank for five upcoming matchdays, select a duration preset, or choose a custom end date (up to 365 days).';
@@ -438,7 +439,7 @@ function renderFreeReleases(){
  for(const release of state.freeReleases){
   const tr=document.createElement('tr');
   tr.append(td(freeDate(release.starts_at)),td(freeDate(release.ends_at)),
-   td((release.markets||[]).map(m=>m.toUpperCase()).join(', ')||'None'),
+   td((release.markets||[]).map(m=>m==='wins'?'1X2':m.toUpperCase()).join(', ')||'None'),
    td(String(release.round_count)),td(release.state.toUpperCase()));
   const actions=td('');
   actions.append(button('Edit','',()=>editFreeRelease(release)),document.createTextNode(' '));
@@ -495,7 +496,7 @@ function freeDateValue(id){
 async function createFreeRelease(startIso){
  try{
   const markets=Array.from(document.querySelectorAll('input.freeMarket:checked')).map(x=>x.value);
-  if(!markets.length)throw Error('Select at least one market: BTTS, OVERS or UNDERS.');
+  if(!markets.length)throw Error('Select at least one market: BTTS, OVERS, UNDERS or 1X2.');
   const ends_at=freeDateValue('freeEnd');
   const body={starts_at:startIso,ends_at,markets,enabled:$('freeEnabled').checked};
   const updating=editingFreeId!==null;
