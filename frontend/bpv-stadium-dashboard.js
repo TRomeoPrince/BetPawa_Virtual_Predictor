@@ -88,7 +88,7 @@
     ["overs","Overs","/client/overs","overs"],
     ["unders","Unders","/client/unders","unders"],
     ["btts","BTTS","/client/btts","btts"],
-    ["wins","1X2","/client/1x2","wins"],
+    ["1x2","1X2","/client/1x2","wins"],
     ["proof","Win Proof","/client#winProofSubmit","proof"],
     ["vip","VIP Predictions","/purchase","vip"]
   ];
