@@ -1150,7 +1150,9 @@ def api_free_access_status(request: Request):
         release = free_access.active_release()
         response["open"] = bool(account.get("email")) and bool(release and release["markets"])
         # Market choices are public only DURING an active release, not its timetable.
-        response["markets"] = release["markets"] if response["open"] else []
+        response["markets"] = (["1x2" if market == "wins" else market
+                               for market in release["markets"]]
+                               if response["open"] else [])
     return response
 
 
