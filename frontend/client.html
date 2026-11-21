@@ -105,6 +105,19 @@
  <p class="premiumFoot">Featured research requires the exact home/away fixture and specific selection with historical validation (at least 70% over 8 or more matches) and a separate small recent check. BTTS, Overs and Wins remain independent. CRY–TOT requires further verification; BRE–SUN is excluded. No result or return is guaranteed, and unavailable matches are not invented.</p>
 </section>
 
+<section id="dcResearchSection" class="premiumSection" aria-label="Double Chance experimental research" hidden>
+ <div class="premiumHeader"><div>
+  <div class="premiumEyebrow">VIP research · live bookmaker odds · not proven profitable</div>
+  <h2>Double Chance: 12 &amp; 1X</h2>
+  <p id="dcResearchMeta" class="premiumInfo">Checking available next-round quotes…</p>
+ </div><button type="button" class="btn" id="refreshDcResearch">Refresh research</button></div>
+ <div class="premiumTableWrap"><table class="premiumTable" aria-label="Odds-filtered Double Chance research selections">
+  <thead><tr><th>League</th><th>Fixture</th><th>Market</th><th>Recorded odds</th><th>Implied probability</th><th>Historical win rate</th><th>Historical ROI</th></tr></thead>
+  <tbody id="dcResearchRows"></tbody>
+ </table></div>
+ <p class="premiumFoot">Experimental odds-band screening only (65–80% normalized Double Chance probability). Historical 12: 5,478/7,221 (75.86% wins, −4.76% ROI); 1X: 2,804/3,888 (72.12% wins, −5.07% ROI), as of 21 November 2026. These were losing selections at recorded odds. The feed does not verify sportsbook settlement or execute bets. A missing, suspended, closed or incomplete quote is never treated as a pick. Prices can change.</p>
+</section>
+
 <section id="winProofSubmit" class="winSubmitPanel" aria-label="Submit Win Proof">
  <div class="eyebrow">Community showcase</div><h2>Share Your Win · Win Proof</h2>
  <p class="winProofHelp">Upload your own winning screenshot (JPG, PNG or WebP, up to 3 MB). Please crop out phone numbers, account numbers, payment references and balances you don't want public. An administrator must approve it before it appears in the homepage gallery.</p>
@@ -184,6 +197,41 @@ function marketCategory(label){
  if(m.includes('HOME WIN')||m.includes('AWAY WIN'))return 'wins';
  return null;
 }
+function displayDCResearch(data){
+ const section=$('dcResearchSection');
+ if(!data.double_chance_access){
+  section.hidden=true;return;
+ }
+ const items=Array.isArray(data.double_chance_research)?data.double_chance_research:[];
+ const body=$('dcResearchRows');body.replaceChildren();
+ function cell(value){
+  const el=document.createElement('td');el.textContent=String(value);return el;
+ }
+ for(const pick of items.slice(0,40)){
+  const tr=document.createElement('tr');
+  const odds=Number(pick.decimal_odds),prob=Number(pick.bookmaker_probability_pct);
+  const win=Number(pick.historical_win_rate_pct),roi=Number(pick.historical_roi_pct);
+  for(const value of [
+   pick.league,pick.home+' – '+pick.away,pick.selection+' · '+pick.label,
+   Number.isFinite(odds)?odds.toFixed(2):'Unavailable',
+   Number.isFinite(prob)?prob.toFixed(2)+'%':'Unavailable',
+   Number.isFinite(win)?win.toFixed(2)+'%':'Unavailable',
+   Number.isFinite(roi)?roi.toFixed(2)+'%':'Unavailable'
+  ])tr.append(cell(value));
+  body.append(tr);
+ }
+ if(!items.length){
+  const tr=document.createElement('tr');
+  const td=cell('No currently available 12 or 1X quotes qualify for the frozen 65–80% band. No picks are invented.');
+  td.colSpan=7;tr.append(td);body.append(tr);
+ }
+ $('dcResearchMeta').textContent=
+  'Season '+data.season+' · Matchday '+data.next_matchday+
+  ' · '+items.length+' current research selections'+
+  (items.length>40?' (showing first 40)':'')+
+  ' · Two choices may refer to the same fixture; this is NOT a profitability claim.';
+ section.hidden=false;
+}
 function displayModelRecommendations(data){
  const section=$('modelRecommendationsSection');
  const body=$('modelRecommendationsRows');
@@ -250,8 +298,10 @@ async function loadModelRecommendations(){
  try{
   const data=await api('/api/recommended-picks',{cache:'no-store'});
   displayModelRecommendations(data);
+  displayDCResearch(data);
  }catch(e){
   $('modelRecommendationsSection').hidden=true;
+  $('dcResearchSection').hidden=true;
  }
 }
 
@@ -570,6 +620,7 @@ $('passwordForm').addEventListener('submit',async event=>{
 $('logout').addEventListener('click',async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{location.assign('/login')}});
 $('refreshPremiumPicks').addEventListener('click',loadPremiumPicks);
 $('refreshModelRecommendations').addEventListener('click',loadModelRecommendations);
+$('refreshDcResearch').addEventListener('click',loadModelRecommendations);
 load();
 setInterval(()=>{if(account&&document.visibilityState==='visible'){loadPremiumPicks();loadModelRecommendations()}},60000);
 
