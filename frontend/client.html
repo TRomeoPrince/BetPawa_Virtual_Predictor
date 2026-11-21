@@ -108,14 +108,14 @@
 <section id="dcResearchSection" class="premiumSection" aria-label="Double Chance experimental research" hidden>
  <div class="premiumHeader"><div>
   <div class="premiumEyebrow">VIP research · live bookmaker odds · not proven profitable</div>
-  <h2>Double Chance: 12 &amp; 1X</h2>
+  <h2>1X2 / Double Chance: 12 &amp; 1X</h2>
   <p id="dcResearchMeta" class="premiumInfo">Checking available next-round quotes…</p>
- </div><button type="button" class="btn" id="refreshDcResearch">Refresh research</button></div>
+ </div><div class="actions"><a class="btn primary" href="/client/1x2">Open 1X2 market</a><button type="button" class="btn" id="refreshDcResearch">Refresh research</button></div></div>
  <div class="premiumTableWrap"><table class="premiumTable" aria-label="Odds-filtered Double Chance research selections">
   <thead><tr><th>League</th><th>Fixture</th><th>Market</th><th>Recorded odds</th><th>Implied probability</th><th>Historical win rate</th><th>Historical ROI</th></tr></thead>
   <tbody id="dcResearchRows"></tbody>
  </table></div>
- <p class="premiumFoot">Experimental odds-band screening only (65–80% normalized Double Chance probability). Historical 12: 5,478/7,221 (75.86% wins, −4.76% ROI); 1X: 2,804/3,888 (72.12% wins, −5.07% ROI), as of 21 November 2026. These were losing selections at recorded odds. The feed does not verify sportsbook settlement or execute bets. A missing, suspended, closed or incomplete quote is never treated as a pick. Prices can change.</p>
+ <p class="premiumFoot">Experimental odds-band screening only (65–80% normalized Double Chance probability). Historical 12: 5,478/7,221 (75.86%); 1X: 2,804/3,888 (72.12%), as of 21 November 2026. Hit rate and completed sample size are primary research measures; ROI is tracked separately and does not filter these candidates. High win rates do not guarantee profit. The feed does not verify sportsbook settlement or execute bets. A missing, suspended, closed or incomplete quote is never treated as a pick. Prices can change.</p>
 </section>
 
 <section id="winProofSubmit" class="winSubmitPanel" aria-label="Submit Win Proof">
@@ -129,12 +129,12 @@
  <div id="winProofMessage" class="feedback" aria-live="polite"></div>
  <div id="myWinProofs" class="winProofRow" aria-live="polite"></div>
 </section>
-<section id="picksHub" class="picksHub" aria-label="My Picks Hub"><div><div class="eyebrow">All your selections in one place</div><h2>My Picks Hub</h2><p>Latest combo · Overs · Unders · BTTS · Wins · Selection history · Personal bet journal</p></div><a class="btn primary" href="/client/picks">Open My Picks Hub →</a><div id="picksPreview" class="picksPreview" aria-live="polite"><div class="muted">Loading your saved selections…</div></div><div id="picksRecent" class="picksRecent"></div></section>
+<section id="picksHub" class="picksHub" aria-label="My Picks Hub"><div><div class="eyebrow">All your selections in one place</div><h2>My Picks Hub</h2><p>Latest combo · Overs · Unders · BTTS · 1X2 · Selection history · Personal bet journal</p></div><a class="btn primary" href="/client/picks">Open My Picks Hub →</a><div id="picksPreview" class="picksPreview" aria-live="polite"><div class="muted">Loading your saved selections…</div></div><div id="picksRecent" class="picksRecent"></div></section>
 <section class="section" id="marketResearch"><div class="sectionHead"><div><h2>Explore prediction markets</h2><p>Open a market to see available matchday fixtures, qualifying picks and your tracked results.</p></div></div><div class="markets">
 <a class="market" href="/client/overs"><span class="symbol" aria-hidden="true">↗</span><h3>Overs</h3><p>Goal-over predictions and ranked picks.</p><span class="open">Explore Overs →</span></a>
 <a class="market" href="/client/unders"><span class="symbol" aria-hidden="true">↘</span><h3>Unders</h3><p>Qualified goal-under predictions.</p><span class="open">Explore Unders →</span></a>
 <a class="market" href="/client/btts"><span class="symbol" aria-hidden="true">⇄</span><h3>BTTS</h3><p>Both Teams To Score patterns.</p><span class="open">Explore BTTS →</span></a>
-<a class="market" href="/client/wins"><span class="symbol" aria-hidden="true">✓</span><h3>Wins</h3><p>Home and away win patterns, when qualified.</p><span class="open">Explore Wins →</span></a>
+<a class="market" href="/client/1x2"><span class="symbol" aria-hidden="true">✓</span><h3>1X2</h3><p>Full-time results (1 / X / 2) and Double Chance (1X / X2 / 12) when qualified.</p><span class="open">Explore 1X2 →</span></a>
 </div></section>
 <section class="section panel"><div class="sectionHead"><div><h2>Subscription plans</h2><p>Choose an access period. Requests are reviewed by the administrator; this site does not charge you automatically.</p></div></div><div id="plans" class="plans"><div class="muted">Loading plans…</div></div><div id="requestMessage" class="feedback" role="status" aria-live="polite"></div><div id="requestHistory" class="requestList"></div></section>
 <section class="section panel" id="referrals">
@@ -194,7 +194,7 @@ function marketCategory(label){
  if(m.includes('OVER'))return 'overs';
  if(m.includes('UNDER'))return 'unders';
  if(m.includes('BTTS'))return 'btts';
- if(m.includes('HOME WIN')||m.includes('AWAY WIN'))return 'wins';
+ if(m.includes('HOME WIN')||m.includes('AWAY WIN')||['1','X','2','1X','X2','12'].includes(m))return '1x2';
  return null;
 }
 function displayDCResearch(data){
@@ -428,7 +428,7 @@ async function loadPicksPreview(){
     const data=await api('/api/client/picks?scope=latest&limit=3');
     box.replaceChildren();recent.replaceChildren();
     const counts=data.summary?.latest_by_category||{};
-    for(const [key,label] of [['overs','Overs'],['unders','Unders'],['btts','BTTS'],['wins','Wins']]){
+    for(const [key,label] of [['overs','Overs'],['unders','Unders'],['btts','BTTS'],['wins','1X2']]){
       const a=document.createElement('a');a.className='pickMini';a.href='/client/picks?category='+key;
       const count=document.createElement('b');count.textContent=Number(counts[key]||0).toLocaleString();
       const title=document.createElement('span');title.textContent=label+' selections';
