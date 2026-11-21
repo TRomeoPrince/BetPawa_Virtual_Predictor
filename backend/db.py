@@ -362,6 +362,14 @@ def _grade_market(expected: str, fixture: dict[str, Any]) -> bool | None:
         return ft_side == "AWAY"
     if label in {"DRAW", "FT DRAW", "FULL-TIME DRAW", "FULL TIME DRAW", "X"}:
         return ft_side == "DRAW"
+    # Double Chance is not the 1X2 market at the bookmaker: these are
+    # independently priced 1X/X2/12 outcomes, graded against full-time scores.
+    if label == "1X":
+        return ft_side in {"HOME", "DRAW"}
+    if label == "X2":
+        return ft_side in {"DRAW", "AWAY"}
+    if label == "12":
+        return ft_side in {"HOME", "AWAY"}
 
     if label in {"HT DRAW", "HALF-TIME DRAW", "HALF TIME DRAW"}:
         if not isinstance(ht_home, int) or not isinstance(ht_away, int):
@@ -452,7 +460,7 @@ _CATEGORY_SQL = {
     "overs": "UPPER(expected) LIKE '%OVER%'",
     "unders": "UPPER(expected) LIKE '%UNDER%'",
     "btts": "UPPER(expected) LIKE '%BTTS%'",
-    "wins": "(UPPER(expected) LIKE '%HOME WIN%' OR UPPER(expected) LIKE '%AWAY WIN%')",
+    "wins": "(UPPER(expected) LIKE '%HOME WIN%' OR UPPER(expected) LIKE '%AWAY WIN%' OR UPPER(expected) IN ('HOME','AWAY','1','X','2','1X','X2','12','DRAW','FT DRAW','FULL-TIME DRAW','FULL TIME DRAW'))",
 }
 
 

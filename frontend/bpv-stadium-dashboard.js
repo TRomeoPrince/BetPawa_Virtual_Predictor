@@ -5,8 +5,8 @@
 (() => {
   "use strict";
   const page = location.pathname;
-  const supportedMarkets = new Set(["overs","unders","btts","wins"]);
-  const isMarket = /^\/client\/(overs|unders|btts|wins)$/.test(page);
+  const supportedMarkets = new Set(["overs","unders","btts","1x2"]);
+  const isMarket = /^\/client\/(overs|unders|btts|1x2)$/.test(page);
   if (page !== "/client" && page !== "/client/picks" && !isMarket) return;
   const main = document.querySelector("main");
   if (!main || document.getElementById("stadium-shell")) return;
@@ -88,7 +88,7 @@
     ["overs","Overs","/client/overs","overs"],
     ["unders","Unders","/client/unders","unders"],
     ["btts","BTTS","/client/btts","btts"],
-    ["wins","Wins","/client/wins","wins"],
+    ["wins","1X2","/client/1x2","wins"],
     ["proof","Win Proof","/client#winProofSubmit","proof"],
     ["vip","VIP Predictions","/purchase","vip"]
   ];

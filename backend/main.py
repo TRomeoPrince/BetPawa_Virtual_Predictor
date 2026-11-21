@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, Response as FileResponseBytes
 from pydantic import BaseModel
 
-from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality, current_seasons, double_chance_research
+from . import picks, access_links, purchase_requests, growth, free_access, referral_wallet, admin_analytics, pattern_partners, contributor_rewards, premium_picks, win_proofs, recommendation_quality, current_seasons, double_chance_research, one_x_two_market
 from .providers.betpawa import BetPawaFeed
 from .predictor import build_prediction
 from .time_windows import time_priority, TIME_WINDOW_HISTORY, EAT, estimate_target_datetime_eat
@@ -339,7 +339,11 @@ def _market_category(expected: str | None) -> str | None:
         return "unders"
     if "BTTS" in value:
         return "btts"
-    if "HOME WIN" in value or "AWAY WIN" in value or value in {"HOME", "AWAY"}:
+    # Internal "wins" category is retained for existing saved predictions
+    # and private journals; the public market is named 1X2.
+    if ("HOME WIN" in value or "AWAY WIN" in value or
+            value in {"HOME", "AWAY", "1", "X", "2", "1X", "X2", "12",
+                      "DRAW", "FT DRAW", "FULL-TIME DRAW", "FULL TIME DRAW"}):
         return "wins"
     return None
 
@@ -764,13 +768,15 @@ def client_picks_page(request: Request):
 
 @app.get("/client/{category}")
 def client_market_page(category: str, request: Request):
-    if category not in {"overs", "unders", "btts", "wins"}:
+    if category not in {"overs", "unders", "btts", "1x2", "wins"}:
         raise HTTPException(404, "Unknown market page.")
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
     if account.get("must_change_password"):
         return RedirectResponse("/password-setup", status_code=302)
+    if category == "wins":
+        return RedirectResponse("/client/1x2", status_code=302)
     # The market page itself is presentation-only. Let every signed-in member
     # inspect a market and see a clear Free/VIP access message instead of
     # silently bouncing back to /client. Prediction APIs still enforce email,
@@ -782,9 +788,10 @@ def client_market_page(category: str, request: Request):
 @app.get("/unders")
 @app.get("/btts")
 @app.get("/wins")
+@app.get("/1x2")
 def legacy_market_redirect(request: Request):
     category = request.url.path.strip("/")
-    return RedirectResponse(f"/client/{category}", status_code=302)
+    return RedirectResponse("/client/1x2" if category in {"wins", "1x2"} else f"/client/{category}", status_code=302)
 
 
 def _link_session(request: Request, response: Response, account):
@@ -1138,7 +1145,7 @@ def api_free_access_status(request: Request):
     response = {"vip": _is_vip(account)}
     if response["vip"]:
         response["open"] = True
-        response["markets"] = ["overs","unders","btts","wins"]
+        response["markets"] = ["overs","unders","btts","1x2","wins"]
     else:
         release = free_access.active_release()
         response["open"] = bool(account.get("email")) and bool(release and release["markets"])
@@ -1780,17 +1787,18 @@ def recommended_picks(request: Request):
 
 @app.post("/api/predict/{category}")
 def predict_category(category: str, request: Request, response: Response):
-    if category not in {"overs", "unders", "btts", "wins"}:
+    if category not in {"overs", "unders", "btts", "wins", "1x2"}:
         raise HTTPException(404, "Unknown market page.")
     account = _require_account(request)
     is_free = not _is_vip(account)
     user_id = account["user_key"]
+    market_category = "wins" if category == "1x2" else category
     started = time.perf_counter()
     if is_free and not account.get("email"):
         raise HTTPException(403, "An active subscription is required.")
     if is_free and free_access.active_release() is None:
         raise HTTPException(403, "No public predictions have been released at the moment.")
-    if is_free and not free_access.allowed_market(category):
+    if is_free and not free_access.allowed_market(market_category):
         raise HTTPException(403, "This prediction market is not enabled for the current Free release.")
     try:
         context = feed.prediction_context()
@@ -1798,20 +1806,26 @@ def predict_category(category: str, request: Request, response: Response):
             raise HTTPException(403, "This matchday is not part of an active public release.")
         graded_now = grade_user_predictions(user_id, context["completed_rounds_for_grading"]) if not is_free else 0
         result = build_prediction(context)
+        market_predictions = [
+            p for p in result.get("predictions", [])
+            if _market_category(p.get("expected")) == market_category
+        ]
+        if market_category == "wins" and not is_free:
+            # E011 selections are actual current-round price-screened fixtures.
+            # They are kept separate from the original H2H strategy engine.
+            # ROI is not used as a screening condition.
+            market_predictions.extend(one_x_two_market.from_context(context))
         category_result = {
             **result,
             "next_target": context.get("next_target") or {},
-            "predictions": [
-                p for p in result.get("predictions", [])
-                if _market_category(p.get("expected")) == category
-            ],
+            "predictions": market_predictions,
             "trackers": [],
         }
         # A free response is filtered before returning; VIP history is never included.
         if is_free:
             return _free_market_result(_public_result(category_result))
         save_user_prediction_batch(user_id, category_result)
-        history = get_user_history(user_id, category=category)
+        history = get_user_history(user_id, category=market_category)
         public_result = _public_result(category_result)
         public_result["personal"] = _public_history(history)
         public_result["performance"] = {
@@ -1853,16 +1867,17 @@ def update_selection(payload: SelectionUpdate, request: Request, response: Respo
 
 @app.get("/api/history/{category}")
 def history_category(category: str, request: Request, response: Response):
-    if category not in {"overs", "unders", "btts", "wins"}:
+    if category not in {"overs", "unders", "btts", "wins", "1x2"}:
         raise HTTPException(404, "Unknown market page.")
     account = _require_active_access(request)
     user_id = account["user_key"]
-    return _public_history(get_user_history(user_id, category=category))
+    market_category = "wins" if category == "1x2" else category
+    return _public_history(get_user_history(user_id, category=market_category))
 
 
 @app.post("/api/history/{category}/refresh")
 def refresh_history(category: str, request: Request, response: Response):
-    if category not in {"overs", "unders", "btts", "wins"}:
+    if category not in {"overs", "unders", "btts", "wins", "1x2"}:
         raise HTTPException(404, "Unknown market page.")
     account = _require_active_access(request)
     user_id = account["user_key"]
@@ -1870,7 +1885,8 @@ def refresh_history(category: str, request: Request, response: Response):
     try:
         context = feed.prediction_context()
         graded = grade_user_predictions(user_id, context["completed_rounds_for_grading"])
-        history = _public_history(get_user_history(user_id, category=category))
+        market_category = "wins" if category == "1x2" else category
+        history = _public_history(get_user_history(user_id, category=market_category))
         history["refresh"] = {
             "graded_now": graded,
             "seconds": round(time.perf_counter() - started, 3),

@@ -51,7 +51,7 @@ class StadiumDashboardTests(unittest.TestCase):
             ("Overs", "/client/overs"),
             ("Unders", "/client/unders"),
             ("BTTS", "/client/btts"),
-            ("Wins", "/client/wins"),
+            ("1X2", "/client/1x2"),
             ("Win Proof", "/client#winProofSubmit"),
             ("VIP Predictions", "/purchase"),
         ):
@@ -78,7 +78,7 @@ class StadiumDashboardTests(unittest.TestCase):
     def test_navigation_persists_across_every_market_and_uses_live_routes(self):
         source = (FRONTEND / "bpv-stadium-dashboard.js").read_text(encoding="utf-8")
         css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
-        self.assertIn('const isMarket = /^\\/client\\/(overs|unders|btts|wins)$/.test(page)', source)
+        self.assertIn('const isMarket = /^\\/client\\/(overs|unders|btts|1x2)$/.test(page)', source)
         self.assertIn('shell.classList.add("stadium-market-shell")', source)
         self.assertIn(".stadium-shell.stadium-market-shell", css)
         self.assertIn("body:has(.bpv-sidebar) .stadium-content > nav.nav", css)
@@ -86,7 +86,7 @@ class StadiumDashboardTests(unittest.TestCase):
         self.assertIn("grid-template-columns:minmax(0,1fr)", css)
         self.assertIn("pointer-events:auto", css)
         with TestClient(main.app, follow_redirects=False) as client:
-            for market in ("overs", "unders", "btts", "wins"):
+            for market in ("overs", "unders", "btts", "1x2", "wins"):
                 with self.subTest(market=market):
                     self.assertEqual(client.get("/client/" + market).status_code, 302)
             self.assertEqual(client.get("/client/unknown-market").status_code, 404)

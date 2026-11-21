@@ -40,10 +40,15 @@ body{background:var(--bg);color:var(--txt)}
 </head>
 <body>
 <main class="wrap">
-<nav class="nav"><a href="/client">Dashboard</a><a href="/client/picks">My Picks Hub</a><a href="/client/overs" data-page="overs">Overs</a><a href="/client/unders" data-page="unders">Unders</a><a href="/client/btts" data-page="btts">BTTS</a><a href="/client/wins" data-page="wins">Wins</a><a href="#" id="logoutLink">Sign out</a></nav>
+<nav class="nav"><a href="/client">Dashboard</a><a href="/client/picks">My Picks Hub</a><a href="/client/overs" data-page="overs">Overs</a><a href="/client/unders" data-page="unders">Unders</a><a href="/client/btts" data-page="btts">BTTS</a><a href="/client/1x2" data-page="1x2">1X2</a><a href="#" id="logoutLink">Sign out</a></nav>
 <div class="top"><div><h1 id="title">Market</h1><div id="subtitle" class="sub"></div></div></div>
 <div id="backendWarn" class="backendWarn"></div>
 <div id="marketAccessHint" class="marketAccessHint" role="status" aria-live="polite" hidden></div>
+<div id="oneXTwoGuide" class="marketAccessHint" hidden>
+ <strong>1X2:</strong> 1 = Home wins · X = Draw · 2 = Away wins.
+ <strong>Double Chance:</strong> 1X = Home or Draw · X2 = Draw or Away · 12 = Either side wins (no draw).
+ Only selections with a qualifying model or current odds-band research signal are displayed.
+</div>
 <section class="hero"><button id="go" class="button">Check predictions</button><span id="msg" class="meta" style="margin-left:9px">Load the next matchday and this market's predictions.</span><div id="overview" class="overview" style="display:none"></div></section>
 <section class="section"><div class="sectionHead"><h2>Next Matchday — Matches Being Played</h2><span id="fixtureMeta" class="meta">Run the market check to load fixtures.</span></div><div id="fixtures" class="fixtureList"><div class="empty">The actual next-round fixtures will appear here after you check predictions.</div></div></section>
 <section class="section"><div class="sectionHead"><h2>Top Ranked Picks</h2><span class="meta">Time alignment → win rate → past wins</span></div><div id="topPicks" class="grid"><div class="empty">Check predictions to rank the strongest picks.</div></div></section>
@@ -56,8 +61,8 @@ body{background:var(--bg);color:var(--txt)}
 </main>
 <footer class="responsibleFooter" aria-label="Responsible betting and age warning"><strong>You have to be 25 years and above to bet.</strong><span>Betting is addictive and can be psychologically harmful.</span></footer><script>
 const $=s=>document.querySelector(s);const page=location.pathname.split('/').filter(Boolean).pop().toLowerCase();
-const config={overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},btts:{title:'BTTS',button:'Check BTTS',desc:'Both Teams To Score predictions only.'},wins:{title:'WINS',button:'Check Wins',desc:'Qualified home/away win predictions only.'}};const cfg=config[page]||config.overs;
-document.title=cfg.title+' · BetPawa Predictor';$('#title').textContent=cfg.title;$('#subtitle').textContent=cfg.desc;$('#go').textContent=cfg.button;$('#currentTitle').textContent='Current '+cfg.title+' predictions';document.querySelectorAll('[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===page));
+const config={overs:{title:'OVERS',button:'Check Overs',desc:'Goal-over predictions only.'},unders:{title:'UNDERS',button:'Check Unders',desc:'Goal-under predictions only.'},btts:{title:'BTTS',button:'Check BTTS',desc:'Both Teams To Score predictions only.'},'1x2':{title:'1X2',button:'Check 1X2',desc:'Full-time 1 / X / 2 and Double Chance 1X / X2 / 12. Each selection uses its own bookmaker market; research candidates only appear when qualified.'}};const cfg=config[page]||config.overs;
+if(page==='1x2')$('#oneXTwoGuide').hidden=false;document.title=cfg.title+' · BetPawa Predictor';$('#title').textContent=cfg.title;$('#subtitle').textContent=cfg.desc;$('#go').textContent=cfg.button;$('#currentTitle').textContent='Current '+cfg.title+' predictions';document.querySelectorAll('[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===page));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const pct=v=>v==null?'—':(Number(v)*100).toFixed(1)+'%';
 async function json(url,opt){const r=await fetch(url,opt);const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={detail:t}}if(r.status===401){location.href='/login';throw new Error('Please sign in.')}if(r.status===403){throw new Error(d.detail||'Active subscription required.')}if(!r.ok)throw new Error(d.detail||t||r.statusText);return d}
 let currentSeason=null,currentMatchday=null,latestPredictions=[],selectedKeys=new Set(),isFree=false;
@@ -70,11 +75,70 @@ function timeComparison(p){const align=p.time_alignment||'UNCONFIRMED';const cls
 const current=source
   ?esc('Source round window: '+source.text+' (individual kickoff may differ)')
   :esc('Model estimate: '+(p.estimated_target_time_eat||'unavailable')+' EAT · unverified');return '<div class="timeBox '+cls+'"><span class="timeLabel '+cls+'">'+label+'</span><div class="meta"><b>Expected play schedule:</b> '+current+'</div><div class="meta" style="margin-top:4px"><b>Historical successful time:</b><br>'+historical+'</div><div class="meta" style="margin-top:4px"><b>Comparison:</b> '+esc(p.time_alignment_note||'Time evidence is confirmation only.')+'</div></div>'}
-function predictionCard(p,compact=false){const selected=selectedKeys.has(keyOf(p));const rank=p.market_rank?'<span class="rank">#'+p.market_rank+'</span>':'';const research=(p.supports||[]).find(s=>s.research_status);const detail=research?(research.research_status==='watch'?'User watch · limited evidence: ':'Exploratory paired-fixture research: ')+research.wins+'/'+research.tests+' historical tests':((p.top_wins!=null&&p.top_tests!=null)?p.top_wins+'/'+p.top_tests+' historical tests':'Historical pattern');const support=p.support_count>1?' · '+p.support_count+' private supports':'';const button=compact?'':'<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+(selected?'✓ In My Combo':'+ Add to My Combo')+'</button>';return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+'<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+'</div>'+timeComparison(p)+button+'</div>'}
-function renderFixtures(target){const groups=target||{};let html='';let total=0;for(const league of Object.keys(groups).sort()){const rows=groups[league]||[];if(!rows.length)continue;total+=rows.length;html+='<div class="leagueGroup"><h3 class="leagueName">'+esc(league.toUpperCase())+'</h3>'+rows.map(f=>{const p=latestPredictions.find(x=>x.league===league&&x.target_home===f.home&&x.target_away===f.away);return '<div class="fixtureCard '+(p?'hasSignal':'')+'"><div class="fixture">'+esc(f.home)+' - '+esc(f.away)+'</div>'+(p?'<div class="signal">'+esc(p.expected)+' · '+pct(p.top_historical_win_rate)+'</div><button class="pickBtn '+(selectedKeys.has(keyOf(p))?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+(selectedKeys.has(keyOf(p))?'✓ Selected for My Combo':'+ Select this prediction')+'</button>':'<div class="noSignal">No qualifying '+esc(cfg.title)+' signal for this fixture.</div>')+'</div>'}).join('')+'</div>'}$('#fixtures').innerHTML=html||'<div class="empty">No next-round fixtures were returned.</div>';const schedule=window.BPVRoundTime?.roundWindow(currentRoundOpenUtc,currentRoundCloseUtc);
-$('#fixtureMeta').textContent=total+' matches in the next matchday'+
+function marketLabel(p){
+ const key=String(p.expected||'').trim().toUpperCase();
+ const label={'1':'1 · Home win','X':'X · Draw','2':'2 · Away win',
+  '1X':'1X · Home or Draw','X2':'X2 · Draw or Away','12':'12 · No Draw',
+  'HOME WIN':'1 · Home win','AWAY WIN':'2 · Away win'};
+ return label[key]||p.expected;
+}
+function predictionCard(p,compact=false){
+ const selected=selectedKeys.has(keyOf(p));
+ const rank=p.market_rank?'<span class="rank">#'+p.market_rank+'</span>':'';
+ const experimental=p.research_status==='experimental';
+ const research=(p.supports||[]).find(s=>s.research_status);
+ const detail=experimental
+  ? 'E011 experimental · '+Number(p.top_wins||0).toLocaleString('en-UG')+'/'+Number(p.top_tests||0).toLocaleString('en-UG')+' historical wins/tests · Not a proven profitable strategy'
+  :research?(research.research_status==='watch'?'User watch · limited evidence: ':'Exploratory paired-fixture research: ')+research.wins+'/'+research.tests+' historical tests'
+  :((p.top_wins!=null&&p.top_tests!=null)?p.top_wins+'/'+p.top_tests+' historical tests':'Historical pattern');
+ const support=p.support_count>1?' · '+p.support_count+' private supports':'';
+ const price=experimental&&Number.isFinite(Number(p.decimal_odds))
+  ?'<div class="meta" style="margin-top:7px">Recorded DC odds: '+esc(Number(p.decimal_odds).toFixed(3))+
+   ' · Bookmaker implied probability (de-vig): '+esc(Number(p.bookmaker_probability_pct).toFixed(1))+'%</div>':'';
+ const label=marketLabel(p);
+ const schedule=window.BPVRoundTime?.roundWindow(currentRoundOpenUtc,currentRoundCloseUtc);
+ const time=experimental
+  ?'<div class="meta" style="margin-top:7px">Current round: '+esc(schedule?schedule.text:'Time unavailable')+
+   ' · No validated timing pattern</div>'
+  :timeComparison(p);
+ const button=compact?'':'<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+
+  (selected?'✓ In My Combo':'+ Add to My Combo')+'</button>';
+ return '<div class="card '+(selected?'selected':'')+'"><div class="row"><div>'+rank+
+  '<strong>'+esc(p.league)+'</strong></div><div class="rate">'+pct(p.top_historical_win_rate)+
+  '</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+
+  '</div><div class="market">'+esc(label)+(experimental?' · Experimental':'')+
+  '</div><div class="meta" style="margin-top:7px">'+esc(detail)+esc(support)+
+  '</div>'+price+time+button+'</div>';
+}
+function renderFixtures(target){
+ const groups=target||{};let html='';let total=0;
+ for(const league of Object.keys(groups).sort()){
+  const rows=groups[league]||[];if(!rows.length)continue;
+  total+=rows.length;
+  html+='<div class="leagueGroup"><h3 class="leagueName">'+esc(league.toUpperCase())+'</h3>';
+  html+=rows.map(f=>{
+   const signals=latestPredictions.filter(x=>x.league===league&&x.target_home===f.home&&x.target_away===f.away);
+   const choices=signals.map(p=>{
+    const selected=selectedKeys.has(keyOf(p));
+    return '<div class="signal">'+esc(marketLabel(p))+' · '+pct(p.top_historical_win_rate)+
+      (p.research_status==='experimental'?' · Experimental':'')+'</div>'+
+      '<button class="pickBtn '+(selected?'on':'')+'" data-pick="'+esc(keyOf(p))+'">'+
+      (selected?'✓ Selected for My Combo':'+ Select this prediction')+'</button>';
+   }).join('');
+   return '<div class="fixtureCard '+(signals.length?'hasSignal':'')+'"><div class="fixture">'+
+    esc(f.home)+' - '+esc(f.away)+'</div>'+
+    (signals.length?choices:'<div class="noSignal">No qualifying '+esc(cfg.title)+' signal for this fixture.</div>')+
+    '</div>';
+  }).join('');
+  html+='</div>';
+ }
+ $('#fixtures').innerHTML=html||'<div class="empty">No next-round fixtures were returned.</div>';
+ const schedule=window.BPVRoundTime?.roundWindow(currentRoundOpenUtc,currentRoundCloseUtc);
+ $('#fixtureMeta').textContent=total+' matches in the next matchday'+
   (schedule?' · Expected round: '+schedule.text:' · Scheduled time unavailable')+
-  ' · Selection is available where this market has a qualifying signal.';bindPickButtons()}
+  ' · Multiple selections may qualify for the same fixture.';
+ bindPickButtons();
+}
 function renderCurrent(){latestPredictions.sort(rankSort);latestPredictions.forEach((p,i)=>p.market_rank=i+1);const top=latestPredictions.slice(0,Math.min(5,latestPredictions.length));$('#topPicks').innerHTML=top.length?top.map(p=>predictionCard(p)).join(''):'<div class="empty">No ranked picks are available.</div>';const selected=latestPredictions.filter(p=>selectedKeys.has(keyOf(p)));$('#comboCount').textContent=selected.length+' selected';$('#combo').innerHTML=selected.length?selected.map(p=>predictionCard(p,true)).join(''):'<div class="empty">Choose the matches you personally want to follow.</div>';const groups={};for(const p of latestPredictions)(groups[p.league]??=[]).push(p);const leagues=Object.keys(groups).sort();$('#predictions').innerHTML=leagues.length?leagues.map(league=>'<div class="leagueGroup"><h3 class="leagueName">'+esc(league.toUpperCase())+'</h3><div class="grid">'+groups[league].map(p=>predictionCard(p)).join('')+'</div></div>').join(''):'<div class="empty">No '+esc(cfg.title)+' candidate triggered for the next matchday.</div>';bindPickButtons();renderFixtures(window.currentTarget);if(isFree)document.querySelectorAll('.pickBtn').forEach(button=>button.remove())}
 function bindPickButtons(){document.querySelectorAll('[data-pick]').forEach(btn=>btn.onclick=async()=>{const p=latestPredictions.find(x=>keyOf(x)===btn.dataset.pick);if(!p||currentSeason==null||currentMatchday==null)return;const selected=!selectedKeys.has(keyOf(p));btn.disabled=true;try{await json('/api/selection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:String(currentSeason),matchday:String(currentMatchday),league:p.league,target_home:p.target_home,target_away:p.target_away,expected:p.expected,selected})});if(selected)selectedKeys.add(keyOf(p));else selectedKeys.delete(keyOf(p));renderCurrent();await loadHistory()}catch(e){alert(e.message)}finally{btn.disabled=false}})}
 function cardResult(p){const score=p.outcome==='PENDING'?'Awaiting result':((p.ft_home??'—')+' - '+(p.ft_away??'—'));return '<div class="card"><div class="row"><div><strong>'+esc(p.league)+'</strong><br><span class="outcome '+esc(p.outcome)+'">'+esc(p.outcome)+'</span></div><div class="rate">'+esc(score)+'</div></div><div class="fixture">'+esc(p.target_home)+' - '+esc(p.target_away)+'</div><div class="market">'+esc(p.expected)+'</div>'+timeComparison(p)+'</div>'}
