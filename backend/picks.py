@@ -36,7 +36,9 @@ def _category_for_market(expected):
         return "overs"
     if "BTTS" in market:
         return "btts"
-    if "HOME WIN" in market or "AWAY WIN" in market:
+    if ("HOME WIN" in market or "AWAY WIN" in market or
+            market in {"1", "X", "2", "1X", "X2", "12", "HOME", "AWAY",
+                       "DRAW", "FT DRAW", "FULL TIME DRAW", "FULL-TIME DRAW"}):
         return "wins"
     return "other"
 
