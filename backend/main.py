@@ -768,15 +768,15 @@ def client_picks_page(request: Request):
 
 @app.get("/client/{category}")
 def client_market_page(category: str, request: Request):
-    if category == "wins":
-        return RedirectResponse("/client/1x2", status_code=302)
-    if category not in {"overs", "unders", "btts", "1x2"}:
+    if category not in {"overs", "unders", "btts", "1x2", "wins"}:
         raise HTTPException(404, "Unknown market page.")
     account = _session_account(request)
     if not account:
         return RedirectResponse("/login", status_code=302)
     if account.get("must_change_password"):
         return RedirectResponse("/password-setup", status_code=302)
+    if category == "wins":
+        return RedirectResponse("/client/1x2", status_code=302)
     # The market page itself is presentation-only. Let every signed-in member
     # inspect a market and see a clear Free/VIP access message instead of
     # silently bouncing back to /client. Prediction APIs still enforce email,
