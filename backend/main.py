@@ -1769,6 +1769,7 @@ def recommended_picks(request: Request):
             "reviewed_h2h_patterns": recommendation_quality.reviewed_h2h_catalog(),
             # VIP-only, clearly separate from model-featured selections.
             "double_chance_research": context.get("double_chance_research", []) if not is_free else [],
+            "double_chance_access": not is_free,
         }
     except HTTPException:
         raise
