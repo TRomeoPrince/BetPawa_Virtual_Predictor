@@ -16,7 +16,7 @@ class StadiumDashboardTests(unittest.TestCase):
     def test_only_client_pages_load_dashboard_shell(self):
         for page in ("client", "picks", "market"):
             html = (FRONTEND / (page + ".html")).read_text(encoding="utf-8")
-            self.assertEqual(html.count('<script defer src="/bpv-stadium-dashboard.js"></script>'), 1)
+            self.assertEqual(html.count('<script defer src="/bpv-stadium-dashboard.js?v=sidebar-1x2-20261121"></script>'), 1)
         for page in ("index", "signup", "login", "admin"):
             html = (FRONTEND / (page + ".html")).read_text(encoding="utf-8")
             self.assertNotIn('src="/bpv-stadium-dashboard.js"', html)
@@ -79,6 +79,8 @@ class StadiumDashboardTests(unittest.TestCase):
         source = (FRONTEND / "bpv-stadium-dashboard.js").read_text(encoding="utf-8")
         css = (FRONTEND / "bpv-themes.css").read_text(encoding="utf-8")
         self.assertIn('const isMarket = /^\\/client\\/(overs|unders|btts|1x2)$/.test(page)', source)
+        self.assertIn('["1x2","1X2","/client/1x2","wins"]', source)
+        self.assertNotIn('["wins","1X2","/client/1x2","wins"]', source)
         self.assertIn('shell.classList.add("stadium-market-shell")', source)
         self.assertIn(".stadium-shell.stadium-market-shell", css)
         self.assertIn("body:has(.bpv-sidebar) .stadium-content > nav.nav", css)
