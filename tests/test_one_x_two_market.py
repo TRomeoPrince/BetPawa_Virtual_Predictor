@@ -113,7 +113,7 @@ class OneXTwoMarketTests(unittest.TestCase):
                 db.DB = old_db
 
     def test_free_accounts_are_not_given_vip_dc_picks(self):
-        restricted = {"role": "client", "email": "",
+        restricted = {"role": "client", "email": "", "user_key": "restricted",
                       "subscription": {"is_active": False}}
         with patch.object(main, "_require_account", return_value=restricted):
             with TestClient(main.app, follow_redirects=False) as client:
